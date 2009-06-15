@@ -1,6 +1,10 @@
 
 (require 'comint)
 
+(defvar bash-complete-executable "bash"
+  "Command-line to execute bash")
+(defvar bash-complete-process-timeout 2.5)
+
 (defvar bash-complete-process nil
   "Bash process object")
 (defvar bash-complete-alist nil
@@ -118,6 +122,41 @@ calls compgen.
 The result is a list of candidates, which might be empty."
 
   )
+
+(defun bash-complete-require-process ()
+  ;; TODO(szermatt): if this fails, kill process and complain
+  (unless (bash-complete-is-running)
+    (setq bash-complete-process
+	  (start-process
+	   "*bash-complete*"
+	   "*bash-complete*"
+	   bash-complete-executable
+	   "--noediting"))
+    (set-process-query-on-exit-flag bash-complete-process nil)
+    (bash-complete-send "PS1='\v'")
+    (bash-complete-send "complete -p")
+    (bash-complete-build-alist (process-buffer bash-complete-process)))
+  bash-complete-process)
+
+(defun bash-complete-kill-process ()
+  (when (bash-complete-is-running)
+    (kill-process bash-complete-process)))
+
+(defun bash-complete-buffer ()
+  (process-buffer (bash-complete-require-process)))
+
+(defun bash-complete-is-running ()
+  (and bash-complete-process (eq 'run (process-status bash-complete-process))))
+
+(defun bash-complete-send (commandline)
+  (with-current-buffer (bash-complete-buffer)
+    (erase-buffer)
+    (process-send-string bash-complete-process (concat commandline "\n"))
+    (while (not (progn (goto-char 1) (search-forward "\v" nil t)))
+      (unless (accept-process-output bash-complete-process bash-complete-process-timeout)
+	(error "Timeout while waiting for an answer from bash-complete process")))
+    (goto-char (point-max))
+    (delete-backward-char 1)))
 
 (defun bash-complete-build-alist (buffer)
   "Build `bash-complete-alist' with the content of BUFFER.
