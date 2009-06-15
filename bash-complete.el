@@ -38,42 +38,49 @@ Return a list containing the words and the number of the word
 at POS, the current word: ( (word1 word2 ...) . wordnum )"
   (save-excursion
     (goto-char start)
-    (nreverse (bash-complete-split-0 start end pos nil))))
+    (nreverse (bash-complete-split-0 start end pos nil ""))))
 
-(defun bash-complete-split-0 (start end pos accum)
+(defun bash-complete-split-0 (start end pos accum straccum)
   (let ( (char-start (char-after))
 	 (quote nil) )
     (when (or (= char-start ?') (= char-start ?\"))
       (forward-char)
       (setq quote char-start))
-    (bash-complete-split-1 start end pos quote accum)))
+    (bash-complete-split-1 start end pos quote accum straccum)))
 
-(defun bash-complete-split-1 (start end pos quote accum)
-  (skip-chars-forward (bash-complete-nonsep quote) end)
+(defun bash-complete-split-1 (start end pos quote accum straccum)
+  (let ((local-start (point)))
+    (skip-chars-forward (bash-complete-nonsep quote) end)
+    (setq straccum (concat straccum (buffer-substring-no-properties local-start (point)))))
   (cond
    ;; an escaped char, skip, whatever it is
    ((and (char-before) (= ?\\ (char-before)))
     (forward-char)
-    (bash-complete-split-1 start end pos (if (and quote (= quote (char-before))) nil quote) accum))
+    (bash-complete-split-1
+     start end pos
+     (if (and quote (= quote (char-before))) nil quote)
+     accum
+     (concat (substring straccum 0 (- (length straccum) 1))  (char-to-string (char-before)))))
    ;; opening quote
    ((and (not quote) (char-after) (or (= ?' (char-after)) (= ?\" (char-after))))
-    (bash-complete-split-0 start end pos accum))
+    (bash-complete-split-0 start end pos accum straccum))
    ;; closing quote
    ((and quote (= quote (char-after)))
     (forward-char)
-    (bash-complete-split-0 start end pos accum))
+    (bash-complete-split-0 start end pos accum straccum))
    ;; space inside a quote
    ((and quote (not (= quote (char-after))))
     (forward-char)
-    (bash-complete-split-1 start end pos quote accum))
+    (bash-complete-split-1
+     start end pos quote accum
+     (concat straccum (char-to-string (char-before)))))
    ;; word end
    (t
-    (let ((str (buffer-substring-no-properties start (point))))
-      (when str
-	(push str accum)))
+    (when straccum
+      (push straccum accum))
     (skip-chars-forward " \t\n\r" end)
     (if (< (point) end)
-	(bash-complete-split-0 (point) end pos accum)
+	(bash-complete-split-0 (point) end pos accum "")
       accum))))
 
 (defun bash-complete-nonsep (quote)
