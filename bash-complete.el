@@ -24,12 +24,16 @@ Call bash to do the completion."
 			      (bash-complete-comm
 			       line pos words cword)))))
 
-;; "hell o" wor\ ld 'baa baaaa'a"hell o"world a
-
-;; (progn
-;;   (load-library "~/.emacs.d/bash-complete.el")
-;;   (let ((start 64) (end 108))
-;;     (bash-complete-split start end 80)))
+(defun bash-complete-join (words)
+  "Join WORDS into a shell line, escaped all words with single quotes"
+  (if words
+      (concat "'"
+	      (mapconcat
+	       (lambda (word)
+		 (replace-regexp-in-string "'" "\\\'" word :literal t))
+	       words "' '")
+	      "'")
+    ""))
 
 (defun bash-complete-split (start end pos)
   "Split LINE like bash would do, keep track of current word at POS.

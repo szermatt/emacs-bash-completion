@@ -28,6 +28,14 @@
      ;;   GRADER - the desired result or a sexp which determines
      ;;   how we did
 
+     ("bash-complete-join simple"
+      (bash-complete-join '("a" "hello" "world" "b" "c"))
+      "'a' 'hello' 'world' 'b' 'c'")
+
+     ("bash-complete-join escape quote"
+      (bash-complete-join '("a" "hel'lo" "world" "b" "c"))
+      "'a' 'hel\\'lo' 'world' 'b' 'c'")
+
      ("bash-complete-split simple"
       (sz-testutils-with-buffer
        '("a hello world b c")
