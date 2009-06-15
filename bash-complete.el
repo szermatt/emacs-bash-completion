@@ -38,7 +38,9 @@ Return a list containing the words and the number of the word
 at POS, the current word: ( (word1 word2 ...) . wordnum )"
   (save-excursion
     (goto-char start)
-    (nreverse (bash-complete-split-0 start end pos nil ""))))
+    (let ((accum (cons nil nil)))
+      (setq accum (bash-complete-split-0 start end pos accum ""))
+      (cons (car accum) (nreverse (cdr accum))))))
 
 (defun bash-complete-split-0 (start end pos accum straccum)
   (let ( (char-start (char-after))
@@ -76,7 +78,7 @@ at POS, the current word: ( (word1 word2 ...) . wordnum )"
    ;; word end
    (t
     (when straccum
-      (push straccum accum))
+      (setcdr accum (cons straccum (cdr accum))))
     (skip-chars-forward " \t\n\r" end)
     (if (< (point) end)
 	(bash-complete-split-0 (point) end pos accum "")

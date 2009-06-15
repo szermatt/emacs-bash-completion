@@ -32,43 +32,43 @@
       (sz-testutils-with-buffer
        '("a hello world b c")
        (bash-complete-split 1 (line-end-position) 0))
-      '("a" "hello" "world" "b" "c"))
+      '(nil . ("a" "hello" "world" "b" "c")))
 
      ("bash-complete-split escaped space"
       (sz-testutils-with-buffer
        '("a hello\\ world b c")
        (bash-complete-split 1 (line-end-position) 0))
-      '("a" "hello world" "b" "c"))
+      '(nil . ("a" "hello world" "b" "c")))
 
      ("bash-complete-split double quotes"
       (sz-testutils-with-buffer
        '("a \"hello world\" b c")
        (bash-complete-split 1 (line-end-position) 0))
-      '("a" "hello world" "b" "c"))
+      '(nil . ("a" "hello world" "b" "c")))
 
      ("bash-complete-split double quotes escaped"
       (sz-testutils-with-buffer
        '("a \"-\\\"hello world\\\"-\" b c")
        (bash-complete-split 1 (line-end-position) 0))
-      '("a" "-\"hello world\"-" "b" "c"))
+      '(nil . ("a" "-\"hello world\"-" "b" "c")))
 
      ("bash-complete-split single quotes"
       (sz-testutils-with-buffer
        '("a 'hello world' b c")
        (bash-complete-split 1 (line-end-position) 0))
-      '("a" "hello world" "b" "c"))
+      '(nil . ("a" "hello world" "b" "c")))
 
      ("bash-complete-split single quotes escaped"
       (sz-testutils-with-buffer
        '("a '-\\'hello world\\'-' b c")
        (bash-complete-split 1 (line-end-position) 0))
-      '("a" "-'hello world'-" "b" "c"))
+      '(nil . ("a" "-'hello world'-" "b" "c")))
 
      ("bash-complete-split complex quote mix"
       (sz-testutils-with-buffer
        '("a hel\"lo w\"o'rld b'c d")
        (bash-complete-split 1 (line-end-position) 0))
-      '("a" "hello world bc" "d"))
+      '(nil . ("a" "hello world bc" "d")))
 
       )))
 
