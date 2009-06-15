@@ -62,7 +62,7 @@ at POS, the current word: ( (word1 word2 ...) . wordnum )"
 (defun bash-complete-split-0 (start end pos accum straccum)
   (let ( (char-start (char-after))
 	 (quote nil) )
-    (when (or (= char-start ?') (= char-start ?\"))
+    (when (and char-start (or (= char-start ?') (= char-start ?\")))
       (forward-char)
       (setq quote char-start))
     (bash-complete-split-1 start end pos quote accum straccum)))
@@ -118,6 +118,22 @@ calls compgen.
 The result is a list of candidates, which might be empty."
 
   )
+
+(defun bash-complete-build-alist (buffer)
+  "Build `bash-complete-alist' with the content of BUFFER.
+
+BUFFER should contains the output of:
+  complete -p
+
+Return `bash-complete-alist'."
+  (with-current-buffer buffer
+    (save-excursion
+      (setq bash-complete-alist nil)
+      (end-of-buffer)
+      (while (= 0 (forward-line -1))
+	(bash-complete-add-to-alist
+	 (cdr (bash-complete-split (line-beginning-position) (line-end-position) 0))))))
+  bash-complete-alist)
 
 (defun bash-complete-add-to-alist (words)
   "Add split 'complete' line WORDS to `bash-complete-add-to-alist'.

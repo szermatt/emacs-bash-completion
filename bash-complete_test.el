@@ -133,6 +133,24 @@
 	(bash-complete-add-to-alist '("complete" "-e" "-F" "_cdargs_aliases" "cdb")))
       '(("cdb" . ("-e" "-F" "_cdargs_aliases"))))
 
+     ("bash-complete-build-alist"
+      (sz-testutils-with-buffer
+       "
+complete -F _cdargs_aliases cdb
+complete -F complete_projects project
+complete -F complete_projects pro
+complete -F _cdargs_aliases cv
+complete -F _cdargs_aliases cb
+garbage
+"
+       (let ((bash-complete-alist '(garbage)))
+	 (bash-complete-build-alist (current-buffer))))
+      '(("cdb" "-F" "_cdargs_aliases")
+	("project" "-F" "complete_projects")
+	("pro" "-F" "complete_projects")
+	("cv" "-F" "_cdargs_aliases")
+	("cb" "-F" "_cdargs_aliases")))
+
       )))
 
 
