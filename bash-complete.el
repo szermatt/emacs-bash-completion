@@ -1,4 +1,6 @@
 
+(require 'comint)
+
 (defun bash-complete-dynamic-complete ()
   "Bash completion function for `comint-complete-dynamic-functions'.
 
@@ -22,6 +24,13 @@ Call bash to do the completion."
 			      (bash-complete-comm
 			       line pos words cword)))))
 
+;; "hell o" wor\ ld 'baa baaaa'a"hell o"world a
+
+;; (progn
+;;   (load-library "~/.emacs.d/bash-complete.el")
+;;   (let ((start 64) (end 108))
+;;     (bash-complete-split start end 80)))
+
 (defun bash-complete-split (start end pos)
   "Split LINE like bash would do, keep track of current word at POS.
 
@@ -39,22 +48,15 @@ at POS, the current word: ( (word1 word2 ...) . wordnum )"
       (setq quote char-start))
     (bash-complete-split-1 start end pos quote accum)))
 
-;; "hell o" wor\ ld 'baa baaaa'a"hell o"world a
-
-;; (progn
-;;   (load-library "~/.emacs.d/bash-complete.el")
-;;   (let ((start 64) (end 108))
-;;     (bash-complete-split start end 80)))
-
 (defun bash-complete-split-1 (start end pos quote accum)
   (skip-chars-forward (bash-complete-nonsep quote) end)
   (cond
    ;; an escaped char, skip, whatever it is
-   ((= ?\\ (char-before))
+   ((and (char-before) (= ?\\ (char-before)))
     (forward-char)
     (bash-complete-split-1 start end pos (if (and quote (= quote (char-before))) nil quote) accum))
    ;; opening quote
-   ((and (not quote) (or (= ?' (char-after)) (= ?\" (char-after))))
+   ((and (not quote) (char-after) (or (= ?' (char-after)) (= ?\" (char-after))))
     (bash-complete-split-0 start end pos accum))
    ;; closing quote
    ((and quote (= quote (char-after)))
@@ -89,3 +91,5 @@ calls compgen.
 The result is a list of candidates, which might be empty."
 
   )
+
+(provide 'bash-complete)
