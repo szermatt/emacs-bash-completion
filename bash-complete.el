@@ -57,19 +57,18 @@ at POS, the current word: ( (word1 word2 ...) . wordnum )"
    ((and (char-before) (= ?\\ (char-before)))
     (forward-char)
     (bash-complete-split-1
-     start end pos
-     (if (and quote (= quote (char-before))) nil quote)
+     start end pos quote
      accum
      (concat (substring straccum 0 (- (length straccum) 1))  (char-to-string (char-before)))))
    ;; opening quote
    ((and (not quote) (char-after) (or (= ?' (char-after)) (= ?\" (char-after))))
     (bash-complete-split-0 start end pos accum straccum))
    ;; closing quote
-   ((and quote (= quote (char-after)))
+   ((and quote (char-after) (= quote (char-after)))
     (forward-char)
     (bash-complete-split-0 start end pos accum straccum))
    ;; space inside a quote
-   ((and quote (not (= quote (char-after))))
+   ((and quote (char-after) (not (= quote (char-after))))
     (forward-char)
     (bash-complete-split-1
      start end pos quote accum
