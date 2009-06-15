@@ -1,6 +1,19 @@
 
 (require 'comint)
 
+(defvar bash-complete-process nil
+  "Bash process object")
+(defvar bash-complete-alist nil
+  "Maps from command name to the 'complete' arguments.
+
+For example if the following completion is defined in bash:
+  complete -F _cdargs_aliases cdb
+the following entry is added to `bash-complete-alist':
+ (\"cdb\" . (\"-F\" \"_cdargs\"))
+
+See `bash-complete-add-to-alist'.
+")
+
 (defun bash-complete-dynamic-complete ()
   "Bash completion function for `comint-complete-dynamic-functions'.
 
@@ -105,5 +118,24 @@ calls compgen.
 The result is a list of candidates, which might be empty."
 
   )
+
+(defun bash-complete-add-to-alist (words)
+  "Add split 'complete' line WORDS to `bash-complete-add-to-alist'.
+
+This parses the complete command-line arguments as output by
+  complete -p
+
+This does not work on arbitrary 'complete' calls.
+
+Lines that do not start with the word complete are skipped.
+
+Return `bash-complete-alist'."
+  (when (string= "complete" (car words))
+    (let* ( (reverse-wordsrest (nreverse (cdr words)))
+	    (command (car reverse-wordsrest))
+	    (options (nreverse (cdr reverse-wordsrest))) )
+      (when (and command options)
+	(push (cons command options) bash-complete-alist))))
+  bash-complete-alist)
 
 (provide 'bash-complete)

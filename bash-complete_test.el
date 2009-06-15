@@ -108,6 +108,31 @@
        (bash-complete-split 1 (line-end-position) (point)))
       '(1 . ("a" "hello" "world" "b" "c")))
 
+     ("bash-complete-add-to-alist garbage"
+      (let ((bash-complete-alist nil))
+	(bash-complete-add-to-alist '("just" "some" "garbage")))
+      nil)
+
+     ("bash-complete-add-to-alist empty"
+      (let ((bash-complete-alist nil))
+	(bash-complete-add-to-alist '()))
+      nil)
+
+     ("bash-complete-add-to-alist empty string"
+      (let ((bash-complete-alist nil))
+	(bash-complete-add-to-alist '("")))
+      nil)
+
+     ("bash-complete-add-to-alist empty complete"
+      (let ((bash-complete-alist nil))
+	(bash-complete-add-to-alist '("complete")))
+      nil)
+
+     ("bash-complete-add-to-alist one command"
+      (let ((bash-complete-alist nil))
+	(bash-complete-add-to-alist '("complete" "-e" "-F" "_cdargs_aliases" "cdb")))
+      '(("cdb" . ("-e" "-F" "_cdargs_aliases"))))
+
       )))
 
 
