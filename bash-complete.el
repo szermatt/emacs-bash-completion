@@ -77,9 +77,11 @@ at POS, the current word: ( (word1 word2 ...) . wordnum )"
      (concat straccum (char-to-string (char-before)))))
    ;; word end
    (t
-    (when straccum
-      (setcdr accum (cons straccum (cdr accum))))
     (skip-chars-forward " \t\n\r" end)
+    (when (> (length straccum) 0)
+      (setcdr accum (cons straccum (cdr accum)))
+      (when (and (not (car accum)) (> pos 0) (<= pos (point)))
+	(setcar accum (- (length (cdr accum)) 1))))
     (if (< (point) end)
 	(bash-complete-split-0 (point) end pos accum "")
       accum))))

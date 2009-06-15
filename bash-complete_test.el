@@ -34,6 +34,12 @@
        (bash-complete-split 1 (line-end-position) 0))
       '(nil . ("a" "hello" "world" "b" "c")))
 
+     ("bash-complete-split simple extra spaces"
+      (sz-testutils-with-buffer
+       '("  a  hello \n world \t b \r c  ")
+       (bash-complete-split 1 (line-end-position 2) 0))
+      '(nil . ("a" "hello" "world" "b" "c")))
+
      ("bash-complete-split escaped space"
       (sz-testutils-with-buffer
        '("a hello\\ world b c")
@@ -69,6 +75,30 @@
        '("a hel\"lo w\"o'rld b'c d")
        (bash-complete-split 1 (line-end-position) 0))
       '(nil . ("a" "hello world bc" "d")))
+
+     ("bash-complete-split cursor at end of word"
+      (sz-testutils-with-buffer
+       '("a hello world" cursor " b c")
+       (bash-complete-split 1 (line-end-position) (point)))
+      '(2 . ("a" "hello" "world" "b" "c")))
+
+     ("bash-complete-split cursor in the middle of a word"
+      (sz-testutils-with-buffer
+       '("a hello wo" cursor "rld b c")
+       (bash-complete-split 1 (line-end-position) (point)))
+      '(2 . ("a" "hello" "world" "b" "c")))
+
+     ("bash-complete-split cursor at the beginnig"
+      (sz-testutils-with-buffer
+       '(" " cursor " a hello world b c")
+       (bash-complete-split 1 (line-end-position) (point)))
+      '(0 . ("a" "hello" "world" "b" "c")))
+
+     ("bash-complete-split cursor in the middle"
+      (sz-testutils-with-buffer
+       '("a hello " cursor " world b c")
+       (bash-complete-split 1 (line-end-position) (point)))
+      '(1 . ("a" "hello" "world" "b" "c")))
 
       )))
 
