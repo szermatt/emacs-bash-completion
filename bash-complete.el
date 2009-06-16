@@ -44,13 +44,15 @@ Call bash to do the completion."
 (defun bash-complete-join (words)
   "Join WORDS into a shell line, escaped all words with single quotes"
   (if words
-      (concat "'"
-	      (mapconcat
-	       (lambda (word)
-		 (replace-regexp-in-string "'" "\\\'" word :literal t))
-	       words "' '")
-	      "'")
+      (mapconcat
+       'bash-complete-quote
+       words " ")
     ""))
+
+(defun bash-complete-quote (word)
+  (if (string-match "^[a-zA-Z0-9_.-]*$" word)
+      word
+    (concat "'" (replace-regexp-in-string "'" "\\\'" word :literal t) "'")))
 
 (defun bash-complete-split (start end pos)
   "Split LINE like bash would do, keep track of current word at POS.
@@ -135,8 +137,30 @@ The result is a list of candidates, which might be empty."
     (set-process-query-on-exit-flag bash-complete-process nil)
     (bash-complete-send "PS1='\v'")
     (bash-complete-send "complete -p")
+    (bash-complete-send "function __bash_complete_wrapper { eval $__BASH_COMPLETE_WRAPPER }")
     (bash-complete-build-alist (process-buffer bash-complete-process)))
   bash-complete-process)
+
+(defun bash-complete-generate-line (line pos words cword)
+  (let* ( (command (file-name-nondirectory (car words)))
+	  (compgen-args (cdr (assoc command bash-complete-alist))) )
+    (if (not compgen-args)
+	;; no custom completion. use default completion
+	(bash-complete-join (list "compgen" "-o" "default" (nth cword words)))
+      ;; custom completion
+      (let* ( (args (copy-tree compgen-args))
+	      (function (or (member "-F" args) (member "-C" args))) )
+	(if function
+	    (let ((function-name (car (cdr function))))
+	      (setcar function "-F")
+	      (setcar (cdr function) "__bash_complete_wrapper")
+	      (format "__BASH_COMPLETE_WRAPPER=%s compgen %s %s"
+		      (bash-complete-quote (format "COMP_LINE=%s; COMP_POS=%s; COMP_CWORD=%s; COMP_WORDS=( %s ); %s \"$@\""
+						   (bash-complete-quote line) pos cword (bash-complete-join words)
+						   (bash-complete-quote function-name)))
+		      (bash-complete-join args)
+		      (bash-complete-quote (nth cword words))))
+	  (format "compgen %s %s" (bash-complete-join args) (nth cword words)))))))
 
 (defun bash-complete-kill-process ()
   (when (bash-complete-is-running)
