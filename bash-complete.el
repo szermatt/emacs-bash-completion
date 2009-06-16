@@ -18,6 +18,12 @@ the following entry is added to `bash-complete-alist':
 See `bash-complete-add-to-alist'.
 ")
 
+(defun bash-complete-setup ()
+  (add-hook 'shell-mode-hook 'bash-complete-setup-shell))
+
+(defun bash-complete-setup-shell ()
+  (add-hook 'comint-dynamic-complete-functions 'bash-complete-dynamic-complete t t))
+
 (defun bash-complete-dynamic-complete ()
   "Bash completion function for `comint-complete-dynamic-functions'.
 
