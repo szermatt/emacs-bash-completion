@@ -28,18 +28,23 @@ Call bash to do the completion."
     (bash-complete-dynamic-complete-0)))
 
 (defun bash-complete-dynamic-complete-0 ()
-  (save-excursion
     (let* ( (pos (point))
 	    (start (comint-line-beginning-position))
 	    (end (line-end-position))
 	    (line (buffer-substring-no-properties start end))
-	    (wordsplit (bash-complete-split start end pos))
-	    (words (car wordsplit))
-	    (cword (cdr wordsplit))
-	    (stub (nth cword words)) )
-      (comint-simple-complete stub
-			      (bash-complete-comm
-			       line pos words cword)))))
+	    (wordsplit)
+	    (cword)
+	    (words)
+	    (stub) )
+      (save-excursion
+	(setq wordsplit (bash-complete-split start end pos))
+	(setq cword (car wordsplit))
+	(setq words (cdr wordsplit))
+	(setq stub (nth cword words)))
+      (comint-dynamic-simple-complete
+       stub
+       (bash-complete-comm
+	line (- pos start) words cword))))
 
 (defun bash-complete-join (words)
   "Join WORDS into a shell line, escaped all words with single quotes"
@@ -126,7 +131,12 @@ calls compgen.
 The result is a list of candidates, which might be empty."
   (bash-complete-send (concat (bash-complete-generate-line line pos words cword) " 2>/dev/null"))
   (with-current-buffer (bash-complete-buffer)
-    (split-string (buffer-string) "\n" t)))
+    (mapcar 'bash-complete-trim (split-string (buffer-string) "\n" t))))
+
+(defun bash-complete-trim (str)
+  (if (string-match "^ *\\(.*[^ ]\\) *$" str)
+      (match-string 1 str)
+    str))
 
 (defun bash-complete-require-process ()
   ;; TODO(szermatt): if this fails, kill process and complain
@@ -157,13 +167,13 @@ The result is a list of candidates, which might be empty."
 	    (let ((function-name (car (cdr function))))
 	      (setcar function "-F")
 	      (setcar (cdr function) "__bash_complete_wrapper")
-	      (format "__BASH_COMPLETE_WRAPPER=%s compgen %s %s"
-		      (bash-complete-quote (format "COMP_LINE=%s; COMP_POS=%s; COMP_CWORD=%s; COMP_WORDS=( %s ); %s \"$@\""
+	      (format "__BASH_COMPLETE_WRAPPER=%s compgen %s -- %s"
+		      (bash-complete-quote (format "COMP_LINE=%s; COMP_POINT=%s; COMP_CWORD=%s; COMP_WORDS=( %s ); %s \"$@\""
 						   (bash-complete-quote line) pos cword (bash-complete-join words)
 						   (bash-complete-quote function-name)))
 		      (bash-complete-join args)
 		      (bash-complete-quote (nth cword words))))
-	  (format "compgen %s %s" (bash-complete-join args) (nth cword words)))))))
+	  (format "compgen %s -- %s" (bash-complete-join args) (nth cword words)))))))
 
 (defun bash-complete-kill-process ()
   (when (bash-complete-is-running)

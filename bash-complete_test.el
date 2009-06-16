@@ -187,6 +187,10 @@ garbage
 	(bash-complete-generate-line "zorg worl" 7 '("zorg" "worl") 1))
       "__BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; COMP_POS=7; COMP_CWORD=1; COMP_WORDS=( zorg worl ); __zorg \"$@\"' compgen -F __bash_complete_wrapper worl")
 
+     ("bash-complete-trim"
+      (mapcar 'bash-complete-trim '("  hello " "  world   " "x"))
+      '("hello" "world" "x"))
+
       )))
 
 
