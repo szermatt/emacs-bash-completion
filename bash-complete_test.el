@@ -34,7 +34,7 @@
 
      ("bash-complete-join escape quote"
       (bash-complete-join '("a" "hel'lo" "world" "b" "c"))
-      "a 'hel\\'lo' world b c")
+      "a 'hel'\\''lo' world b c")
 
      ("bash-complete-join escape space"
       (bash-complete-join '("a" "hello world" "b" "c"))
@@ -72,7 +72,7 @@
 
      ("bash-complete-split single quotes"
       (sz-testutils-with-buffer
-       '("a 'hello world' b c")
+       '("a \"hello world\" b c")
        (bash-complete-split 1 (line-end-position) 0))
       '(nil . ("a" "hello world" "b" "c")))
 
@@ -159,13 +159,13 @@ garbage
       (bash-complete-quote "hello")
       "hello")
 
-     ("bash-complete-quote not necessary"
+     ("bash-complete-quote space"
       (bash-complete-quote "hello world")
       "'hello world'")
 
-     ("bash-complete-quote not necessary"
+     ("bash-complete-quote quote"
       (bash-complete-quote "hell'o")
-      "'hell\\'o'")
+      "'hell'\\''o'")
 
      ("bash-complete-generate-line no custom completion"
       (let ((bash-complete-alist nil))
@@ -180,12 +180,12 @@ garbage
      ("bash-complete-generate-line custom completion function"
       (let ((bash-complete-alist '(("zorg" . ("-F" "__zorg")))))
 	(bash-complete-generate-line "zorg worl" 7 '("zorg" "worl") 1))
-      "__BASH_COMPLETE_WRAPPER='COMP_LINE=\\'zorg worl\\'; COMP_POS=7; COMP_CWORD=1; COMP_WORDS=( zorg worl ); __zorg \"$@\"' compgen -F __bash_complete_wrapper worl")
+      "__BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; COMP_POS=7; COMP_CWORD=1; COMP_WORDS=( zorg worl ); __zorg \"$@\"' compgen -F __bash_complete_wrapper worl")
 
      ("bash-complete-generate-line custom completion command"
       (let ((bash-complete-alist '(("zorg" . ("-C" "__zorg")))))
 	(bash-complete-generate-line "zorg worl" 7 '("zorg" "worl") 1))
-      "__BASH_COMPLETE_WRAPPER='COMP_LINE=\\'zorg worl\\'; COMP_POS=7; COMP_CWORD=1; COMP_WORDS=( zorg worl ); __zorg \"$@\"' compgen -F __bash_complete_wrapper worl")
+      "__BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; COMP_POS=7; COMP_CWORD=1; COMP_WORDS=( zorg worl ); __zorg \"$@\"' compgen -F __bash_complete_wrapper worl")
 
       )))
 

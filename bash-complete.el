@@ -52,7 +52,9 @@ Call bash to do the completion."
 (defun bash-complete-quote (word)
   (if (string-match "^[a-zA-Z0-9_.-]*$" word)
       word
-    (concat "'" (replace-regexp-in-string "'" "\\\'" word :literal t) "'")))
+    (concat "'"
+	    (replace-regexp-in-string "'" "'\\''" word :literal t)
+	    "'")))
 
 (defun bash-complete-split (start end pos)
   "Split LINE like bash would do, keep track of current word at POS.
@@ -122,8 +124,9 @@ completion environment (COMP_LINE, COMP_POINT, COMP_WORDS, COMP_CWORD) and
 calls compgen.
 
 The result is a list of candidates, which might be empty."
-
-  )
+  (bash-complete-send (concat (bash-complete-generate-line line pos words cword) " 2>/dev/null"))
+  (with-current-buffer (bash-complete-buffer)
+    (split-string (buffer-string) "\n" t)))
 
 (defun bash-complete-require-process ()
   ;; TODO(szermatt): if this fails, kill process and complain
@@ -136,8 +139,8 @@ The result is a list of candidates, which might be empty."
 	   "--noediting"))
     (set-process-query-on-exit-flag bash-complete-process nil)
     (bash-complete-send "PS1='\v'")
+    (bash-complete-send "function __bash_complete_wrapper { eval $__BASH_COMPLETE_WRAPPER; }")
     (bash-complete-send "complete -p")
-    (bash-complete-send "function __bash_complete_wrapper { eval $__BASH_COMPLETE_WRAPPER }")
     (bash-complete-build-alist (process-buffer bash-complete-process)))
   bash-complete-process)
 
