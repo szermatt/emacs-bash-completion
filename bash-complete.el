@@ -1,9 +1,14 @@
 
 (require 'comint)
 
-(defvar bash-complete-executable "bash"
+(defvar bash-complete-command "bash" 
   "Command-line to execute bash")
+
 (defvar bash-complete-process-timeout 2.5)
+(defvar bash-complete-initial-timeout 30
+  "Timeout value to apply when talking to bash for the first time.
+The first thing bash is supposed to do is process /etc/bash_complete,
+which typically takes a long time.")
 
 (defvar bash-complete-process nil
   "Bash process object")
@@ -154,24 +159,48 @@ The result is a list of candidates, which might be empty."
     str))
 
 (defun bash-complete-require-process ()
-  ;; TODO(szermatt): if this fails, kill process and complain
-  (unless (bash-complete-is-running)
-    (setq bash-complete-process
-	  (start-process
-	   "*bash-complete*"
-	   "*bash-complete*"
-	   bash-complete-executable
-	   "--noediting"))
-    (set-process-query-on-exit-flag bash-complete-process nil)
-    (bash-complete-send "PS1='\v'")
-    (bash-complete-send "function __bash_complete_wrapper { eval $__BASH_COMPLETE_WRAPPER; }")
-    (bash-complete-send "complete -p")
-    (bash-complete-build-alist (process-buffer bash-complete-process)))
-  bash-complete-process)
+  (if (bash-complete-is-running)
+      bash-complete-process
+    ;; start process
+    (let ((process))
+      (unwind-protect
+	  (progn
+	    (setenv "EMACS_BASH_COMPLETE" "t")
+	    (setq process
+		  (start-process
+		   "*bash-complete*"
+		   "*bash-complete*"
+		   bash-complete-command
+		   "--noediting"))
+	    (set-process-query-on-exit-flag process nil)
+	    (let* ((shell-name (file-name-nondirectory bash-complete-executable))
+		   (startfile1 (concat "~/.emacs_" shell-name ".sh"))
+		   (startfile2 (concat "~/.emacs.d/init_" shell-name ".sh")))
+	      (cond
+	       ((file-exists-p startfile1)
+		(message "bash-complete: source %s" startfile1)
+		(process-send-string process (concat ". " startfile1 "\n")))
+	       ((file-exists-p startfile2)
+		(message "bash-complete: source %s" startfile2)
+		(process-send-string process (concat ". " startfile2 "\n")))))
+	    (bash-complete-send "PS1='\v'" process bash-complete-initial-timeout)
+	    (bash-complete-send "function __bash_complete_wrapper { eval $__BASH_COMPLETE_WRAPPER; }" process)
+	    (bash-complete-send "complete -p" process)
+	    (bash-complete-build-alist (process-buffer process))
+	    (setq bash-complete-process process)
+	    (setq process nil)
+	    bash-complete-process)
+	;; finally
+	(progn
+	  (setenv "EMACS_BASH_COMPLETE" nil)
+	  (when process
+	    (condition-case err
+		(kill-process process)
+	      (error nil))))))))
 
 (defun bash-complete-generate-line (line pos words cword)
   (concat
-   (if default-directory (concat "cd " (bash-complete-quote default-directory) " && ") "")
+   (if default-directory (concat "cd " (bash-complete-quote (expand-file-name default-directory)) " ; ") "")
    (let* ( (command (file-name-nondirectory (car words)))
 	   (compgen-args (cdr (assoc command bash-complete-alist))) )
      (if (not compgen-args)
@@ -192,9 +221,11 @@ The result is a list of candidates, which might be empty."
 		       (bash-complete-quote (nth cword words))))
 	   (format "compgen %s -- %s" (bash-complete-join args) (nth cword words))))))))
 
-(defun bash-complete-kill-process ()
+(defun bash-complete-reset ()
+  (interactive)
   (when (bash-complete-is-running)
-    (kill-process bash-complete-process)))
+    (kill-process bash-complete-process))
+  (setq bash-complete-process nil))
 
 (defun bash-complete-buffer ()
   (process-buffer (bash-complete-require-process)))
@@ -202,15 +233,17 @@ The result is a list of candidates, which might be empty."
 (defun bash-complete-is-running ()
   (and bash-complete-process (eq 'run (process-status bash-complete-process))))
 
-(defun bash-complete-send (commandline)
-  (with-current-buffer (bash-complete-buffer)
-    (erase-buffer)
-    (process-send-string bash-complete-process (concat commandline "\n"))
-    (while (not (progn (goto-char 1) (search-forward "\v" nil t)))
-      (unless (accept-process-output bash-complete-process bash-complete-process-timeout)
-	(error "Timeout while waiting for an answer from bash-complete process")))
-    (goto-char (point-max))
-    (delete-backward-char 1)))
+(defun bash-complete-send (commandline &optional process timeout)
+  (let ((process (or process bash-complete-process))
+	(timeout (or timeout bash-complete-process-timeout)))
+    (with-current-buffer (process-buffer process)
+      (erase-buffer)
+      (process-send-string process (concat commandline "\n"))
+      (while (not (progn (goto-char 1) (search-forward "\v" nil t)))
+	(unless (accept-process-output process timeout)
+	  (error "Timeout while waiting for an answer from bash-complete process")))
+      (goto-char (point-max))
+      (delete-backward-char 1))))
 
 (defun bash-complete-build-alist (buffer)
   "Build `bash-complete-alist' with the content of BUFFER.
