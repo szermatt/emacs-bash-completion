@@ -1,7 +1,7 @@
 
 (require 'comint)
 
-(defvar bash-complete-command "bash" 
+(defvar bash-complete-command "bash"
   "Command-line to execute bash")
 
 (defvar bash-complete-process-timeout 2.5)
@@ -54,7 +54,7 @@ Call bash to do the completion."
 	(setq stub (nth cword words)))
       (comint-dynamic-simple-complete
        stub
-       (bash-complete-comm
+       (bash-complete-comm default-directory
 	line (- pos start) words cword))))
 
 (defun bash-complete-line-beginning-position (&optional start)
@@ -75,7 +75,7 @@ Call bash to do the completion."
     ""))
 
 (defun bash-complete-quote (word)
-  (if (string-match "^[a-zA-Z0-9_.-]*$" word)
+  (if (string-match "^[a-zA-Z0-9_./-]*$" word)
       word
     (concat "'"
 	    (replace-regexp-in-string "'" "'\\''" word :literal t)
@@ -141,15 +141,15 @@ at POS, the current word: ( (word1 word2 ...) . wordnum )"
       (concat "^ \t\n\r" (char-to-string quote))
     "^ \t\n\r'\""))
 
-(defun bash-complete-comm (line pos words cword)
-  "Set LINE, POS, WORDS and CWORD, call bash completion, return the result.
+(defun bash-complete-comm (dir line pos words cword)
+  "Set DIR, LINE, POS, WORDS and CWORD, call bash completion, return the result.
 
 This function starts a separate bash process if necessary, sets up the
 completion environment (COMP_LINE, COMP_POINT, COMP_WORDS, COMP_CWORD) and
 calls compgen.
 
 The result is a list of candidates, which might be empty."
-  (bash-complete-send (concat (bash-complete-generate-line line pos words cword) " 2>/dev/null"))
+  (bash-complete-send (concat (bash-complete-generate-line dir line pos words cword) " 2>/dev/null"))
   (with-current-buffer (bash-complete-buffer)
     (mapcar 'bash-complete-trim (split-string (buffer-string) "\n" t))))
 
@@ -198,9 +198,9 @@ The result is a list of candidates, which might be empty."
 		(kill-process process)
 	      (error nil))))))))
 
-(defun bash-complete-generate-line (line pos words cword)
+(defun bash-complete-generate-line (dir line pos words cword)
   (concat
-   (if default-directory (concat "cd " (bash-complete-quote (expand-file-name default-directory)) " ; ") "")
+   (if default-directory (concat "cd " (bash-complete-quote (expand-file-name dir)) " ; ") "")
    (let* ( (command (file-name-nondirectory (car words)))
 	   (compgen-args (cdr (assoc command bash-complete-alist))) )
      (if (not compgen-args)

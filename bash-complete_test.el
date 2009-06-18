@@ -169,23 +169,23 @@ garbage
 
      ("bash-complete-generate-line no custom completion"
       (let ((bash-complete-alist nil))
-	(bash-complete-generate-line "hello worl" 7 '("hello" "worl") 1))
-      "compgen -o default worl")
+	(bash-complete-generate-line "~/test" "hello worl" 7 '("hello" "worl") 1))
+      (concat "cd " (expand-file-name "~/test") " ; compgen -o default worl"))
 
      ("bash-complete-generate-line custom completion no function or command"
       (let ((bash-complete-alist '(("zorg" . ("-A" "-G" "*.txt")))))
-	(bash-complete-generate-line "zorg worl" 7 '("zorg" "worl") 1))
-      "compgen -A -G '*.txt' worl")
+	(bash-complete-generate-line "/test" "zorg worl" 7 '("zorg" "worl") 1))
+      "cd /test ; compgen -A -G '*.txt' -- worl")
 
      ("bash-complete-generate-line custom completion function"
       (let ((bash-complete-alist '(("zorg" . ("-F" "__zorg")))))
-	(bash-complete-generate-line "zorg worl" 7 '("zorg" "worl") 1))
-      "__BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; COMP_POS=7; COMP_CWORD=1; COMP_WORDS=( zorg worl ); __zorg \"$@\"' compgen -F __bash_complete_wrapper worl")
+	(bash-complete-generate-line "/test" "zorg worl" 7 '("zorg" "worl") 1))
+      "cd /test ; __BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; COMP_POINT=7; COMP_CWORD=1; COMP_WORDS=( zorg worl ); __zorg \"$@\"' compgen -F __bash_complete_wrapper -- worl")
 
      ("bash-complete-generate-line custom completion command"
       (let ((bash-complete-alist '(("zorg" . ("-C" "__zorg")))))
-	(bash-complete-generate-line "zorg worl" 7 '("zorg" "worl") 1))
-      "__BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; COMP_POS=7; COMP_CWORD=1; COMP_WORDS=( zorg worl ); __zorg \"$@\"' compgen -F __bash_complete_wrapper worl")
+	(bash-complete-generate-line "/test" "zorg worl" 7 '("zorg" "worl") 1))
+      "cd /test ; __BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; COMP_POINT=7; COMP_CWORD=1; COMP_WORDS=( zorg worl ); __zorg \"$@\"' compgen -F __bash_complete_wrapper -- worl")
 
      ("bash-complete-trim"
       (mapcar 'bash-complete-trim '("  hello " "  world   " "x"))
