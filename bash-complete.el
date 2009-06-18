@@ -4,9 +4,6 @@
 (defvar bash-complete-prog "bash"
   "Command-line to execute bash")
 
-(defvar bash-complete-mode-list '(shell-mode)
-  "List of comint modes for which bash-complete should be enabled")
-
 (defvar bash-complete-process-timeout 2.5)
 (defvar bash-complete-initial-timeout 30
   "Timeout value to apply when talking to bash for the first time.
@@ -28,41 +25,34 @@ See `bash-complete-add-to-alist'.
 
 (defun bash-complete-setup ()
   (add-hook 'shell-dynamic-complete-functions
-	    'bash-complete-dynamic-complete-in-selected-modes)
+	    'bash-complete-dynamic-complete)
   (add-hook 'shell-command-complete-functions
 	    'bash-complete-dynamic-complete))
-
-;;;###autoload
-(defun bash-complete-dynamic-complete-in-selected-modes ()
-  (when (memq major-mode bash-complete-mode-list)
-    (message "Bash completion...")
-    (bash-complete-dynamic-complete)))
 
 ;;;###autoload
 (defun bash-complete-dynamic-complete ()
   "Bash completion function for `comint-complete-dynamic-functions'.
 
 Call bash to do the completion."
-  (bash-complete-dynamic-complete))
-
-(defun bash-complete-dynamic-complete ()
-    (let* ( (pos (point))
-	    (start (bash-complete-line-beginning-position))
-	    (end (line-end-position))
-	    (line (buffer-substring-no-properties start end))
-	    (wordsplit)
-	    (cword)
-	    (words)
-	    (stub) )
-      (save-excursion
-	(setq wordsplit (bash-complete-split start end pos))
-	(setq cword (car wordsplit))
-	(setq words (cdr wordsplit))
-	(setq stub (nth cword words)))
-      (comint-dynamic-simple-complete
-       stub
-       (bash-complete-comm default-directory
-	line (- pos start) words cword))))
+  (when (window-minibuffer-p)
+    (message "Bash completion..."))
+  (let* ( (pos (point))
+	  (start (bash-complete-line-beginning-position))
+	  (end (line-end-position))
+	  (line (buffer-substring-no-properties start end))
+	  (wordsplit)
+	  (cword)
+	  (words)
+	  (stub) )
+    (save-excursion
+      (setq wordsplit (bash-complete-split start end pos))
+      (setq cword (car wordsplit))
+      (setq words (cdr wordsplit))
+      (setq stub (nth cword words)))
+    (comint-dynamic-simple-complete
+     stub
+     (bash-complete-comm default-directory
+			 line (- pos start) words cword))))
 
 (defun bash-complete-line-beginning-position (&optional start)
   (save-excursion
@@ -262,7 +252,7 @@ Return `bash-complete-alist'."
   (with-current-buffer buffer
     (save-excursion
       (setq bash-complete-alist nil)
-      (end-of-buffer)
+      (goto-char (point-max))
       (while (= 0 (forward-line -1))
 	(bash-complete-add-to-alist
 	 (cdr (bash-complete-split (line-beginning-position) (line-end-position) 0))))))
