@@ -35,7 +35,7 @@ Call bash to do the completion."
 
 (defun bash-complete-dynamic-complete-0 ()
     (let* ( (pos (point))
-	    (start (comint-line-beginning-position))
+	    (start (bash-complete-line-beginning-position))
 	    (end (line-end-position))
 	    (line (buffer-substring-no-properties start end))
 	    (wordsplit)
@@ -51,6 +51,15 @@ Call bash to do the completion."
        stub
        (bash-complete-comm
 	line (- pos start) words cword))))
+
+(defun bash-complete-line-beginning-position (&optional start)
+  (save-excursion
+    (let ((start (or start (comint-line-beginning-position)))
+	  (end (line-end-position)))
+      (goto-char start)
+      (if (search-forward-regexp "\\(;\\|\\(&&\\)\\|\\(||\\)\\)[ \t\n]" end t)
+	  (match-end 0)
+	start))))
 
 (defun bash-complete-join (words)
   "Join WORDS into a shell line, escaped all words with single quotes"
@@ -161,25 +170,27 @@ The result is a list of candidates, which might be empty."
   bash-complete-process)
 
 (defun bash-complete-generate-line (line pos words cword)
-  (let* ( (command (file-name-nondirectory (car words)))
-	  (compgen-args (cdr (assoc command bash-complete-alist))) )
-    (if (not compgen-args)
-	;; no custom completion. use default completion
-	(bash-complete-join (list "compgen" "-o" "default" (nth cword words)))
-      ;; custom completion
-      (let* ( (args (copy-tree compgen-args))
-	      (function (or (member "-F" args) (member "-C" args))) )
-	(if function
-	    (let ((function-name (car (cdr function))))
-	      (setcar function "-F")
-	      (setcar (cdr function) "__bash_complete_wrapper")
-	      (format "__BASH_COMPLETE_WRAPPER=%s compgen %s -- %s"
-		      (bash-complete-quote (format "COMP_LINE=%s; COMP_POINT=%s; COMP_CWORD=%s; COMP_WORDS=( %s ); %s \"$@\""
-						   (bash-complete-quote line) pos cword (bash-complete-join words)
-						   (bash-complete-quote function-name)))
-		      (bash-complete-join args)
-		      (bash-complete-quote (nth cword words))))
-	  (format "compgen %s -- %s" (bash-complete-join args) (nth cword words)))))))
+  (concat
+   (if default-directory (concat "cd " (bash-complete-quote default-directory) " && ") "")
+   (let* ( (command (file-name-nondirectory (car words)))
+	   (compgen-args (cdr (assoc command bash-complete-alist))) )
+     (if (not compgen-args)
+	 ;; no custom completion. use default completion
+	 (bash-complete-join (list "compgen" "-o" "default" (nth cword words)))
+       ;; custom completion
+       (let* ( (args (copy-tree compgen-args))
+	       (function (or (member "-F" args) (member "-C" args))) )
+	 (if function
+	     (let ((function-name (car (cdr function))))
+	       (setcar function "-F")
+	       (setcar (cdr function) "__bash_complete_wrapper")
+	       (format "__BASH_COMPLETE_WRAPPER=%s compgen %s -- %s"
+		       (bash-complete-quote (format "COMP_LINE=%s; COMP_POINT=%s; COMP_CWORD=%s; COMP_WORDS=( %s ); %s \"$@\""
+						    (bash-complete-quote line) pos cword (bash-complete-join words)
+						    (bash-complete-quote function-name)))
+		       (bash-complete-join args)
+		       (bash-complete-quote (nth cword words))))
+	   (format "compgen %s -- %s" (bash-complete-join args) (nth cword words))))))))
 
 (defun bash-complete-kill-process ()
   (when (bash-complete-is-running)

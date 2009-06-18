@@ -191,6 +191,28 @@ garbage
       (mapcar 'bash-complete-trim '("  hello " "  world   " "x"))
       '("hello" "world" "x"))
 
+     ("bash-complete-line-beginning-position start"
+      (sz-testutils-with-buffer
+       "cd /home/x"
+       (bash-complete-line-beginning-position 1))
+      1)
+
+     ("bash-complete-line-beginning-position semicolon"
+      (sz-testutils-with-buffer
+       '("cd /home/x ; " cursor "echo hello")
+       (list
+	(point)
+	(bash-complete-line-beginning-position 1)))
+      '(14 14))
+
+     ("bash-complete-line-beginning-position &&"
+      (sz-testutils-with-buffer
+       '("cd /home/x && " cursor "echo hello")
+       (list
+	(point)
+	(bash-complete-line-beginning-position 1)))
+      '(15 15))
+
       )))
 
 
