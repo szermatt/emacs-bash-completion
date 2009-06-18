@@ -1,8 +1,11 @@
 
 (require 'comint)
 
-(defvar bash-complete-command "bash"
+(defvar bash-complete-prog "bash"
   "Command-line to execute bash")
+
+(defvar bash-complete-mode-list '(shell-mode)
+  "List of comint modes for which bash-complete should be enabled")
 
 (defvar bash-complete-process-timeout 2.5)
 (defvar bash-complete-initial-timeout 30
@@ -24,21 +27,25 @@ See `bash-complete-add-to-alist'.
 ")
 
 (defun bash-complete-setup ()
-  (add-hook 'shell-mode-hook 'bash-complete-setup-shell))
+  (add-hook 'shell-dynamic-complete-functions
+	    'bash-complete-dynamic-complete-in-selected-modes)
+  (add-hook 'shell-command-complete-functions
+	    'bash-complete-dynamic-complete))
 
-(defun bash-complete-setup-shell ()
-  (add-hook 'comint-dynamic-complete-functions 'bash-complete-dynamic-complete t t))
+;;;###autoload
+(defun bash-complete-dynamic-complete-in-selected-modes ()
+  (when (memq major-mode bash-complete-mode-list)
+    (message "Bash completion...")
+    (bash-complete-dynamic-complete)))
 
+;;;###autoload
 (defun bash-complete-dynamic-complete ()
   "Bash completion function for `comint-complete-dynamic-functions'.
 
 Call bash to do the completion."
-  (when (comint-match-partial-filename)
-    (unless (window-minibuffer-p (selected-window))
-      (message "Bash completion..."))
-    (bash-complete-dynamic-complete-0)))
+  (bash-complete-dynamic-complete))
 
-(defun bash-complete-dynamic-complete-0 ()
+(defun bash-complete-dynamic-complete ()
     (let* ( (pos (point))
 	    (start (bash-complete-line-beginning-position))
 	    (end (line-end-position))
@@ -170,10 +177,10 @@ The result is a list of candidates, which might be empty."
 		  (start-process
 		   "*bash-complete*"
 		   "*bash-complete*"
-		   bash-complete-command
+		   bash-complete-prog
 		   "--noediting"))
 	    (set-process-query-on-exit-flag process nil)
-	    (let* ((shell-name (file-name-nondirectory bash-complete-executable))
+	    (let* ((shell-name (file-name-nondirectory bash-complete-prog))
 		   (startfile1 (concat "~/.emacs_" shell-name ".sh"))
 		   (startfile2 (concat "~/.emacs.d/init_" shell-name ".sh")))
 	      (cond
@@ -234,7 +241,7 @@ The result is a list of candidates, which might be empty."
   (and bash-complete-process (eq 'run (process-status bash-complete-process))))
 
 (defun bash-complete-send (commandline &optional process timeout)
-  (let ((process (or process bash-complete-process))
+  (let ((process (or process (bash-complete-require-process)))
 	(timeout (or timeout bash-complete-process-timeout)))
     (with-current-buffer (process-buffer process)
       (erase-buffer)
