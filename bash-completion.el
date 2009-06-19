@@ -58,9 +58,10 @@ Call bash to do the completion."
       (setq cword (car wordsplit))
       (setq words (cdr wordsplit))
       (setq stub (nth cword words)))
-    (comint-dynamic-simple-complete
-     stub
-     (bash-completion-comm line (- pos start) words cword))))
+    (let ((completions (bash-completion-comm line (- pos start) words cword)))
+      (comint-dynamic-simple-complete
+       stub
+       completions))))
 
 (defun bash-completion-line-beginning-position (&optional start)
   (save-excursion
@@ -95,6 +96,9 @@ at POS, the current word: ( (word1 word2 ...) . wordnum )"
     (goto-char start)
     (let ((accum (cons nil nil)))
       (setq accum (bash-completion-split-0 start end pos accum ""))
+      (when (and (not (null pos)) (null (car accum)))
+	(setcar accum (length (cdr accum)))
+	(setcdr accum (cons "" (cdr accum))))
       (cons (car accum) (nreverse (cdr accum))))))
 
 (defun bash-completion-split-0 (start end pos accum straccum)
@@ -107,6 +111,9 @@ at POS, the current word: ( (word1 word2 ...) . wordnum )"
 
 (defun bash-completion-split-1 (start end pos quote accum straccum)
   (let ((local-start (point)))
+    (when (and (null (car accum)) (not (null pos)) (<= pos local-start))
+      (setcar accum (length (cdr accum)))
+      (setcdr accum (cons "" (cdr accum))))
     (skip-chars-forward (bash-completion-nonsep quote) end)
     (setq straccum (concat straccum (buffer-substring-no-properties local-start (point)))))
   (cond
@@ -132,11 +139,11 @@ at POS, the current word: ( (word1 word2 ...) . wordnum )"
      (concat straccum (char-to-string (char-before)))))
    ;; word end
    (t
+    (when (and (null (car accum)) (not (null pos)) (<= pos (point)))
+      (setcar accum (length (cdr accum))))
     (skip-chars-forward " \t\n\r" end)
     (when (> (length straccum) 0)
-      (setcdr accum (cons straccum (cdr accum)))
-      (when (and (not (car accum)) (> pos 0) (<= pos (point)))
-	(setcar accum (- (length (cdr accum)) 1))))
+      (setcdr accum (cons straccum (cdr accum))))
     (if (< (point) end)
 	(bash-completion-split-0 (point) end pos accum "")
       accum))))
@@ -270,7 +277,7 @@ Return `bash-completion-alist'."
       (goto-char (point-max))
       (while (= 0 (forward-line -1))
 	(bash-completion-add-to-alist
-	 (cdr (bash-completion-split (line-beginning-position) (line-end-position) 0))))))
+	 (cdr (bash-completion-split (line-beginning-position) (line-end-position) nil))))))
   bash-completion-alist)
 
 (defun bash-completion-add-to-alist (words)

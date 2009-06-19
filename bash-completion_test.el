@@ -43,49 +43,49 @@
      ("bash-completion-split simple"
       (sz-testutils-with-buffer
        '("a hello world b c")
-       (bash-completion-split 1 (line-end-position) 0))
+       (bash-completion-split 1 (line-end-position) nil))
       '(nil . ("a" "hello" "world" "b" "c")))
 
      ("bash-completion-split simple extra spaces"
       (sz-testutils-with-buffer
        '("  a  hello \n world \t b \r c  ")
-       (bash-completion-split 1 (line-end-position 2) 0))
+       (bash-completion-split 1 (line-end-position 2) nil))
       '(nil . ("a" "hello" "world" "b" "c")))
 
      ("bash-completion-split escaped space"
       (sz-testutils-with-buffer
        '("a hello\\ world b c")
-       (bash-completion-split 1 (line-end-position) 0))
+       (bash-completion-split 1 (line-end-position) nil))
       '(nil . ("a" "hello world" "b" "c")))
 
      ("bash-completion-split double quotes"
       (sz-testutils-with-buffer
        '("a \"hello world\" b c")
-       (bash-completion-split 1 (line-end-position) 0))
+       (bash-completion-split 1 (line-end-position) nil))
       '(nil . ("a" "hello world" "b" "c")))
 
      ("bash-completion-split double quotes escaped"
       (sz-testutils-with-buffer
        '("a \"-\\\"hello world\\\"-\" b c")
-       (bash-completion-split 1 (line-end-position) 0))
+       (bash-completion-split 1 (line-end-position) nil))
       '(nil . ("a" "-\"hello world\"-" "b" "c")))
 
      ("bash-completion-split single quotes"
       (sz-testutils-with-buffer
        '("a \"hello world\" b c")
-       (bash-completion-split 1 (line-end-position) 0))
+       (bash-completion-split 1 (line-end-position) nil))
       '(nil . ("a" "hello world" "b" "c")))
 
      ("bash-completion-split single quotes escaped"
       (sz-testutils-with-buffer
        '("a '-\\'hello world\\'-' b c")
-       (bash-completion-split 1 (line-end-position) 0))
+       (bash-completion-split 1 (line-end-position) nil))
       '(nil . ("a" "-'hello world'-" "b" "c")))
 
      ("bash-completion-split complex quote mix"
       (sz-testutils-with-buffer
        '("a hel\"lo w\"o'rld b'c d")
-       (bash-completion-split 1 (line-end-position) 0))
+       (bash-completion-split 1 (line-end-position) nil))
       '(nil . ("a" "hello world bc" "d")))
 
      ("bash-completion-split cursor at end of word"
@@ -104,13 +104,25 @@
       (sz-testutils-with-buffer
        '(" " cursor " a hello world b c")
        (bash-completion-split 1 (line-end-position) (point)))
-      '(0 . ("a" "hello" "world" "b" "c")))
+      '(0 . ("" "a" "hello" "world" "b" "c")))
 
      ("bash-completion-split cursor in the middle"
       (sz-testutils-with-buffer
        '("a hello " cursor " world b c")
        (bash-completion-split 1 (line-end-position) (point)))
-      '(1 . ("a" "hello" "world" "b" "c")))
+      '(2 . ("a" "hello" "" "world" "b" "c")))
+
+     ("bash-completion-split cursor at end"
+      (sz-testutils-with-buffer
+       '("a hello world b c" cursor)
+       (bash-completion-split 1 (line-end-position) (point)))
+      '(4 . ("a" "hello" "world" "b" "c")))
+
+     ("bash-completion-split cursor after end"
+      (sz-testutils-with-buffer
+       '("a hello world b c " cursor)
+       (bash-completion-split 1 (line-end-position) (point)))
+      '(5 . ("a" "hello" "world" "b" "c" "")))
 
      ("bash-completion-add-to-alist garbage"
       (let ((bash-completion-alist nil))
@@ -190,10 +202,6 @@ garbage
 	    (default-directory "/test"))
 	(bash-completion-generate-line "zorg worl" 7 '("zorg" "worl") 1))
       "cd /test ; __BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; COMP_POINT=7; COMP_CWORD=1; COMP_WORDS=( zorg worl ); __zorg \"$@\"' compgen -F __bash_complete_wrapper -- worl")
-
-     ("bash-completion-trim"
-      (mapcar 'bash-completion-trim '("  hello " "  world   " "x"))
-      '("hello" "world" "x"))
 
      ("bash-completion-line-beginning-position start"
       (sz-testutils-with-buffer
