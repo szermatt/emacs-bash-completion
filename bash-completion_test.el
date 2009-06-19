@@ -195,13 +195,13 @@ garbage
       (let ((bash-completion-alist '(("zorg" . ("-F" "__zorg"))))
 	    (default-directory "/test"))
 	(bash-completion-generate-line "zorg worl" 7 '("zorg" "worl") 1))
-      "cd /test ; __BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; COMP_POINT=7; COMP_CWORD=1; COMP_WORDS=( zorg worl ); __zorg \"$@\"' compgen -F __bash_complete_wrapper -- worl")
+      "cd /test ; __BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; COMP_POINT=7; COMP_CWORD=1; COMP_WORDS=( zorg worl ); __zorg \"${COMP_WORDS[@]}\"' compgen -F __bash_complete_wrapper -- worl")
 
      ("bash-completion-generate-line custom completion command"
       (let ((bash-completion-alist '(("zorg" . ("-C" "__zorg"))))
 	    (default-directory "/test"))
 	(bash-completion-generate-line "zorg worl" 7 '("zorg" "worl") 1))
-      "cd /test ; __BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; COMP_POINT=7; COMP_CWORD=1; COMP_WORDS=( zorg worl ); __zorg \"$@\"' compgen -F __bash_complete_wrapper -- worl")
+      "cd /test ; __BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; COMP_POINT=7; COMP_CWORD=1; COMP_WORDS=( zorg worl ); __zorg \"${COMP_WORDS[@]}\"' compgen -F __bash_complete_wrapper -- worl")
 
      ("bash-completion-line-beginning-position start"
       (sz-testutils-with-buffer

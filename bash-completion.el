@@ -233,7 +233,7 @@ The result is a list of candidates, which might be empty."
 	       (setcar function "-F")
 	       (setcar (cdr function) "__bash_complete_wrapper")
 	       (format "__BASH_COMPLETE_WRAPPER=%s compgen %s -- %s"
-		       (bash-completion-quote (format "COMP_LINE=%s; COMP_POINT=%s; COMP_CWORD=%s; COMP_WORDS=( %s ); %s \"$@\""
+		       (bash-completion-quote (format "COMP_LINE=%s; COMP_POINT=%s; COMP_CWORD=%s; COMP_WORDS=( %s ); %s \"${COMP_WORDS[@]}\""
 						    (bash-completion-quote line) pos cword (bash-completion-join words)
 						    (bash-completion-quote function-name)))
 		       (bash-completion-join args)
