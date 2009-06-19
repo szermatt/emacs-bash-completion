@@ -59,9 +59,7 @@ Call bash to do the completion."
       (setq words (cdr wordsplit))
       (setq stub (nth cword words)))
     (let ((completions (bash-completion-comm line (- pos start) words cword)))
-      (comint-dynamic-simple-complete
-       stub
-       completions))))
+      (comint-dynamic-simple-complete stub completions))))
 
 (defun bash-completion-line-beginning-position (&optional start)
   (save-excursion
@@ -163,7 +161,21 @@ calls compgen.
 The result is a list of candidates, which might be empty."
   (bash-completion-send (concat (bash-completion-generate-line line pos words cword) " 2>/dev/null"))
   (with-current-buffer (bash-completion-buffer)
-    (mapcar 'bash-completion-addsuffix (split-string (buffer-string) "\n" t))))
+    (let ((bash-completion-prefix (nth cword words)))
+      (mapcar 'bash-completion-fix (split-string (buffer-string) "\n" t)))))
+
+(defun bash-completion-fix (str)
+  (bash-completion-addsuffix 
+   (if (bash-completion-starts-with str bash-completion-prefix)
+       str
+     (concat bash-completion-prefix str))))
+
+(defun bash-completion-starts-with (str prefix)
+  (let ((prefix-len (length prefix))
+	(str-len (length str)))
+    (and
+     (>= str-len prefix-len)
+     (equal (substring str 0 prefix-len) prefix))))
 
 (defun bash-completion-addsuffix (str)
   (let ((end (substring str -1)))
@@ -253,6 +265,7 @@ The result is a list of candidates, which might be empty."
   (and bash-completion-process (eq 'run (process-status bash-completion-process))))
 
 (defun bash-completion-send (commandline &optional process timeout)
+  (message commandline)
   (let ((process (or process (bash-completion-require-process)))
 	(timeout (or timeout bash-completion-process-timeout)))
     (with-current-buffer (process-buffer process)

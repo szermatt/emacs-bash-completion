@@ -249,6 +249,28 @@ garbage
 	(bash-completion-line-beginning-position 1)))
       '(5 5))
 
+     ("bash-completion-line-beginning-position variable assignment"
+      (sz-testutils-with-buffer
+       '("ls ; c=d export a=b" cursor)
+       (bash-completion-line-beginning-position 1))
+      10)
+
+     ("bash-completion-starts-with empty str"
+      (bash-completion-starts-with "" "prefix")
+      nil)
+
+     ("bash-completion-starts-with starts with"
+      (bash-completion-starts-with "blah-blah" "blah-")
+      t)
+
+     ("bash-completion-starts-with does not starts with"
+      (bash-completion-starts-with "blah-blah" "blih-")
+      nil)
+
+     ("bash-completion-starts-with same"
+      (bash-completion-starts-with "blah-" "blah-")
+      t)
+
       )))
 
 
