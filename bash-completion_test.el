@@ -168,23 +168,27 @@ garbage
       "'hell'\\''o'")
 
      ("bash-completion-generate-line no custom completion"
-      (let ((bash-completion-alist nil))
-	(bash-completion-generate-line "~/test" "hello worl" 7 '("hello" "worl") 1))
+      (let ((bash-completion-alist nil)
+	    (default-directory "~/test"))
+	(bash-completion-generate-line "hello worl" 7 '("hello" "worl") 1))
       (concat "cd " (expand-file-name "~/test") " ; compgen -o default worl"))
 
      ("bash-completion-generate-line custom completion no function or command"
-      (let ((bash-completion-alist '(("zorg" . ("-A" "-G" "*.txt")))))
-	(bash-completion-generate-line "/test" "zorg worl" 7 '("zorg" "worl") 1))
+      (let ((bash-completion-alist '(("zorg" . ("-A" "-G" "*.txt"))))
+	    (default-directory "/test"))
+	(bash-completion-generate-line "zorg worl" 7 '("zorg" "worl") 1))
       "cd /test ; compgen -A -G '*.txt' -- worl")
 
      ("bash-completion-generate-line custom completion function"
-      (let ((bash-completion-alist '(("zorg" . ("-F" "__zorg")))))
-	(bash-completion-generate-line "/test" "zorg worl" 7 '("zorg" "worl") 1))
+      (let ((bash-completion-alist '(("zorg" . ("-F" "__zorg"))))
+	    (default-directory "/test"))
+	(bash-completion-generate-line "zorg worl" 7 '("zorg" "worl") 1))
       "cd /test ; __BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; COMP_POINT=7; COMP_CWORD=1; COMP_WORDS=( zorg worl ); __zorg \"$@\"' compgen -F __bash_complete_wrapper -- worl")
 
      ("bash-completion-generate-line custom completion command"
-      (let ((bash-completion-alist '(("zorg" . ("-C" "__zorg")))))
-	(bash-completion-generate-line "/test" "zorg worl" 7 '("zorg" "worl") 1))
+      (let ((bash-completion-alist '(("zorg" . ("-C" "__zorg"))))
+	    (default-directory "/test"))
+	(bash-completion-generate-line "zorg worl" 7 '("zorg" "worl") 1))
       "cd /test ; __BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; COMP_POINT=7; COMP_CWORD=1; COMP_WORDS=( zorg worl ); __zorg \"$@\"' compgen -F __bash_complete_wrapper -- worl")
 
      ("bash-completion-trim"
@@ -205,6 +209,14 @@ garbage
 	(bash-completion-line-beginning-position 1)))
       '(14 14))
 
+     ("bash-completion-line-beginning-position 2 semicolon"
+      (sz-testutils-with-buffer
+       '("cd /home/x ; blah; " cursor "echo hello")
+       (list
+	(point)
+	(bash-completion-line-beginning-position 1)))
+      '(20 20))
+
      ("bash-completion-line-beginning-position &&"
       (sz-testutils-with-buffer
        '("cd /home/x && " cursor "echo hello")
@@ -212,6 +224,22 @@ garbage
 	(point)
 	(bash-completion-line-beginning-position 1)))
       '(15 15))
+
+     ("bash-completion-line-beginning-position ||"
+      (sz-testutils-with-buffer
+       '("cd /home/x || " cursor "echo hello")
+       (list
+	(point)
+	(bash-completion-line-beginning-position 1)))
+      '(15 15))
+
+     ("bash-completion-line-beginning-position variable assignment"
+      (sz-testutils-with-buffer
+       '("a=b " cursor "echo hello")
+       (list
+	(point)
+	(bash-completion-line-beginning-position 1)))
+      '(5 5))
 
       )))
 

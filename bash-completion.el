@@ -40,7 +40,7 @@ See `bash-completion-add-to-alist'.
   "Bash completion function for `comint-complete-dynamic-functions'.
 
 Call bash to do the completion."
-  (when (window-minibuffer-p)
+  (when (not (window-minibuffer-p))
     (message "Bash completion..."))
   (let* ( (pos (point))
 	  (start (bash-completion-line-beginning-position))
@@ -49,7 +49,10 @@ Call bash to do the completion."
 	  (wordsplit)
 	  (cword)
 	  (words)
-	  (stub) )
+	  (stub)
+	  ;; Override configuration for comint-dynamic-simple-complete.
+	  ;; Bash adds a space suffix automatically.
+	  (comint-completion-addsuffix nil) )
     (save-excursion
       (setq wordsplit (bash-completion-split start end pos))
       (setq cword (car wordsplit))
@@ -57,15 +60,14 @@ Call bash to do the completion."
       (setq stub (nth cword words)))
     (comint-dynamic-simple-complete
      stub
-     (bash-completion-comm default-directory
-			 line (- pos start) words cword))))
+     (bash-completion-comm line (- pos start) words cword))))
 
 (defun bash-completion-line-beginning-position (&optional start)
   (save-excursion
     (let ((start (or start (comint-line-beginning-position)))
 	  (end (line-end-position)))
-      (goto-char start)
-      (if (search-forward-regexp "\\(;\\|\\(&&\\)\\|\\(||\\)\\)[ \t\n]" end t)
+      (goto-char end)
+      (if (search-backward-regexp "\\(;\\|\\(&&\\)\\|\\(||\\)\\|\\(=[^ \t]*\\)\\)[ \t\n]" start t)
 	  (match-end 0)
 	start))))
 
@@ -144,22 +146,25 @@ at POS, the current word: ( (word1 word2 ...) . wordnum )"
       (concat "^ \t\n\r" (char-to-string quote))
     "^ \t\n\r'\""))
 
-(defun bash-completion-comm (dir line pos words cword)
-  "Set DIR, LINE, POS, WORDS and CWORD, call bash completion, return the result.
+(defun bash-completion-comm (line pos words cword)
+  "Set LINE, POS, WORDS and CWORD, call bash completion, return the result.
 
 This function starts a separate bash process if necessary, sets up the
 completion environment (COMP_LINE, COMP_POINT, COMP_WORDS, COMP_CWORD) and
 calls compgen.
 
 The result is a list of candidates, which might be empty."
-  (bash-completion-send (concat (bash-completion-generate-line dir line pos words cword) " 2>/dev/null"))
+  (bash-completion-send (concat (bash-completion-generate-line line pos words cword) " 2>/dev/null"))
   (with-current-buffer (bash-completion-buffer)
-    (mapcar 'bash-completion-trim (split-string (buffer-string) "\n" t))))
+    (mapcar 'bash-completion-addsuffix (split-string (buffer-string) "\n" t))))
 
-(defun bash-completion-trim (str)
-  (if (string-match "^ *\\(.*[^ ]\\) *$" str)
-      (match-string 1 str)
-    str))
+(defun bash-completion-addsuffix (str)
+  (let ((end (substring str -1)))
+    (if (and (not (eq end " "))
+	     (not (eq end "/"))
+	     (file-accessible-directory-p str))
+	(concat str "/")
+    str)))
 
 (defun bash-completion-require-process ()
   (if (bash-completion-is-running)
@@ -201,14 +206,18 @@ The result is a list of candidates, which might be empty."
 		(kill-process process)
 	      (error nil))))))))
 
-(defun bash-completion-generate-line (dir line pos words cword)
+(defun bash-completion-generate-line (line pos words cword)
   (concat
-   (if default-directory (concat "cd " (bash-completion-quote (expand-file-name dir)) " ; ") "")
-   (let* ( (command (file-name-nondirectory (car words)))
-	   (compgen-args (cdr (assoc command bash-completion-alist))) )
+   (if default-directory (concat "cd " (bash-completion-quote (expand-file-name default-directory)) " ; ") "")
+   (let* ( (command-name (file-name-nondirectory (car words)))
+	   (compgen-args (cdr (assoc command-name bash-completion-alist))) )
      (if (not compgen-args)
 	 ;; no custom completion. use default completion
-	 (bash-completion-join (list "compgen" "-o" "default" (nth cword words)))
+	 (if (= cword 0)
+	     ;; a command. let emacs expand executable, let bash expand builtins, aliases and functions
+	     (concat (bash-completion-join (list "compgen" "-S" " " "-b" "-a" "-A" "function" (car words))))
+	   ;; argument
+	   (bash-completion-join (list "compgen" "-o" "default" (nth cword words))))
        ;; custom completion
        (let* ( (args (copy-tree compgen-args))
 	       (function (or (member "-F" args) (member "-C" args))) )
