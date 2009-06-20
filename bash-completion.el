@@ -29,7 +29,8 @@ the following entry is added to `bash-completion-alist':
 See `bash-completion-add-to-alist'.
 ")
 
-(defvar bash-completion-wordbreaks (append "\"'@><=;|&(:" nil))
+(defvar bash-completion-wordbreaks-str "\"'@><=;|&(:")
+(defvar bash-completion-wordbreaks (append bash-completion-wordbreaks-str nil))
 
 (defun bash-completion-setup ()
   (add-hook 'shell-dynamic-complete-functions
@@ -229,10 +230,12 @@ The result is a list of candidates, which might be empty."
 (defun bash-completion-ends-with (str suffix)
   (let ((suffix-len (length suffix))
 	(str-len (length str)))
-    (and
-     (>= str-len suffix-len)
-     (equal (substring str (- suffix-len)) suffix))))
-  
+    (or
+     (= 0 suffix-len)
+     (and
+      (>= str-len suffix-len)
+      (equal (substring str (- suffix-len)) suffix)))))
+
 (defun bash-completion-starts-with (str prefix)
   (let ((prefix-len (length prefix))
 	(str-len (length str)))
@@ -241,7 +244,7 @@ The result is a list of candidates, which might be empty."
      (equal (substring str 0 prefix-len) prefix))))
 
 (defun bash-completion-addsuffix (str)
-  (if (and (null (string-match "[/: ]$" str))
+  (if (and (null (string-match (concat "[" (regexp-quote bash-completion-wordbreaks-str) "/ ]$") str))
 	   (file-accessible-directory-p (expand-file-name str default-directory)))
       (progn
 	(concat str "/"))

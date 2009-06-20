@@ -18,7 +18,11 @@
   (require 'sz-testutils)
   (require 'cl)
 
+  (defvar bash-completion-run-integration-tests t
+    "Run integration tests. Set to nil to disable them.")
   ;; This code will not appear in the compiled (.elc) file
+
+  ;; ---------- unit tests
   (put 'bash-completion-regress 'regression-suite t)
   (setq bash-completion-regress
    '("bash-completion-regress"
@@ -290,15 +294,116 @@ garbage
 	   (bash-completion-send "cmd" 'process 3.14))))
 	  "line1\nline2\n")
 
-      )))
+     ("bash-completion-cd-command-prefix no current dir"
+      (let ((default-directory nil))
+	(bash-completion-cd-command-prefix))
+      "")
 
+     ("bash-completion-cd-command-prefix current dir"
+      (let ((default-directory "/tmp/x"))
+	(bash-completion-cd-command-prefix))
+      "cd 2>/dev/null /tmp/x ; ")
+
+     ("bash-completion-cd-command-prefix expand tilde"
+      (let ((default-directory "~/x"))
+	(bash-completion-cd-command-prefix))
+      (concat "cd 2>/dev/null " (expand-file-name "~/x") " ; "))
+
+     ("bash-completion-addsuffix ends with /"
+      (flet ((file-accessible-directory-p (a) (error "unexpected")))
+	(bash-completion-addsuffix "hello/"))
+      "hello/")
+
+     ("bash-completion-addsuffix ends with space"
+      (flet ((file-accessible-directory-p (a) (error "unexpected")))
+	(bash-completion-addsuffix "hello "))
+      "hello ")
+
+     ("bash-completion-addsuffix ends with separator"
+      (flet ((file-accessible-directory-p (a) (error "unexpected")))
+	(bash-completion-addsuffix "hello:"))
+      "hello:")
+
+     ("bash-completion-addsuffix check directory"
+      (flet ((file-accessible-directory-p (a) (equal a "/tmp/hello")))
+	(let ((default-directory "/tmp"))
+	  (bash-completion-addsuffix "hello")))
+      "hello/")
+
+     ("bash-completion-addsuffix check directory, expand tilde"
+      (flet ((file-accessible-directory-p (a) (equal a (concat (expand-file-name "y" "~/x")))))
+	(let ((default-directory "~/x"))
+	  (bash-completion-addsuffix "y")))
+      "y/")
+
+     ("bash-completion-starts-with"
+      (list
+       (bash-completion-starts-with "" "hello ")
+       (bash-completion-starts-with "hello world" "hello ")
+       (bash-completion-starts-with "hello world" "hullo ")
+       (bash-completion-starts-with "hello" ""))
+      '(nil t nil t))
+
+     ("bash-completion-ends-with"
+      (list
+       (bash-completion-ends-with "" "world")
+       (bash-completion-ends-with "hello world" "world")
+       (bash-completion-ends-with "hello world" "wurld")
+       (bash-completion-ends-with "hello" ""))
+      '(nil t nil t))
+     
+     ("bash-completion-last-wordbreak-split"
+      (list
+       (bash-completion-last-wordbreak-split "a:b:c:d:e")
+       (bash-completion-last-wordbreak-split "hello=world")
+       (bash-completion-last-wordbreak-split "hello>world")
+       (bash-completion-last-wordbreak-split "hello"))
+      '(("a:b:c:d:" . "e")
+	("hello=" . "world")
+	("hello>" . "world")
+	("" . "hello")))
+
+     ))
+
+  ;; ---------- integration tests
+  (put 'bash-completion-regress-integration 'regression-suite t)
+  (setq bash-completion-regress-integration '(
+       ("bash-completion interaction"
+	(let ((bash-completion-process nil)
+	      (bash-completion-alist nil))
+	  (list
+	   (bash-completion-is-running)
+	   (buffer-live-p (bash-completion-buffer))
+	   (bash-completion-is-running)
+	   (bash-completion-comm "hel" 4 '("hel") 0)
+	   (progn
+	     (bash-completion-send "echo $EMACS_BASH_COMPLETE")
+	     (with-current-buffer (bash-completion-buffer)
+	       (buffer-string)))
+	   (bash-completion-reset)
+	   (bash-completion-is-running)))
+	'(nil t t ("help ") "t\n" nil nil))
+
+       ("bash-completion setenv"
+	(let ((bash-completion-process nil)
+	      (bash-completion-alist nil))
+	  (prog1
+	      (progn
+		(bash-completion-send "echo $EMACS_BASH_COMPLETE")
+		(with-current-buffer (bash-completion-buffer)
+		  (buffer-string)))
+	    (bash-completion-reset)))
+	"t\n")
+       )))
 
 ;; Run diagnostics when this module is evaluated or compiled
 ;; if and only if the "regress" package is already loaded.
 ;; This code will not appear in the compiled (.elc) file
 (eval-when-compile
   (autoload 'regress "regress" "run regression test suites" t)
-  (if (featurep 'regress)
-      (regress bash-completion-regress)))
+  (when (featurep 'regress)
+    (regress bash-completion-regress)
+    (when bash-completion-run-integration-tests
+      (regress bash-completion-regress-integration))))
 
 ;;; bash-completion_test.el ends here
