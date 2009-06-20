@@ -66,7 +66,7 @@ Call bash to do the completion."
     (let ((start (or start (comint-line-beginning-position)))
 	  (end (line-end-position)))
       (goto-char end)
-      (if (search-backward-regexp "\\(;\\|\\(&&\\)\\|\\(||\\)\\|\\(=[^ \t]*\\)\\)[ \t\n]" start t)
+      (if (search-backward-regexp "\\(;\\|\\(&&\\)\\|\\(||\\)\\)[ \t\n]" start t)
 	  (match-end 0)
 	start))))
 
