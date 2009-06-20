@@ -29,6 +29,8 @@ the following entry is added to `bash-completion-alist':
 See `bash-completion-add-to-alist'.
 ")
 
+(defvar bash-completion-wordbreaks (append "\"'@><=;|&(:" nil))
+
 (defun bash-completion-setup ()
   (add-hook 'shell-dynamic-complete-functions
 	    'bash-completion-dynamic-complete)
@@ -59,7 +61,13 @@ Call bash to do the completion."
       (setq words (cdr wordsplit))
       (setq stub (nth cword words)))
     (let ((completions (bash-completion-comm line (- pos start) words cword)))
-      (comint-dynamic-simple-complete stub completions))))
+      (if completions
+	  (comint-dynamic-simple-complete stub completions)
+	;; try default completion after a wordbreak
+	(let ((after-wordbreak (bash-completion-after-last-wordbreak stub)))
+	  (when (not (equal stub after-wordbreak))
+	    (bash-completion-send (concat (bash-completion-cd-command-prefix) "compgen -o default -- " after-wordbreak))
+	    (comint-dynamic-simple-complete after-wordbreak (bash-completion-extract after-wordbreak))))))))
 
 (defun bash-completion-line-beginning-position (&optional start)
   (save-excursion
@@ -86,7 +94,10 @@ Call bash to do the completion."
 	    "'")))
 
 (defun bash-completion-escape (word)
-  (replace-regexp-in-string "\\([ '\"]\\)" "\\\\\\1" word))
+  (message "escape: %s" word)
+  (if (string-match "^['\"]" word)
+      word
+    (replace-regexp-in-string "\\([ '\"]\\)" "\\\\\\1" word)))
 
 (defun bash-completion-split (start end pos)
   "Split LINE like bash would do, keep track of current word at POS.
@@ -165,8 +176,11 @@ calls compgen.
 
 The result is a list of candidates, which might be empty."
   (bash-completion-send (concat (bash-completion-generate-line line pos words cword) " 2>/dev/null"))
-  (let ((bash-completion-prefix (nth cword words)))
-    (mapcar 'bash-completion-fix 
+  (bash-completion-extract (nth cword words)))
+
+(defun bash-completion-extract (stub)
+  (let ((bash-completion-prefix stub))
+    (mapcar 'bash-completion-fix
 	    (with-current-buffer (bash-completion-buffer)
 	      (split-string (buffer-string) "\n" t)))))
 
@@ -198,14 +212,20 @@ The result is a list of candidates, which might be empty."
        (concat prefix (bash-completion-escape rest) suffix)))))
 
 (defun bash-completion-before-last-wordbreak (str)
-  (catch 'bash-completion-return 
+  (car (bash-completion-last-wordbreak-split str)))
+
+(defun bash-completion-after-last-wordbreak (str)
+  (cdr (bash-completion-last-wordbreak-split str)))
+
+(defun bash-completion-last-wordbreak-split (str)
+  (catch 'bash-completion-return
     (let ((end (- (length str) 1)))
       (while (> end 0)
-	(when (memq (aref str end) '( ?' ?@ ?> ?< ?= ?\; ?| ?& ?\( ?: ))
-	  (throw 'bash-completion-return (substring str 0 (1+ end))))
+	(when (memq (aref str end) bash-completion-wordbreaks)
+	  (throw 'bash-completion-return (cons (substring str 0 (1+ end)) (substring str (1+ end)))))
 	(setq end (1- end))))
-      str))
-  
+      (cons "" str)))
+
 (defun bash-completion-ends-with (str suffix)
   (let ((suffix-len (length suffix))
 	(str-len (length str)))
@@ -270,9 +290,14 @@ The result is a list of candidates, which might be empty."
 		(kill-process process)
 	      (error nil))))))))
 
+(defun bash-completion-cd-command-prefix ()
+  (if default-directory
+      (concat "cd 2>/dev/null " (bash-completion-quote (expand-file-name default-directory)) " ; ") 
+    ""))
+
 (defun bash-completion-generate-line (line pos words cword)
   (concat
-   (if default-directory (concat "cd 2>/dev/null " (bash-completion-quote (expand-file-name default-directory)) " ; ") "")
+   (bash-completion-cd-command-prefix)
    (let* ( (command-name (file-name-nondirectory (car words)))
 	   (compgen-args (cdr (assoc command-name bash-completion-alist))) )
      (if (not compgen-args)
