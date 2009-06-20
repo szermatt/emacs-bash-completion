@@ -188,7 +188,7 @@ The result is a list of candidates, which might be empty."
 (defun bash-completion-fix (str &optional prefix)
   (let ((prefix (or prefix bash-completion-prefix))
 	(suffix ""))
-    (bash-completion-addsuffix 
+    (bash-completion-addsuffix
      (let* ((rebuilt)
 	    (rest (cond
 		   ((bash-completion-starts-with str prefix)
@@ -202,7 +202,7 @@ The result is a list of candidates, which might be empty."
 		   ;; bash sometimes just prints whatever needs to be expanded,
 		   ;; for example: "export PATH=<complete>". Prepend the old
 		   ;; prefix to avoid confusing comint-dynamic-simple-complete
-		   ((bash-completion-starts-with 
+		   ((bash-completion-starts-with
 		     (setq rebuilt (concat (bash-completion-before-last-wordbreak prefix) str))
 		     prefix)
 		    (substring rebuilt (length prefix)))

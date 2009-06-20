@@ -380,6 +380,26 @@ garbage
        (bash-completion-after-last-wordbreak "hello"))
       '("e" "world" "world" "hello"))
 
+     ("bash-completion-fix escape rest"
+      (bash-completion-fix "a\\ bc d e" "a\\ b")
+      "a\\ bc\\ d\\ e")
+
+     ("bash-completion-fix do not escape final space"
+      (bash-completion-fix "ab " "a")
+      "ab ")
+
+     ("bash-completion-fix unexpand home and escape"
+      (bash-completion-fix (expand-file-name "~/a/hello world") "~/a/he")
+      "~/a/hello\\ world")
+
+     ("bash-completion-fix match after wordbreak and escape"
+      (bash-completion-fix "hello world" "a:b:c:he")
+      "a:b:c:hello\\ world")
+
+     ("bash-completion-fix just append"
+      (bash-completion-fix " world" "hello")
+      "hello\\ world")
+
      ))
 
   ;; ---------- integration tests
