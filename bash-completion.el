@@ -170,23 +170,50 @@ The result is a list of candidates, which might be empty."
 	    (with-current-buffer (bash-completion-buffer)
 	      (split-string (buffer-string) "\n" t)))))
 
-(defun bash-completion-fix (str)
-  (bash-completion-addsuffix 
-   (let* ((rest (cond
-		((bash-completion-starts-with str bash-completion-prefix)
-		 (substring str (length bash-completion-prefix)))
-		;; bash expands the home directory automatic. this is confusing
-		;; for comint-dynamic-simple-complete
-		((and (bash-completion-starts-with bash-completion-prefix "~")
-		      (bash-completion-starts-with str (expand-file-name "~")))
-		 (substring (concat "~" (substring str (length (expand-file-name "~"))))
-			    (length bash-completion-prefix)))
-		;; bash sometimes just prints whatever needs to be expanded,
-		;; for example: "export PATH=<complete>". Prepend the old
-		;; prefix to avoid confusing comint-dynamic-simple-complete
-		(t str))))
-     (concat bash-completion-prefix (bash-completion-escape rest)))))
+(defun bash-completion-fix (str &optional prefix)
+  (let ((prefix (or prefix bash-completion-prefix))
+	(suffix ""))
+    (bash-completion-addsuffix 
+     (let* ((rebuilt)
+	    (rest (cond
+		   ((bash-completion-starts-with str prefix)
+		    (substring str (length prefix)))
+		   ;; bash expands the home directory automatically. This is confusing
+		   ;; for comint-dynamic-simple-complete
+		   ((and (bash-completion-starts-with prefix "~")
+			 (bash-completion-starts-with str (expand-file-name "~")))
+		    (substring (concat "~" (substring str (length (expand-file-name "~"))))
+			       (length prefix)))
+		   ;; bash sometimes just prints whatever needs to be expanded,
+		   ;; for example: "export PATH=<complete>". Prepend the old
+		   ;; prefix to avoid confusing comint-dynamic-simple-complete
+		   ((bash-completion-starts-with 
+		     (setq rebuilt (concat (bash-completion-before-last-wordbreak prefix) str))
+		     prefix)
+		    (substring rebuilt (length prefix)))
+		   (t str))))
+       (when (bash-completion-ends-with rest " ")
+	 (setq rest (substring rest 0 -1))
+	 (setq suffix " "))
+       (message "str=>%s< rest=>%s< prefix=>%s<" str rest prefix)
+       (concat prefix (bash-completion-escape rest) suffix)))))
 
+(defun bash-completion-before-last-wordbreak (str)
+  (catch 'bash-completion-return 
+    (let ((end (- (length str) 1)))
+      (while (> end 0)
+	(when (memq (aref str end) '( ?' ?@ ?> ?< ?= ?\; ?| ?& ?\( ?: ))
+	  (throw 'bash-completion-return (substring str 0 (1+ end))))
+	(setq end (1- end))))
+      str))
+  
+(defun bash-completion-ends-with (str prefix)
+  (let ((prefix-len (length prefix))
+	(str-len (length str)))
+    (and
+     (>= str-len prefix-len)
+     (equal (substring str (- prefix-len)) prefix))))
+  
 (defun bash-completion-starts-with (str prefix)
   (let ((prefix-len (length prefix))
 	(str-len (length str)))
@@ -195,12 +222,12 @@ The result is a list of candidates, which might be empty."
      (equal (substring str 0 prefix-len) prefix))))
 
 (defun bash-completion-addsuffix (str)
-  (let ((end (substring str -1)))
-    (if (and (not (eq end " "))
-	     (not (eq end "/"))
-	     (file-accessible-directory-p (expand-file-name str default-directory)))
-	(concat str "/")
-    str)))
+  (if (and (null (string-match "[/: ]$" str))
+	   (file-accessible-directory-p (expand-file-name str default-directory)))
+      (progn
+	(message "accessible: %s" (expand-file-name str default-directory))
+	(concat str "/"))
+    str))
 
 (defun bash-completion-require-process ()
   (if (bash-completion-is-running)
@@ -231,7 +258,7 @@ The result is a list of candidates, which might be empty."
 	    ;; strings - which compgen understands but only in some environment.
 	    ;; disable this dreadful business to get a saner way of handling
 	    ;; spaces.
-	    (bash-completion-send "function quote_readline { echo \"$1\"; }")
+	    (bash-completion-send "function quote_readline { echo \"$1\"; }" process)
 	    (bash-completion-send "complete -p" process)
 	    (bash-completion-build-alist (process-buffer process))
 	    (setq bash-completion-process process)
