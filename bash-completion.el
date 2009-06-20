@@ -195,7 +195,6 @@ The result is a list of candidates, which might be empty."
        (when (bash-completion-ends-with rest " ")
 	 (setq rest (substring rest 0 -1))
 	 (setq suffix " "))
-       (message "str=>%s< rest=>%s< prefix=>%s<" str rest prefix)
        (concat prefix (bash-completion-escape rest) suffix)))))
 
 (defun bash-completion-before-last-wordbreak (str)
@@ -207,12 +206,12 @@ The result is a list of candidates, which might be empty."
 	(setq end (1- end))))
       str))
   
-(defun bash-completion-ends-with (str prefix)
-  (let ((prefix-len (length prefix))
+(defun bash-completion-ends-with (str suffix)
+  (let ((suffix-len (length suffix))
 	(str-len (length str)))
     (and
-     (>= str-len prefix-len)
-     (equal (substring str (- prefix-len)) prefix))))
+     (>= str-len suffix-len)
+     (equal (substring str (- suffix-len)) suffix))))
   
 (defun bash-completion-starts-with (str prefix)
   (let ((prefix-len (length prefix))
@@ -225,7 +224,6 @@ The result is a list of candidates, which might be empty."
   (if (and (null (string-match "[/: ]$" str))
 	   (file-accessible-directory-p (expand-file-name str default-directory)))
       (progn
-	(message "accessible: %s" (expand-file-name str default-directory))
 	(concat str "/"))
     str))
 
