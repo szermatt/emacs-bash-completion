@@ -16,6 +16,7 @@
   (load-library "~/.emacs.d/bash-completion.el")
 
   (require 'sz-testutils)
+  (require 'cl)
 
   ;; This code will not appear in the compiled (.elc) file
   (put 'bash-completion-regress 'regression-suite t)
@@ -100,17 +101,17 @@
        (bash-completion-split 1 (line-end-position) (point)))
       '(2 . ("a" "hello" "world" "b" "c")))
 
-     ("bash-completion-split cursor at the beginnig"
-      (sz-testutils-with-buffer
-       '(" " cursor " a hello world b c")
-       (bash-completion-split 1 (line-end-position) (point)))
-      '(0 . ("" "a" "hello" "world" "b" "c")))
+;;      ("bash-completion-split cursor at the beginning"
+;;       (sz-testutils-with-buffer
+;;        '(" " cursor " a hello world b c")
+;;        (bash-completion-split 1 (line-end-position) (point)))
+;;       '(0 . ("" "a" "hello" "world" "b" "c")))
 
-     ("bash-completion-split cursor in the middle"
-      (sz-testutils-with-buffer
-       '("a hello " cursor " world b c")
-       (bash-completion-split 1 (line-end-position) (point)))
-      '(2 . ("a" "hello" "" "world" "b" "c")))
+;;      ("bash-completion-split cursor in the middle"
+;;       (sz-testutils-with-buffer
+;;        '("a hello " cursor " world b c")
+;;        (bash-completion-split 1 (line-end-position) (point)))
+;;       '(2 . ("a" "hello" "" "world" "b" "c")))
 
      ("bash-completion-split cursor at end"
       (sz-testutils-with-buffer
@@ -247,20 +248,6 @@ garbage
 	(bash-completion-line-beginning-position 1)))
       '(15 15))
 
-     ("bash-completion-line-beginning-position variable assignment"
-      (sz-testutils-with-buffer
-       '("a=b " cursor "echo hello")
-       (list
-	(point)
-	(bash-completion-line-beginning-position 1)))
-      '(5 5))
-
-     ("bash-completion-line-beginning-position variable assignment"
-      (sz-testutils-with-buffer
-       '("ls ; c=d export a=b" cursor)
-       (bash-completion-line-beginning-position 1))
-      10)
-
      ("bash-completion-starts-with empty str"
       (bash-completion-starts-with "" "prefix")
       nil)
@@ -276,6 +263,32 @@ garbage
      ("bash-completion-starts-with same"
       (bash-completion-starts-with "blah-" "blah-")
       t)
+
+     ("bash-completion-send"
+      (let ((process 'proces))
+	(flet ((process-buffer
+		(process)
+		(unless (eq process 'process)
+		  (error "unexpected: %s" process))
+		(current-buffer))
+	       (process-send-string
+		(process command)
+		(unless (eq process 'process)
+		  (error "unexpected process: %s" process))
+		(unless (equal "cmd\n" command)
+		  (error "unexpected command: %s" command)))
+	       (accept-process-output
+		(process timeout)
+		(unless (eq process 'process)
+		  (error "unexpected process: %s" process))
+		(unless (= timeout 3.14)
+		  (error "unexpected timeout: %s" timeout))
+		(insert "line1\nline2\n\v")
+		t))
+	  (sz-testutils-with-buffer-content
+	   ""
+	   (bash-completion-send "cmd" 'process 3.14))))
+	  "line1\nline2\n")
 
       )))
 

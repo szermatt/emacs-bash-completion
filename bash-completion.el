@@ -292,7 +292,7 @@ The result is a list of candidates, which might be empty."
 
 (defun bash-completion-cd-command-prefix ()
   (if default-directory
-      (concat "cd 2>/dev/null " (bash-completion-quote (expand-file-name default-directory)) " ; ") 
+      (concat "cd 2>/dev/null " (bash-completion-quote (expand-file-name default-directory)) " ; ")
     ""))
 
 (defun bash-completion-generate-line (line pos words cword)
