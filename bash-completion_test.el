@@ -351,7 +351,7 @@ garbage
        (bash-completion-ends-with "hello world" "wurld")
        (bash-completion-ends-with "hello" ""))
       '(nil t nil t))
-     
+
      ("bash-completion-last-wordbreak-split"
       (list
        (bash-completion-last-wordbreak-split "a:b:c:d:e")
@@ -362,6 +362,23 @@ garbage
 	("hello=" . "world")
 	("hello>" . "world")
 	("" . "hello")))
+
+
+     ("bash-completion-before-last-wordbreak"
+      (list
+       (bash-completion-before-last-wordbreak "a:b:c:d:e")
+       (bash-completion-before-last-wordbreak "hello=world")
+       (bash-completion-before-last-wordbreak "hello>world")
+       (bash-completion-before-last-wordbreak "hello"))
+      '("a:b:c:d:" "hello=" "hello>" ""))
+
+     ("bash-completion-after-last-wordbreak"
+      (list
+       (bash-completion-after-last-wordbreak "a:b:c:d:e")
+       (bash-completion-after-last-wordbreak "hello=world")
+       (bash-completion-after-last-wordbreak "hello>world")
+       (bash-completion-after-last-wordbreak "hello"))
+      '("e" "world" "world" "hello"))
 
      ))
 
