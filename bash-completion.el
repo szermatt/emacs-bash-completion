@@ -160,15 +160,26 @@ calls compgen.
 
 The result is a list of candidates, which might be empty."
   (bash-completion-send (concat (bash-completion-generate-line line pos words cword) " 2>/dev/null"))
-  (with-current-buffer (bash-completion-buffer)
-    (let ((bash-completion-prefix (nth cword words)))
-      (mapcar 'bash-completion-fix (split-string (buffer-string) "\n" t)))))
+  (let ((bash-completion-prefix (nth cword words)))
+    (mapcar 'bash-completion-fix 
+	    (with-current-buffer (bash-completion-buffer)
+	      (split-string (buffer-string) "\n" t)))))
 
 (defun bash-completion-fix (str)
   (bash-completion-addsuffix 
-   (if (bash-completion-starts-with str bash-completion-prefix)
-       str
-     (concat bash-completion-prefix str))))
+   (cond
+    ((bash-completion-starts-with str bash-completion-prefix)
+     str)
+    ;; bash expands the home directory automatic. this is confusing
+    ;; for comint-dynamic-simple-complete
+    ((and (bash-completion-starts-with bash-completion-prefix "~")
+	  (bash-completion-starts-with str (expand-file-name "~")))
+     (concat "~" (substring str (length (expand-file-name "~")))))
+    ;; bash sometimes just prints whatever needs to be expanded,
+    ;; for example: "export PATH=<complete>". Prepend the old
+    ;; prefix to avoid confusing comint-dynamic-simple-complete
+    (t
+     (concat bash-completion-prefix str)))))
 
 (defun bash-completion-starts-with (str prefix)
   (let ((prefix-len (length prefix))
@@ -178,10 +189,12 @@ The result is a list of candidates, which might be empty."
      (equal (substring str 0 prefix-len) prefix))))
 
 (defun bash-completion-addsuffix (str)
+  (message "file=%s, accessible=%s" (expand-file-name str default-directory)
+	   (file-accessible-directory-p (expand-file-name str default-directory)))
   (let ((end (substring str -1)))
     (if (and (not (eq end " "))
 	     (not (eq end "/"))
-	     (file-accessible-directory-p str))
+	     (file-accessible-directory-p (expand-file-name str default-directory)))
 	(concat str "/")
     str)))
 
