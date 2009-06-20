@@ -227,6 +227,11 @@ The result is a list of candidates, which might be empty."
 		(process-send-string process (concat ". " startfile2 "\n")))))
 	    (bash-completion-send "PS1='\v'" process bash-completion-initial-timeout)
 	    (bash-completion-send "function __bash_complete_wrapper { eval $__BASH_COMPLETE_WRAPPER; }" process)
+	    ;; some bash completion functions use quote_readline to double-quote
+	    ;; strings - which compgen understands but only in some environment.
+	    ;; disable this dreadful business to get a saner way of handling
+	    ;; spaces.
+	    (bash-completion-send "function quote_readline { echo \"$1\"; }")
 	    (bash-completion-send "complete -p" process)
 	    (bash-completion-build-alist (process-buffer process))
 	    (setq bash-completion-process process)
