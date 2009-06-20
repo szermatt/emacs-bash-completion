@@ -85,6 +85,9 @@ Call bash to do the completion."
 	    (replace-regexp-in-string "'" "'\\''" word :literal t)
 	    "'")))
 
+(defun bash-completion-escape (word)
+  (replace-regexp-in-string "\\([ '\"]\\)" "\\\\\\1" word))
+
 (defun bash-completion-split (start end pos)
   "Split LINE like bash would do, keep track of current word at POS.
 
@@ -100,6 +103,11 @@ at POS, the current word: ( (word1 word2 ...) . wordnum )"
       (cons (car accum) (nreverse (cdr accum))))))
 
 (defun bash-completion-split-0 (start end pos accum straccum)
+  (when (eq "" straccum)
+    (let ((local-start (point)))
+      (when (and (null (car accum)) (not (null pos)) (<= pos local-start))
+	(setcar accum (length (cdr accum)))
+	(setcdr accum (cons "" (cdr accum))))))
   (let ( (char-start (char-after))
 	 (quote nil) )
     (when (and char-start (or (= char-start ?') (= char-start ?\")))
@@ -109,9 +117,6 @@ at POS, the current word: ( (word1 word2 ...) . wordnum )"
 
 (defun bash-completion-split-1 (start end pos quote accum straccum)
   (let ((local-start (point)))
-    (when (and (null (car accum)) (not (null pos)) (<= pos local-start))
-      (setcar accum (length (cdr accum)))
-      (setcdr accum (cons "" (cdr accum))))
     (skip-chars-forward (bash-completion-nonsep quote) end)
     (setq straccum (concat straccum (buffer-substring-no-properties local-start (point)))))
   (cond
@@ -161,25 +166,28 @@ calls compgen.
 The result is a list of candidates, which might be empty."
   (bash-completion-send (concat (bash-completion-generate-line line pos words cword) " 2>/dev/null"))
   (let ((bash-completion-prefix (nth cword words)))
+    (message "prefix=>%s< words=%s cword=%s nth=%s" bash-completion-prefix words cword (nth 1 words))
     (mapcar 'bash-completion-fix 
 	    (with-current-buffer (bash-completion-buffer)
 	      (split-string (buffer-string) "\n" t)))))
 
 (defun bash-completion-fix (str)
   (bash-completion-addsuffix 
-   (cond
-    ((bash-completion-starts-with str bash-completion-prefix)
-     str)
-    ;; bash expands the home directory automatic. this is confusing
-    ;; for comint-dynamic-simple-complete
-    ((and (bash-completion-starts-with bash-completion-prefix "~")
-	  (bash-completion-starts-with str (expand-file-name "~")))
-     (concat "~" (substring str (length (expand-file-name "~")))))
-    ;; bash sometimes just prints whatever needs to be expanded,
-    ;; for example: "export PATH=<complete>". Prepend the old
-    ;; prefix to avoid confusing comint-dynamic-simple-complete
-    (t
-     (concat bash-completion-prefix str)))))
+   (let* ((rest (cond
+		((bash-completion-starts-with str bash-completion-prefix)
+		 (substring str (length bash-completion-prefix)))
+		;; bash expands the home directory automatic. this is confusing
+		;; for comint-dynamic-simple-complete
+		((and (bash-completion-starts-with bash-completion-prefix "~")
+		      (bash-completion-starts-with str (expand-file-name "~")))
+		 (substring (concat "~" (substring str (length (expand-file-name "~"))))
+			    (length bash-completion-prefix)))
+		;; bash sometimes just prints whatever needs to be expanded,
+		;; for example: "export PATH=<complete>". Prepend the old
+		;; prefix to avoid confusing comint-dynamic-simple-complete
+		(t str))))
+     (message "rest=>%s<, str=>%s< prefix=>%s<" rest str bash-completion-prefix)
+     (concat bash-completion-prefix (bash-completion-escape rest)))))
 
 (defun bash-completion-starts-with (str prefix)
   (let ((prefix-len (length prefix))
@@ -240,7 +248,7 @@ The result is a list of candidates, which might be empty."
 
 (defun bash-completion-generate-line (line pos words cword)
   (concat
-   (if default-directory (concat "cd " (bash-completion-quote (expand-file-name default-directory)) " ; ") "")
+   (if default-directory (concat "cd 2>/dev/null " (bash-completion-quote (expand-file-name default-directory)) " ; ") "")
    (let* ( (command-name (file-name-nondirectory (car words)))
 	   (compgen-args (cdr (assoc command-name bash-completion-alist))) )
      (if (not compgen-args)
