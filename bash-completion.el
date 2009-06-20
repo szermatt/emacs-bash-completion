@@ -166,7 +166,6 @@ calls compgen.
 The result is a list of candidates, which might be empty."
   (bash-completion-send (concat (bash-completion-generate-line line pos words cword) " 2>/dev/null"))
   (let ((bash-completion-prefix (nth cword words)))
-    (message "prefix=>%s< words=%s cword=%s nth=%s" bash-completion-prefix words cword (nth 1 words))
     (mapcar 'bash-completion-fix 
 	    (with-current-buffer (bash-completion-buffer)
 	      (split-string (buffer-string) "\n" t)))))
@@ -186,7 +185,6 @@ The result is a list of candidates, which might be empty."
 		;; for example: "export PATH=<complete>". Prepend the old
 		;; prefix to avoid confusing comint-dynamic-simple-complete
 		(t str))))
-     (message "rest=>%s<, str=>%s< prefix=>%s<" rest str bash-completion-prefix)
      (concat bash-completion-prefix (bash-completion-escape rest)))))
 
 (defun bash-completion-starts-with (str prefix)
@@ -197,8 +195,6 @@ The result is a list of candidates, which might be empty."
      (equal (substring str 0 prefix-len) prefix))))
 
 (defun bash-completion-addsuffix (str)
-  (message "file=%s, accessible=%s" (expand-file-name str default-directory)
-	   (file-accessible-directory-p (expand-file-name str default-directory)))
   (let ((end (substring str -1)))
     (if (and (not (eq end " "))
 	     (not (eq end "/"))
@@ -226,10 +222,8 @@ The result is a list of candidates, which might be empty."
 		   (startfile2 (concat "~/.emacs.d/init_" shell-name ".sh")))
 	      (cond
 	       ((file-exists-p startfile1)
-		(message "bash-completion: source %s" startfile1)
 		(process-send-string process (concat ". " startfile1 "\n")))
 	       ((file-exists-p startfile2)
-		(message "bash-completion: source %s" startfile2)
 		(process-send-string process (concat ". " startfile2 "\n")))))
 	    (bash-completion-send "PS1='\v'" process bash-completion-initial-timeout)
 	    (bash-completion-send "function __bash_complete_wrapper { eval $__BASH_COMPLETE_WRAPPER; }" process)
@@ -286,7 +280,7 @@ The result is a list of candidates, which might be empty."
   (and bash-completion-process (eq 'run (process-status bash-completion-process))))
 
 (defun bash-completion-send (commandline &optional process timeout)
-  (message commandline)
+  ;;(message commandline)
   (let ((process (or process (bash-completion-require-process)))
 	(timeout (or timeout bash-completion-process-timeout)))
     (with-current-buffer (process-buffer process)
