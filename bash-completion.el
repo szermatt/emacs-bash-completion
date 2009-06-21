@@ -10,7 +10,11 @@
 (defvar bash-completion-prog "bash"
   "Command-line to execute bash")
 
-(defvar bash-completion-process-timeout 2.5)
+(defvar bash-completion-process-timeout 2.5
+  "Timeout value to apply when waiting from an answer from the
+bash process. If bash takes longer than that to answer, the answer
+will be ignored.")
+
 (defvar bash-completion-initial-timeout 30
   "Timeout value to apply when talking to bash for the first time.
 The first thing bash is supposed to do is process /etc/bash_complete,
@@ -29,8 +33,15 @@ the following entry is added to `bash-completion-alist':
 See `bash-completion-add-to-alist'.
 ")
 
-(defconst bash-completion-wordbreaks-str "\"'@><=;|&(:")
-(defconst bash-completion-wordbreaks (append bash-completion-wordbreaks-str nil))
+(defconst bash-completion-wordbreaks-str "\"'@><=;|&(:"
+  "The equivalent of COMP_WORDBREAKS: special characters that are
+considered word breaks in some cases when doing completion.  This
+was introduced initially to support file completion in
+colon-separated values.")
+
+(defconst bash-completion-wordbreaks
+  (append bash-completion-wordbreaks-str nil)
+  "`bash-completion-wordbreaks-str' as a list of characters")
 
 (defun bash-completion-setup ()
   (add-hook 'shell-dynamic-complete-functions
@@ -50,20 +61,32 @@ Call bash to do the completion."
 	  (end (line-end-position))
 	  (parsed (bash-completion-parse-line start end pos))
 	  (line (cdr (assq 'line parsed)))
+	  (point (cdr (assq 'point parsed)))
 	  (cword (cdr (assq 'cword parsed)))
 	  (words (cdr (assq 'words parsed)))
 	  (stub (nth cword words))
+	  (completions (bash-completion-comm line point words cword))
 	  ;; Override configuration for comint-dynamic-simple-complete.
 	  ;; Bash adds a space suffix automatically.
 	  (comint-completion-addsuffix nil) )
-    (let ((completions (bash-completion-comm line (- pos start) words cword)))
-      (if completions
-	  (comint-dynamic-simple-complete stub completions)
-	;; try default completion after a wordbreak
-	(let ((after-wordbreak (bash-completion-after-last-wordbreak stub)))
-	  (when (not (equal stub after-wordbreak))
-	    (bash-completion-send (concat (bash-completion-cd-command-prefix) "compgen -o default -- " after-wordbreak))
-	    (comint-dynamic-simple-complete after-wordbreak (bash-completion-extract after-wordbreak))))))))
+    (if completions
+	(comint-dynamic-simple-complete stub completions)
+      ;; no standard completion
+      ;; try default (file) completion after a wordbreak
+      (bash-completion-dynamic-try-wordbreak-complete stub))))
+
+(defun bash-completion-dynamic-try-wordbreak-complete (stub)
+  (let* ((wordbreak-split (bash-completion-last-wordbreak-split stub))
+	 (before-wordbreak (car wordbreak-split))
+	 (after-wordbreak (cdr wordbreak-split)))
+    (when (car wordbreak-split)
+      (bash-completion-send (concat
+			     (bash-completion-cd-command-prefix)
+			     "compgen -o default -- "
+			     after-wordbreak))
+      (comint-dynamic-simple-complete
+       after-wordbreak
+       (bash-completion-extract after-wordbreak)))))
 
 (defun bash-completion-join (words)
   "Join WORDS into a shell line, escaped all words with single quotes"
@@ -116,6 +139,7 @@ Call bash to do the completion."
       (push "" strings))
     (list
      (cons 'line (buffer-substring-no-properties start (cdr (bash-completion-tokenize-get-range current))))
+     (cons 'point (- pos start))
      (cons 'cword cword)
      (cons 'words (nreverse strings)))))
 
@@ -234,7 +258,10 @@ Call bash to do the completion."
 (defconst bash-completion-nonsep-alist
   '((nil . "^ \t\n\r;&|'\"")
     (?' . "^ \t\n\r'")
-    (?\" . "^ \t\n\r\"")))
+    (?\" . "^ \t\n\r\""))
+  "Sets of non-breaking characters for all quoting
+environment (no quote, single quote and double quote).
+Get it using `bash-completion-nonsep'.")
 
 (defun bash-completion-nonsep (quote)
   (cdr (assq quote bash-completion-nonsep-alist)))
