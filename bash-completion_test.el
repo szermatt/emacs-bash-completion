@@ -108,6 +108,34 @@ cases. That's why they need to be enabled manually.")
        (bash-completion-split 1 (line-end-position) (point)))
       '(2 . ("a" "hello" "world" "b" "c")))
 
+     ("bash-completion-split-raw unescaped semicolon"
+      (sz-testutils-with-buffer
+       "to infinity;and\\ beyond"
+       (bash-completion-split-strings
+	(bash-completion-split-raw 1 (line-end-position))))
+      '("to" "infinity" ";" "and beyond"))
+
+     ("bash-completion-split-raw unescaped &&"
+      (sz-testutils-with-buffer
+       "to infinity&&and\\ beyond"
+       (bash-completion-split-strings
+	(bash-completion-split-raw 1 (line-end-position))))
+      '("to" "infinity" "&&" "and beyond"))
+
+     ("bash-completion-split-raw unescaped ||"
+      (sz-testutils-with-buffer
+       "to infinity||and\\ beyond"
+       (bash-completion-split-strings
+	(bash-completion-split-raw 1 (line-end-position))))
+      '("to" "infinity" "||" "and beyond"))
+
+     ("bash-completion-split-raw quoted ;&|"
+      (sz-testutils-with-buffer
+       "to \"infinity;&|and\" beyond"
+       (bash-completion-split-strings
+	(bash-completion-split-raw 1 (line-end-position))))
+      '("to" "infinity;&|and" "beyond"))
+
 ;;      ("bash-completion-split cursor at the beginning"
 ;;       (sz-testutils-with-buffer
 ;;        '(" " cursor " a hello world b c")
@@ -415,7 +443,7 @@ garbage
        (bash-completion-nonsep nil)
        (bash-completion-nonsep ?')
        (bash-completion-nonsep ?\"))
-      '("^ \t\n\r'\"" "^ \t\n\r'" "^ \t\n\r\""))
+      '("^ \t\n\r;&|'\"" "^ \t\n\r'" "^ \t\n\r\""))
 
 
      ("bash-completion-escape"

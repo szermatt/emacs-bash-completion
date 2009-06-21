@@ -107,9 +107,12 @@ at POS, the current word: ( (word1 word2 ...) . wordnum )"
   (bash-completion-split-postprocess
    (bash-completion-split-raw start end) start pos))
 
+(defun bash-completion-split-strings (accum)
+  (mapcar 'bash-completion-split-raw-get-str accum))
+
 (defun bash-completion-split-postprocess (accum start pos)
   (if (null pos)
-      (cons nil (mapcar 'bash-completion-split-raw-get-str accum))
+      (cons nil (bash-completion-split-strings accum))
     ;; find position
     (let ((index 0) (strings nil) (current nil) (accum-rest accum) (cword nil))
       (while accum-rest
@@ -134,11 +137,6 @@ at POS, the current word: ( (word1 word2 ...) . wordnum )"
 (defsubst bash-completion-split-raw-get-range (current)
   (cons (cdr (assq 'start current)) (cdr (assq 'end current))))
 
-(defsubst bash-completion-split-raw-set-start (current)
-  (let ((start-cons (assq 'start current)))
-    (when (null (cdr start-cons))
-      (setcdr start-cons (point)))))
-
 (defsubst bash-completion-split-raw-set-end (current)
   (setcdr (assq 'end current) (point)))
 
@@ -157,11 +155,12 @@ at POS, the current word: ( (word1 word2 ...) . wordnum )"
 (defun bash-completion-split-raw-new-element (end accum)
   (skip-chars-forward " \t\n\r" end)
   (if (< (point) end)
-      (bash-completion-split-raw-0 end accum (copy-alist '((str . "") (start . nil) (end . nil))))
+      (bash-completion-split-raw-0 end accum (list (cons 'str "")
+						   (cons 'start (point))
+						   (cons 'end nil)))
     accum))
 
 (defun bash-completion-split-raw-0 (end accum current)
-  (bash-completion-split-raw-set-start current)
   (let ( (char-start (char-after))
 	 (quote nil) )
     (when (and char-start (or (= char-start ?') (= char-start ?\")))
@@ -171,7 +170,8 @@ at POS, the current word: ( (word1 word2 ...) . wordnum )"
 
 (defun bash-completion-split-raw-1 (end quote accum current)
   (let ((local-start (point)))
-    (skip-chars-forward (bash-completion-nonsep quote) end)
+    (when (= (skip-chars-forward "[;&|]" end) 0)
+      (skip-chars-forward (bash-completion-nonsep quote) end))
     (bash-completion-split-raw-append-str
      current
      (buffer-substring-no-properties local-start (point))))
@@ -201,7 +201,7 @@ at POS, the current word: ( (word1 word2 ...) . wordnum )"
     (bash-completion-split-raw-new-element end accum))))
 
 (defconst bash-completion-nonsep-alist
-  '((nil . "^ \t\n\r'\"")
+  '((nil . "^ \t\n\r;&|'\"")
     (?' . "^ \t\n\r'")
     (?\" . "^ \t\n\r\"")))
 
