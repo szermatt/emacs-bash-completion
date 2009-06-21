@@ -158,22 +158,40 @@ functions adds single quotes around it and return the result. "
 	    "'")))
 
 (defun bash-completion-parse-line (start end pos)
+  "Parse a command line between START and END with POS as the cursor position.
+
+This function parse the portion of the current buffer between
+START and END as a BASH command-line and returns the variables
+compgen function expect in an association list.
+
+POS specifies the current cursor position and marks the word to
+be completed.
+
+Return an association list with the current symbol as keys:
+ line - the relevant command between START and END (string)
+ point - position of the cursor in line (number)
+ words - line split into words, unescaped (list of strings)
+ cword - 0-based index of the word to be completed in words (number)
+"
   (bash-completion-parse-line-postprocess
    (bash-completion-parse-current-command
     (bash-completion-tokenize start end) pos) pos))
 
-(defun bash-completion-strings-from-tokens (accum)
-  (mapcar 'bash-completion-tokenize-get-str accum))
+(defun bash-completion-parse-line-postprocess (tokens pos)
+  "Extract from TOKENS the data needed by compgen functions.
 
-(defun bash-completion-parse-line-postprocess (accum pos)
-  (let ((index 0) (strings nil) (current nil) (accum-rest accum) (cword nil)
+This function takes a list of TOKENS created by `bash-completion-tokenize'
+for the current buffer and generate the data needed by compgen functions
+as returned by `bash-completion-parse-line'.
+"
+  (let ((index 0) (strings nil) (token nil) (tokens-rest tokens) (cword nil)
 	(start (min pos
-		    (car (bash-completion-tokenize-get-range (car accum))))))
-    (while accum-rest
-      (setq current (car accum-rest))
-      (setq accum-rest (cdr accum-rest))
+		    (car (bash-completion-tokenize-get-range (car tokens))))))
+    (while tokens-rest
+      (setq token (car tokens-rest))
+      (setq tokens-rest (cdr tokens-rest))
       (unless cword
-	(let ((range (bash-completion-tokenize-get-range current)))
+	(let ((range (bash-completion-tokenize-get-range token)))
 	  (cond
 	   ((and (>= pos (car range))
 		 (<= pos (cdr range)))
@@ -181,26 +199,41 @@ functions adds single quotes around it and return the result. "
 	   ((< pos (car range))
 	    (setq cword index)
 	    (push "" strings)))))
-      (push (bash-completion-tokenize-get-str current) strings)
+      (push (bash-completion-tokenize-get-str token) strings)
       (setq index (1+ index)))
     (unless cword
       (setq cword index)
       (push "" strings))
     (list
-     (cons 'line (buffer-substring-no-properties start (cdr (bash-completion-tokenize-get-range current))))
+     (cons 'line (buffer-substring-no-properties start (cdr (bash-completion-tokenize-get-range token))))
      (cons 'point (- pos start))
      (cons 'cword cword)
      (cons 'words (nreverse strings)))))
 
-(defun bash-completion-parse-current-command (accum pos)
+(defun bash-completion-parse-current-command (tokens pos)
+  "Extract from TOKENS the tokens forming the current command at POS.
+
+This function takes a list of TOKENS created by
+`bash-completion-tokenize' for the current buffer and select the
+tokens on this list that form the current command given that to
+be completed is at POS.
+
+For example, given this stream of tokens:
+  cd /var/tmp && ls -l *.txt | sort -u
+if POS is on -l, it will select:
+  ls -l *.txt
+if POS is on /var/tmp, it will select:
+  cd /var/tmp
+
+Return a sublist of TOKENS."
   (nreverse (catch 'bash-completion-return
     (let ((command nil) (state 'initial))
-      (dolist (current accum)
-	(let* ((position (bash-completion-tokenize-range-check current pos))
-	       (string (bash-completion-tokenize-get-str current))
+      (dolist (token tokens)
+	(let* ((position (bash-completion-tokenize-range-check pos token))
+	       (string (bash-completion-tokenize-get-str token))
 	       (is-terminal
 		(and (member string '(";" "&" "|" "&&" "||"))
-		     (let ((range (bash-completion-tokenize-get-range current)))
+		     (let ((range (bash-completion-tokenize-get-range token)))
 		       (= (- (cdr range) (car range))
 			  (length string))))))
 	  (cond
@@ -215,21 +248,35 @@ functions adds single quotes around it and return the result. "
 	   ((and (eq state 'initial)
 		 (null (string-match "=" string)))
 	    (setq state 'args)
-	    (push current command))
+	    (push token command))
 
 	   ((and (eq state 'initial)
 		 (eq position 'after)))
 
 	   ((eq state 'initial)
-	    (push current command)
+	    (push token command)
 	    (throw 'bash-completion-return command))
 
 	   ((eq state 'args)
-	    (push current command)))))
+	    (push token command)))))
       command))))
 
-(defun bash-completion-tokenize-range-check (current pos)
-  (let ((range (bash-completion-tokenize-get-range current)))
+(defun bash-completion-strings-from-tokens (tokens)
+  "Extract the strings from TOKENS.
+
+This function takes all strings from TOKENS and retrun it as a
+list of strings.
+
+TOKENS should be in the format returned by `bash-completion-tokenize'."
+  (mapcar 'bash-completion-tokenize-get-str tokens))
+
+(defun bash-completion-tokenize-range-check (pos token)
+  "Describes where POS is in relation to TOKEN.
+
+If POS comes before TOKEN, return 'before.
+If POS comes after TOKEN, return 'after.
+If POS is inside TOKEN or just after it, return 'contains."
+  (let ((range (bash-completion-tokenize-get-range token)))
     (cond
      ((< pos (car range))
       'before)
@@ -241,68 +288,150 @@ functions adds single quotes around it and return the result. "
      ((> pos (cdr range))
       'after))))
 
-(defsubst bash-completion-tokenize-get-range (current)
-  (cdr current))
+(defsubst bash-completion-tokenize-get-range (token)
+  "Return the TOKEN range as a cons: (start . end)."
+  (cdr token))
 
-(defsubst bash-completion-tokenize-set-end (current)
-  (setcdr (cdr current) (point)))
+(defsubst bash-completion-tokenize-set-end (token)
+  "Sets the end position of TOKEN to the cursor position."
+  (setcdr (cdr token) (point)))
 
-(defsubst bash-completion-tokenize-append-str (current str)
-  (setcar current (concat (car current) str)))
+(defsubst bash-completion-tokenize-append-str (token str)
+  "Append to TOKEN the string STR."
+  (setcar token (concat (car token) str)))
 
-(defsubst bash-completion-tokenize-get-str (current)
-  (car current))
+(defsubst bash-completion-tokenize-get-str (token)
+  "Return the TOKEN string."
+  (car token))
 
 (defun bash-completion-tokenize (start end)
+  "Tokenize the portion of the current buffer between START and END.
+
+This function splits a BASH command line into tokens. It knows
+about quotes, escape characters and special command separators such
+as ;, | and &&.
+
+This method returns a list of tokens found between START and END,
+ordered by position. Tokens contain a string and a range.
+
+The string in a token is an unescaped version of the token. For
+example, if the token is 'hello world', the string contains
+\"hello world\", without the quotes. It can be accessed using
+`bash-completion-tokenize-get-str'.  It can be modified using
+`bash-completion-tokenize-append-str'.
+
+The range is a cons containing the start and end position of the
+token (start . end). Start is the position of the first character
+that belongs to the token. End is the position of the first
+character that doesn't belong to the token. For example in the
+string \" hello world \", the first token range is (2 . 7) and
+the second token range (9 . 14). It can be accessed using
+`bash-completion-tokenize-get-range' and
+`bash-completion-tokenize-range-check'. The end position can be
+set using `bash-completion-tokenize-set-end'.
+
+Tokens should always be accessed using the functions specified above,
+never directly as they're likely to change as this code evolves.
+The current format of a token is '(string . (start . end)).
+"
   (save-excursion
     (goto-char start)
     (nreverse (bash-completion-tokenize-new-element end nil))))
 
-(defun bash-completion-tokenize-new-element (end accum)
+(defun bash-completion-tokenize-new-element (end tokens)
+  "Tokenize the rest of the line until END and complete TOKENS.
+
+This function is meant to be called exclusively from
+`bash-completion-tokenize' and `bash-completion-tokenize-0'.
+
+This function expect the point to be at the start of a new
+element to be added to the list of tokens.
+
+Return TOKENS with new tokens found betwen the current point and
+END prepended to it."
   (skip-chars-forward " \t\n\r" end)
   (if (< (point) end)
-      (bash-completion-tokenize-0 end accum (list "" (point)))
-    accum))
+      (bash-completion-tokenize-0 end tokens (list "" (point)))
+    tokens))
 
-(defun bash-completion-tokenize-0 (end accum current)
+(defun bash-completion-tokenize-0 (end tokens token)
+  "Tokenize the rest of the token until END and add it into TOKENS.
+
+This function is meant to be called exclusively from
+`bash-completion-tokenize-new-element'.
+
+This function expect the point to be at the start of a new token
+section, either at the start of the token or just after a quote
+has been closed in the token. It detects new opening quotes and
+calls `bash-completion-tokenize-1'.
+
+END specifies the point at which tokenization should stop.
+
+TOKENS is the list of tokens built so farin reverse order.
+
+TOKEN is the token currently being built.
+
+Return TOKENS with new tokens prepended to it."
   (let ( (char-start (char-after))
 	 (quote nil) )
     (when (and char-start (or (= char-start ?') (= char-start ?\")))
       (forward-char)
       (setq quote char-start))
-    (bash-completion-tokenize-1 end quote accum current)))
+    (bash-completion-tokenize-1 end quote tokens token)))
 
-(defun bash-completion-tokenize-1 (end quote accum current)
+(defun bash-completion-tokenize-1 (end quote tokens token)
+  "Tokenize the rest of the token.
+
+This function is meant to be called exclusively from
+`bash-completion-tokenize-0'.
+
+This function tokenize the rest of the token and either call
+itself and `bash-completion-tokenize-0' recursively or append the
+token to the list of token and call
+`bash-completion-tokenize-new-element' to look for the next
+token.
+
+END specifies the point at which tokenization should stop.
+
+QUOTE specifies the current quote. It should be nil ?' or ?\"
+
+TOKENS is the list of tokens built so farin reverse order.
+
+TOKEN is the token currently being built.
+
+Return TOKENS with new tokens prepended to it."
+  ;; parse the token elements at the current position and
+  ;; append them
   (let ((local-start (point)))
     (when (= (skip-chars-forward "[;&|]" end) 0)
       (skip-chars-forward (bash-completion-nonsep quote) end))
     (bash-completion-tokenize-append-str
-     current
+     token
      (buffer-substring-no-properties local-start (point))))
   (cond
    ;; an escaped char, skip, whatever it is
    ((and (char-before) (= ?\\ (char-before)))
     (forward-char)
-    (let ((straccum (bash-completion-tokenize-get-str current)))
-      (aset straccum (1- (length straccum)) (char-before)))
-    (bash-completion-tokenize-1 end quote accum current))
+    (let ((str (bash-completion-tokenize-get-str token)))
+      (aset str (1- (length str)) (char-before)))
+    (bash-completion-tokenize-1 end quote tokens token))
    ;; opening quote
    ((and (not quote) (char-after) (or (= ?' (char-after)) (= ?\" (char-after))))
-    (bash-completion-tokenize-0 end accum current))
+    (bash-completion-tokenize-0 end tokens token))
    ;; closing quote
    ((and quote (char-after) (= quote (char-after)))
     (forward-char)
-    (bash-completion-tokenize-0 end accum current))
+    (bash-completion-tokenize-0 end tokens token))
    ;; space inside a quote
    ((and quote (char-after) (not (= quote (char-after))))
     (forward-char)
-    (bash-completion-tokenize-append-str current (char-to-string (char-before)))
-    (bash-completion-tokenize-1 end quote accum current))
+    (bash-completion-tokenize-append-str token (char-to-string (char-before)))
+    (bash-completion-tokenize-1 end quote tokens token))
    ;; word end
    (t
-    (bash-completion-tokenize-set-end current)
-    (push current accum)
-    (bash-completion-tokenize-new-element end accum))))
+    (bash-completion-tokenize-set-end token)
+    (push token tokens)
+    (bash-completion-tokenize-new-element end tokens))))
 
 (defconst bash-completion-nonsep-alist
   '((nil . "^ \t\n\r;&|'\"")
