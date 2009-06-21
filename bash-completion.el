@@ -407,29 +407,38 @@ The result is a list of candidates, which might be empty."
   (concat
    (bash-completion-cd-command-prefix)
    (let* ( (command-name (file-name-nondirectory (car words)))
-	   (compgen-args (cdr (assoc command-name bash-completion-alist))) )
-     (if (not compgen-args)
-	 ;; no custom completion. use default completion
-	 (if (= cword 0)
-	     ;; a command. let emacs expand executable, let bash
-	     ;; expand builtins, aliases and functions
-	     (concat (bash-completion-join (list "compgen" "-S" " " "-b" "-a" "-A" "function" (car words))))
-	   ;; argument
-	   (bash-completion-join (list "compgen" "-o" "default" (nth cword words))))
-       ;; custom completion
+	   (compgen-args (cdr (assoc command-name bash-completion-alist)))
+	   (stub (nth cword words)) )
+     (cond
+      ((= cword 0)
+       ;; a command. let emacs expand executable, let bash
+       ;; expand builtins, aliases and functions
+       (concat "compgen -S ' ' -b -a -A function " stub))
+
+      ((not compgen-args)
+       ;; no completion configured for this command
+       (bash-completion-join (list "compgen" "-o" "default" stub)))
+
+      ((or (member "-F" compgen-args) (member "-C" compgen-args))
+       ;; custom completion with a function of command
        (let* ( (args (copy-tree compgen-args))
-	       (function (or (member "-F" args) (member "-C" args))) )
-	 (if function
-	     (let ((function-name (car (cdr function))))
-	       (setcar function "-F")
-	       (setcar (cdr function) "__bash_complete_wrapper")
-	       (format "__BASH_COMPLETE_WRAPPER=%s compgen %s -- %s"
-		       (bash-completion-quote (format "COMP_LINE=%s; COMP_POINT=%s; COMP_CWORD=%s; COMP_WORDS=( %s ); %s \"${COMP_WORDS[@]}\""
-						    (bash-completion-quote line) pos cword (bash-completion-join words)
-						    (bash-completion-quote function-name)))
-		       (bash-completion-join args)
-		       (bash-completion-quote (nth cword words))))
-	   (format "compgen %s -- %s" (bash-completion-join args) (nth cword words))))))))
+	       (function (or (member "-F" args) (member "-C" args)))
+	       (function-name (car (cdr function))) )
+	 (setcar function "-F")
+	 (setcar (cdr function) "__bash_complete_wrapper")
+	 (format "__BASH_COMPLETE_WRAPPER=%s compgen %s -- %s"
+		 (bash-completion-quote
+		  (format "COMP_LINE=%s; COMP_POINT=%s; COMP_CWORD=%s; COMP_WORDS=( %s ); %s \"${COMP_WORDS[@]}\""
+			  (bash-completion-quote line)
+			  pos
+			  cword
+			  (bash-completion-join words)
+			  (bash-completion-quote function-name)))
+		 (bash-completion-join args)
+		 (bash-completion-quote stub))))
+      (t
+       ;; simple custom completion
+       (format "compgen %s -- %s" (bash-completion-join compgen-args) stub))))))
 
 (defun bash-completion-reset ()
   (interactive)
