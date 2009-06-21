@@ -541,6 +541,22 @@ Return a possibly escaped version of COMPLETION-CANDIDATE."
       completion-candidate
     (replace-regexp-in-string "\\([ '\"]\\)" "\\\\\\1" completion-candidate)))
 
+(defconst bash-completion-known-suffixes-regexp
+  (concat "[" (regexp-quote bash-completion-wordbreaks-str) "/ ]$")
+  "Regexp matching known suffixes for `bash-completion-addsuffix'.")
+
+(defun bash-completion-addsuffix (str)
+  "Add a directory suffix to STR if it looks like a directory.
+
+This function looks for a directory called STR relative to the
+buffer-local variable default-directory. If it exists, it returns
+(concat STR \"/\"). Otherwise it retruns STR.
+"
+  (if (and (null (string-match bash-completion-known-suffixes-regexp str))
+	   (file-accessible-directory-p (expand-file-name str default-directory)))
+	(concat str "/")
+    str))
+
 (defun bash-completion-before-last-wordbreak (str)
   "Return the part of STR that comes after the last wordbreak character.
 The return value does not include the worbreak character itself.
@@ -580,6 +596,7 @@ Return a CONS containing (before . after)."
       (cons "" str)))
 
 (defun bash-completion-ends-with (str suffix)
+  "Return t if STR ends with SUFFIX."
   (let ((suffix-len (length suffix))
 	(str-len (length str)))
     (or
@@ -589,20 +606,35 @@ Return a CONS containing (before . after)."
       (equal (substring str (- suffix-len)) suffix)))))
 
 (defun bash-completion-starts-with (str prefix)
+  "Return t if STR starts with SUFFIX."
   (let ((prefix-len (length prefix))
 	(str-len (length str)))
     (and
      (>= str-len prefix-len)
      (equal (substring str 0 prefix-len) prefix))))
 
-(defun bash-completion-addsuffix (str)
-  (if (and (null (string-match (concat "[" (regexp-quote bash-completion-wordbreaks-str) "/ ]$") str))
-	   (file-accessible-directory-p (expand-file-name str default-directory)))
-      (progn
-	(concat str "/"))
-    str))
-
 (defun bash-completion-require-process ()
+  "Return the bash completion process, start it if necessary.
+
+If a bash completion process is already running, return it.
+
+Otherwise, create a bash completion process and return the
+result. This can take a since bash needs to start completely
+before this function returns to be sure everything has been
+initialized correctly.
+
+The process uses `bash-completion-prog' to figure out the path to
+bash on the current system.
+
+To get an environment consistent with shells started with `shell',
+the first file found in the following list are sourced if they exist:
+ ~/.emacs_bash.sh (actually ~/.emacs_$(basename bash-completion-prog).sh)
+ ~/.emacs.d/init_bash.sh (actually ~/.emacs.d/init_$(basename bash-completion-prog).sh)
+
+To allow scripts to tell the difference between shells launched
+by bash-completion, the environment variable EMACS_BASH_COMPLETE
+is set to t.
+"
   (if (bash-completion-is-running)
       bash-completion-process
     ;; start process
@@ -650,11 +682,36 @@ Return a CONS containing (before . after)."
 	      (error nil))))))))
 
 (defun bash-completion-cd-command-prefix ()
+  "Build a command-line that CD to default-directory.
+
+Return a bash command-line for going to default-directory or \"\"."
   (if default-directory
-      (concat "cd 2>/dev/null " (bash-completion-quote (expand-file-name default-directory)) " ; ")
+      (concat "cd 2>/dev/null "
+	      (bash-completion-quote (expand-file-name default-directory))
+	      " ; ")
     ""))
 
 (defun bash-completion-generate-line (line pos words cword)
+  "Generate a command-line that calls compgen.
+
+This function looks into `bash-completion-alist' for a matching compgen
+argument set. If it finds one, it executes it. Otherwise, it executes the
+default bash completion (compgen -o default)
+
+LINE is the command-line to complete.
+POS is the position of the cursor on LINE
+WORDS is the content of LINE split by words and unescaped
+CWORD is the word 0-based index of the word to complete in WORDS
+
+If the compgen argument set specifies a custom function or command, the
+arguments will be passed to this function or command as:
+ COMP_LINE, taken from LINE
+ COMP_POINT, taken from POS
+ COMP_WORDS, taken from WORDS (a bash array)
+ COMP_CWORD, taken for CWORD
+
+Return a bash command-line that calls compgen to get the completion
+candidates."
   (concat
    (bash-completion-cd-command-prefix)
    (let* ( (command-name (file-name-nondirectory (car words)))
@@ -691,12 +748,23 @@ Return a CONS containing (before . after)."
        ;; simple custom completion
        (format "compgen %s -- %s" (bash-completion-join compgen-args) stub))))))
 
+;;;###autoload
 (defun bash-completion-reset ()
+  "Force the next completion command to start with a fresh BASH process.
+
+This function kills any existing BASH completion process. This way, the
+next time BASH completion is requested, a new process will be created with
+the latest configuration.
+
+Call this method if you have updated your .bashrc or any bash init scripts
+and would like bash completion in emacs to take these changes into account.
+"
   (interactive)
   (bash-completion-kill bash-completion-process)
   (setq bash-completion-process nil))
 
 (defun bash-completion-kill (process)
+  "Kill PROCESS and its buffer."
   (when process
     (when (eq 'run (process-status process))
       (kill-process process))
@@ -705,12 +773,26 @@ Return a CONS containing (before . after)."
 	(kill-buffer buffer)))))
 
 (defun bash-completion-buffer ()
+  "Return the buffer of the BASH process, create the BASH process if necessary."
   (process-buffer (bash-completion-require-process)))
 
 (defun bash-completion-is-running ()
+  "Check whether the bash completion process is running."
   (and bash-completion-process (eq 'run (process-status bash-completion-process))))
 
 (defun bash-completion-send (commandline &optional process timeout)
+  "Send a command to the bash completion process.
+
+COMMANDLINE should be a bash command, without the final newline.
+
+PROCESS should be the bash process, if nil this function calls
+`bash-completion-require-process' which might start a new process.
+
+TIMEOUT is the timeout value for this operation, if nil the value of
+bash-completion-process-timeout is used.
+
+Once this command has run without errors, you will find the result
+of the command in the bash completion process buffer."
   ;;(message commandline)
   (let ((process (or process (bash-completion-require-process)))
 	(timeout (or timeout bash-completion-process-timeout)))
@@ -729,7 +811,8 @@ Return a CONS containing (before . after)."
 BUFFER should contains the output of:
   complete -p
 
-Return `bash-completion-alist'."
+Return `bash-completion-alist', which is slightly parsed version
+of the output of \"complete -p\"."
   (with-current-buffer buffer
     (save-excursion
       (setq bash-completion-alist nil)
