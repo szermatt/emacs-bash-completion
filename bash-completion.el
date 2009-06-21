@@ -688,10 +688,11 @@ is set to t."
   (if (bash-completion-is-running)
       bash-completion-process
     ;; start process
-    (let ((process))
+    (let ((process) (oldterm (getenv "TERM")))
       (unwind-protect
 	  (progn
 	    (setenv "EMACS_BASH_COMPLETE" "t")
+	    (setenv "TERM" "dumb")
 	    (setq process
 		  (start-process
 		   "*bash-completion*"
@@ -726,6 +727,7 @@ is set to t."
 	;; finally
 	(progn
 	  (setenv "EMACS_BASH_COMPLETE" nil)
+	  (setenv "TERM" oldterm)
 	  (when process
 	    (condition-case err
 		(bash-completion-kill process)

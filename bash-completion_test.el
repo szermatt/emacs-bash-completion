@@ -1,7 +1,7 @@
 ;;; bash-completion_test.el --- Tests bash-completion.el
 
 
-;;; Commentary:
+:;;; Commentary:
 ;;
 ;; This file defines `bash-completion-regress' and run the
 ;; regression tests if and only if regress is already imported.
