@@ -2,13 +2,25 @@
 
 
 ;;; Commentary:
-;; 
-;;if [[ ( -z "$INSIDE_EMACS" || "$EMACS_BASH_COMPLETE" = "t" ) && -f /etc/bash_c;;ompletion ]]; then
-;;  echo -n "BASH completion..."
-;;  . /etc/bash_completion
-;;  echo "ON"
-;;fi
-
+;;
+;; TODO(szermatt)
+;;
+;; .bashrc:
+;; if [[ ( -z "$INSIDE_EMACS" || "$EMACS_BASH_COMPLETE" = "t" ) &&\
+;;      -f /etc/bash_completion ]]; then
+;;   . /etc/bash_completion
+;; fi
+;;
+;; .emacs:
+;; (autoload 'bash-completion-dynamic-complete \"bash-completion\"
+;;   \"BASH completion hook\")
+;; (add-hook 'shell-dynamic-complete-functions
+;; 	  'bash-completion-dynamic-complete)
+;; (add-hook 'shell-command-complete-functions
+;; 	  'bash-completion-dynamic-complete))
+;;
+;; Interactive command:
+;; 'bash-completion-reset`
 
 ;;; History:
 ;;
@@ -18,7 +30,7 @@
 ;;; Code:
 
 
-;;; ---------- Customization 
+;;; ---------- Customization
 (defgroup bash-completion nil
   "BASH configurable command-line completion "
   :group 'shell
@@ -60,7 +72,7 @@ which typically takes a long time."
   :type '(float)
   :group 'bash-completion)
 
-;;; ---------- Internal variables and constants 
+;;; ---------- Internal variables and constants
 
 (defvar bash-completion-process nil
   "Bash process object.")
@@ -99,7 +111,13 @@ This function is convenient, but it might not be the best way of enabling
 bash completion in your .emacs file because it forces you to load the module
 before it is needed. For an autoload version, add:
 
-TODO"
+(autoload 'bash-completion-dynamic-complete \"bash-completion\"
+  \"BASH completion hook\")
+(add-hook 'shell-dynamic-complete-functions
+	  'bash-completion-dynamic-complete)
+(add-hook 'shell-command-complete-functions
+	  'bash-completion-dynamic-complete))
+"
   (add-hook 'shell-dynamic-complete-functions
 	    'bash-completion-dynamic-complete)
   (add-hook 'shell-command-complete-functions
