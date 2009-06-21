@@ -520,6 +520,9 @@ up the completion environment (COMP_LINE, COMP_POINT, COMP_WORDS,
 COMP_CWORD) and calls compgen.
 
 The result is a list of candidates, which might be empty."
+  ;; start process now, to make sure bash-completion-alist is
+  ;; set before we run bash-completion-generate-line
+  (bash-completion-require-process)
   (bash-completion-send
    (concat
     (bash-completion-generate-line line pos words cword)
