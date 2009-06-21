@@ -135,17 +135,16 @@ at POS, the current word: ( (word1 word2 ...) . wordnum )"
       (cons cword (nreverse strings)))))
 
 (defsubst bash-completion-split-raw-get-range (current)
-  (cons (cdr (assq 'start current)) (cdr (assq 'end current))))
+  (cdr current))
 
 (defsubst bash-completion-split-raw-set-end (current)
-  (setcdr (assq 'end current) (point)))
+  (setcdr (cdr current) (point)))
 
 (defsubst bash-completion-split-raw-append-str (current str)
-  (let* ((str-cons (assq 'str current)) (straccum (cdr str-cons)))
-    (setcdr str-cons (concat straccum str))))
+  (setcar current (concat (car current) str)))
 
 (defsubst bash-completion-split-raw-get-str (current)
-  (cdr (assq 'str current)))
+  (car current))
 
 (defun bash-completion-split-raw (start end)
   (save-excursion
@@ -155,9 +154,7 @@ at POS, the current word: ( (word1 word2 ...) . wordnum )"
 (defun bash-completion-split-raw-new-element (end accum)
   (skip-chars-forward " \t\n\r" end)
   (if (< (point) end)
-      (bash-completion-split-raw-0 end accum (list (cons 'str "")
-						   (cons 'start (point))
-						   (cons 'end nil)))
+      (bash-completion-split-raw-0 end accum (list "" (point)))
     accum))
 
 (defun bash-completion-split-raw-0 (end accum current)
