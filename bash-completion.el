@@ -577,6 +577,12 @@ for directory name detection to work."
 			 (bash-completion-starts-with str (expand-file-name "~")))
 		    (substring (concat "~" (substring str (length (expand-file-name "~"))))
 			       (length prefix)))
+		   ((bash-completion-starts-with prefix str)
+		    ;; completion is a substring of prefix something's
+		    ;; gone wrong. Treat it as one (useless)
+		    ;; candidate.
+		    (setq prefix "")
+		    (setq rest str))
 		   ;; completion sometimes only applies to the last word, as
 		   ;; defined by COMP_WORDBREAKS. This detects and works around
 		   ;; this feature.
