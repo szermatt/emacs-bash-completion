@@ -262,7 +262,7 @@ The result is a list of candidates, which might be empty."
 		   "*bash-completion*"
 		   (generate-new-buffer-name " bash-completion")
 		   bash-completion-prog
-		   "--noediting"))
+		   "--noediting" "+O" "mailwarn"))
 	    (set-process-query-on-exit-flag process nil)
 	    (let* ((shell-name (file-name-nondirectory bash-completion-prog))
 		   (startfile1 (concat "~/.emacs_" shell-name ".sh"))
