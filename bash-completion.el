@@ -80,9 +80,16 @@ colon-separated values.")
 
 ;;;###autoload
 (defun bash-completion-dynamic-complete ()
-  "Bash completion function for `comint-complete-dynamic-functions'.
+  "Complete word at cursor using BASH completion.
 
-Call bash to do the completion."
+This function is meant to be added into
+`shell-dynamic-complete-functions' or
+`shell-command-complete-functions'. It uses `comint' to figure
+out what the current command is and calls
+`comint-dynamic-simple-complete' to do the completion.
+
+If a match was found, it is displayed as is usual for comint
+completion.  Return nil if no match was found."
   (when bash-completion-enabled
     (when (not (window-minibuffer-p))
       (message "Bash completion..."))
@@ -106,6 +113,13 @@ Call bash to do the completion."
 	(bash-completion-dynamic-try-wordbreak-complete stub)))))
 
 (defun bash-completion-dynamic-try-wordbreak-complete (stub)
+  "Try wordbreak completion on STUB if the complete completion failed.
+
+Split STUB using the wordbreak list and apply compgen default
+completion on the last part. Return non-nil if a match was found.
+
+This function is not meant to be called outside of
+`bash-completion-dynamic-complete'."
   (let* ((wordbreak-split (bash-completion-last-wordbreak-split stub))
 	 (before-wordbreak (car wordbreak-split))
 	 (after-wordbreak (cdr wordbreak-split)))
@@ -119,7 +133,13 @@ Call bash to do the completion."
        (bash-completion-extract after-wordbreak)))))
 
 (defun bash-completion-join (words)
-  "Join WORDS into a shell line, escaped all words with single quotes"
+  "Join WORDS into a shell command line.
+
+All words that contain even mildly suspicious characters are
+quoted using single quotes to avoid the shell interpreting them
+when it shouldn't.
+
+Return one string containing WORDS."
   (if words
       (mapconcat
        'bash-completion-quote
@@ -127,16 +147,15 @@ Call bash to do the completion."
     ""))
 
 (defun bash-completion-quote (word)
+  "Put single quotes around WORD unless it's crearly unnecessary.
+
+If WORD contains characters that aren't known to be harmless, this
+functions adds single quotes around it and return the result. "
   (if (string-match "^[a-zA-Z0-9_./-]*$" word)
       word
     (concat "'"
 	    (replace-regexp-in-string "'" "'\\''" word :literal t)
 	    "'")))
-
-(defun bash-completion-escape (word)
-  (if (string-match "^['\"]" word)
-      word
-    (replace-regexp-in-string "\\([ '\"]\\)" "\\\\\\1" word)))
 
 (defun bash-completion-parse-line (start end pos)
   (bash-completion-parse-line-postprocess
@@ -341,7 +360,19 @@ The result is a list of candidates, which might be empty."
        (when (bash-completion-ends-with rest " ")
 	 (setq rest (substring rest 0 -1))
 	 (setq suffix " "))
-       (concat prefix (bash-completion-escape rest) suffix)))))
+       (concat prefix (bash-completion-escape-candidate rest) suffix)))))
+
+(defun bash-completion-escape-candidate (completion-candidate)
+  "Escapes COMPLETION-CANDIDATE.
+
+This function escapes all special characters in the result of
+bash completion. It does nothing if COMPLETION-CANDIDATE looks
+like a quoted string.
+
+Return a possibly escaped version of COMPLETION-CANDIDATE."
+  (if (string-match "^['\"]" completion-candidate)
+      completion-candidate
+    (replace-regexp-in-string "\\([ '\"]\\)" "\\\\\\1" completion-candidate)))
 
 (defun bash-completion-before-last-wordbreak (str)
   (car (bash-completion-last-wordbreak-split str)))
