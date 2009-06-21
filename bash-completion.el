@@ -130,7 +130,7 @@ This function is not meant to be called outside of
 			     after-wordbreak))
       (comint-dynamic-simple-complete
        after-wordbreak
-       (bash-completion-extract after-wordbreak)))))
+       (bash-completion-extract-candidates after-wordbreak)))))
 
 (defun bash-completion-join (words)
   "Join WORDS into a shell command line.
@@ -442,26 +442,64 @@ environment (no quote, single quote and double quote).
 Get it using `bash-completion-nonsep'.")
 
 (defun bash-completion-nonsep (quote)
+  "Return the set of non-breaking characters when QUOTE is the current quote.
+
+QUOTE should be nil, ?' or ?\"."
   (cdr (assq quote bash-completion-nonsep-alist)))
 
 (defun bash-completion-comm (line pos words cword)
-  "Set LINE, POS, WORDS and CWORD, call bash completion, return the result.
+  "Set LINE, POS, WORDS and CWORD, call compgen, return the result.
 
-This function starts a separate bash process if necessary, sets up the
-completion environment (COMP_LINE, COMP_POINT, COMP_WORDS, COMP_CWORD) and
-calls compgen.
+This function starts a separate bash process if necessary, sets
+up the completion environment (COMP_LINE, COMP_POINT, COMP_WORDS,
+COMP_CWORD) and calls compgen.
 
 The result is a list of candidates, which might be empty."
-  (bash-completion-send (concat (bash-completion-generate-line line pos words cword) " 2>/dev/null"))
-  (bash-completion-extract (nth cword words)))
+  (bash-completion-send
+   (concat
+    (bash-completion-generate-line line pos words cword)
+    " 2>/dev/null"))
+  (bash-completion-extract-candidates (nth cword words)))
 
-(defun bash-completion-extract (stub)
+(defun bash-completion-extract-candidates (stub)
+  "Extract the completion candidates from the process buffer for STUB.
+
+This command takes the content of the completion process buffer, split
+it by newlines, post-process the candidates and returns them as a list
+of strings.
+
+It should be invoked with the comint buffer as the current buffer
+for directory name detection to work.
+
+Post-processing includes escaping special characters, adding a /
+to directory names, merging STUB with the result. See `bash-completion-fix'
+for more details.
+"
   (let ((bash-completion-prefix stub))
     (mapcar 'bash-completion-fix
 	    (with-current-buffer (bash-completion-buffer)
 	      (split-string (buffer-string) "\n" t)))))
 
 (defun bash-completion-fix (str &optional prefix)
+  "Fix completion candidate in STR if PREFIX is the current prefix.
+
+STR is the completion candidate to modify.
+
+PREFIX should be the current string being completed. If it is
+nil, the value of `bash-completion-prefix' is used. This allows
+calling this function from `mapcar'.
+
+Return a modified version of the completion candidate.
+
+Modification include:
+ - escaping of special characters in STR
+ - prepending PREFIX if STR does not contain all of it, when
+   completion was done after a wordbreak
+ - adding / to recognized directory names
+
+It should be invoked with the comint buffer as the current buffer
+for directory name detection to work."
+
   (let ((prefix (or prefix bash-completion-prefix))
 	(suffix ""))
     (bash-completion-addsuffix
@@ -504,12 +542,35 @@ Return a possibly escaped version of COMPLETION-CANDIDATE."
     (replace-regexp-in-string "\\([ '\"]\\)" "\\\\\\1" completion-candidate)))
 
 (defun bash-completion-before-last-wordbreak (str)
+  "Return the part of STR that comes after the last wordbreak character.
+The return value does not include the worbreak character itself.
+
+If no wordbreak was found, it returns STR.
+
+Wordbreaks characters are defined in 'bash-completion-wordbreak'."
   (car (bash-completion-last-wordbreak-split str)))
 
 (defun bash-completion-after-last-wordbreak (str)
+  "Return the part of STR that comes before the last wordbreak character.
+The return value includes the worbreak character itself.
+
+If no wordbreak was found, it returns \"\".
+
+Wordbreaks characters are defined in 'bash-completion-wordbreak'."
   (cdr (bash-completion-last-wordbreak-split str)))
 
 (defun bash-completion-last-wordbreak-split (str)
+  "Split STR into two parts: before the last wordbreak character and after.
+
+The part before the last wordbreak character includes the wordbreak character
+itself. It is \"\" if no wordbreak character was found.
+
+The part after the last  wordbreak character does not include the wordbreak character.
+It is STR if no wordbreak character was found.
+
+Wordbreaks characters are defined in 'bash-completion-wordbreak'.
+
+Return a CONS containing (before . after)."
   (catch 'bash-completion-return
     (let ((end (- (length str) 1)))
       (while (> end 0)
