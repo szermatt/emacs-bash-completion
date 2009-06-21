@@ -260,7 +260,7 @@ The result is a list of candidates, which might be empty."
 	    (setq process
 		  (start-process
 		   "*bash-completion*"
-		   "*bash-completion*"
+		   (generate-new-buffer-name " bash-completion")
 		   bash-completion-prog
 		   "--noediting"))
 	    (set-process-query-on-exit-flag process nil)
@@ -289,7 +289,7 @@ The result is a list of candidates, which might be empty."
 	  (setenv "EMACS_BASH_COMPLETE" nil)
 	  (when process
 	    (condition-case err
-		(kill-process process)
+		(bash-completion-kill process)
 	      (error nil))))))))
 
 (defun bash-completion-cd-command-prefix ()
@@ -326,9 +326,16 @@ The result is a list of candidates, which might be empty."
 
 (defun bash-completion-reset ()
   (interactive)
-  (when (bash-completion-is-running)
-    (kill-process bash-completion-process))
+  (bash-completion-kill bash-completion-process)
   (setq bash-completion-process nil))
+
+(defun bash-completion-kill (process)
+  (when process
+    (when (eq 'run (process-status process))
+      (kill-process process))
+    (let ((buffer (process-buffer process)))
+      (when (buffer-live-p buffer)
+	(kill-buffer buffer)))))
 
 (defun bash-completion-buffer ()
   (process-buffer (bash-completion-require-process)))

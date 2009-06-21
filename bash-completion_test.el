@@ -446,34 +446,43 @@ garbage
      ))
 
   ;; ---------- integration tests
+
+  (defmacro bash-completion_test-harness (&rest body)
+    `(let ((bash-completion-process nil) (bash-completion-alist nil))
+      (unwind-protect
+	  (progn ,@body)
+	;; tearDown
+	(condition-case err
+	    (when bash-completion-process
+	      (let ((buffer (process-buffer bash-completion-process)))
+		(kill-process bash-completion-process)
+		(kill-buffer buffer)))
+	  (error (message "error in bash-completion_test tearDown: %s" err))))))
+
   (put 'bash-completion-regress-integration 'regression-suite t)
   (setq bash-completion-regress-integration '(
        ("bash-completion interaction"
-	(let ((bash-completion-process nil)
-	      (bash-completion-alist nil))
-	  (list
-	   (bash-completion-is-running)
-	   (buffer-live-p (bash-completion-buffer))
-	   (bash-completion-is-running)
-	   (bash-completion-comm "hel" 4 '("hel") 0)
-	   (progn
-	     (bash-completion-send "echo $EMACS_BASH_COMPLETE")
-	     (with-current-buffer (bash-completion-buffer)
-	       (buffer-string)))
-	   (bash-completion-reset)
-	   (bash-completion-is-running)))
+	(bash-completion_test-harness
+	 (list
+	  (bash-completion-is-running)
+	  (buffer-live-p (bash-completion-buffer))
+	  (bash-completion-is-running)
+	  (bash-completion-comm "hel" 4 '("hel") 0)
+	  (progn
+	    (bash-completion-send "echo $EMACS_BASH_COMPLETE")
+	    (with-current-buffer (bash-completion-buffer)
+	      (buffer-string)))
+	  (bash-completion-reset)
+	  (bash-completion-is-running)))
 	'(nil t t ("help ") "t\n" nil nil))
 
        ("bash-completion setenv"
-	(let ((bash-completion-process nil)
-	      (bash-completion-alist nil))
-	  (prog1
-	      (progn
-		(bash-completion-send "echo $EMACS_BASH_COMPLETE")
-		(with-current-buffer (bash-completion-buffer)
-		  (buffer-string)))
-	    (bash-completion-reset)))
+	(bash-completion_test-harness
+	 (bash-completion-send "echo $EMACS_BASH_COMPLETE")
+	 (with-current-buffer (bash-completion-buffer)
+	   (buffer-string)))
 	"t\n")
+
        )))
 
 ;; Run diagnostics when this module is evaluated or compiled
