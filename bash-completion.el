@@ -29,8 +29,8 @@ the following entry is added to `bash-completion-alist':
 See `bash-completion-add-to-alist'.
 ")
 
-(defvar bash-completion-wordbreaks-str "\"'@><=;|&(:")
-(defvar bash-completion-wordbreaks (append bash-completion-wordbreaks-str nil))
+(defconst bash-completion-wordbreaks-str "\"'@><=;|&(:")
+(defconst bash-completion-wordbreaks (append bash-completion-wordbreaks-str nil))
 
 (defun bash-completion-setup ()
   (add-hook 'shell-dynamic-complete-functions
@@ -104,68 +104,109 @@ Call bash to do the completion."
 
 Return a list containing the words and the number of the word
 at POS, the current word: ( (word1 word2 ...) . wordnum )"
+  (bash-completion-split-postprocess
+   (bash-completion-split-raw start end) start pos))
+
+(defun bash-completion-split-postprocess (accum start pos)
+  (if (null pos)
+      (cons nil (mapcar 'bash-completion-split-raw-get-str accum))
+    ;; find position
+    (let ((index 0) (strings nil) (current nil) (accum-rest accum) (cword nil))
+      (while accum-rest
+	(setq current (car accum-rest))
+	(setq accum-rest (cdr accum-rest))
+	(unless cword
+	  (let ((range (bash-completion-split-raw-get-range current)))
+	    (cond
+	     ((and (>= pos (car range))
+		   (<= pos (cdr range)))
+	      (setq cword index))
+	     ((< pos (car range))
+	      (setq cword index)
+	      (push "" strings)))))
+	(push (bash-completion-split-raw-get-str current) strings)
+	(setq index (1+ index)))
+      (unless cword
+	(setq cword index)
+	(push "" strings))
+      (cons cword (nreverse strings)))))
+
+(defsubst bash-completion-split-raw-get-range (current)
+  (cons (cdr (assq 'start current)) (cdr (assq 'end current))))
+
+(defsubst bash-completion-split-raw-set-start (current)
+  (let ((start-cons (assq 'start current)))
+    (when (null (cdr start-cons))
+      (setcdr start-cons (point)))))
+
+(defsubst bash-completion-split-raw-set-end (current)
+  (setcdr (assq 'end current) (point)))
+
+(defsubst bash-completion-split-raw-append-str (current str)
+  (let* ((str-cons (assq 'str current)) (straccum (cdr str-cons)))
+    (setcdr str-cons (concat straccum str))))
+
+(defsubst bash-completion-split-raw-get-str (current)
+  (cdr (assq 'str current)))
+
+(defun bash-completion-split-raw (start end)
   (save-excursion
     (goto-char start)
-    (let ((accum (cons nil nil)))
-      (setq accum (bash-completion-split-0 start end pos accum ""))
-      (when (and (not (null pos)) (null (car accum)))
-	(setcar accum (length (cdr accum)))
-	(setcdr accum (cons "" (cdr accum))))
-      (cons (car accum) (nreverse (cdr accum))))))
+    (nreverse (bash-completion-split-raw-new-element end nil))))
 
-(defun bash-completion-split-0 (start end pos accum straccum)
-  (when (eq "" straccum)
-    (let ((local-start (point)))
-      (when (and (null (car accum)) (not (null pos)) (<= pos local-start))
-	(setcar accum (length (cdr accum)))
-	(setcdr accum (cons "" (cdr accum))))))
+(defun bash-completion-split-raw-new-element (end accum)
+  (skip-chars-forward " \t\n\r" end)
+  (if (< (point) end)
+      (bash-completion-split-raw-0 end accum (copy-alist '((str . "") (start . nil) (end . nil))))
+    accum))
+
+(defun bash-completion-split-raw-0 (end accum current)
+  (bash-completion-split-raw-set-start current)
   (let ( (char-start (char-after))
 	 (quote nil) )
     (when (and char-start (or (= char-start ?') (= char-start ?\")))
       (forward-char)
       (setq quote char-start))
-    (bash-completion-split-1 start end pos quote accum straccum)))
+    (bash-completion-split-raw-1 end quote accum current)))
 
-(defun bash-completion-split-1 (start end pos quote accum straccum)
+(defun bash-completion-split-raw-1 (end quote accum current)
   (let ((local-start (point)))
     (skip-chars-forward (bash-completion-nonsep quote) end)
-    (setq straccum (concat straccum (buffer-substring-no-properties local-start (point)))))
+    (bash-completion-split-raw-append-str
+     current
+     (buffer-substring-no-properties local-start (point))))
   (cond
    ;; an escaped char, skip, whatever it is
    ((and (char-before) (= ?\\ (char-before)))
     (forward-char)
-    (bash-completion-split-1
-     start end pos quote
-     accum
-     (concat (substring straccum 0 (- (length straccum) 1))  (char-to-string (char-before)))))
+    (let ((straccum (bash-completion-split-raw-get-str current)))
+      (aset straccum (1- (length straccum)) (char-before)))
+    (bash-completion-split-raw-1 end quote accum current))
    ;; opening quote
    ((and (not quote) (char-after) (or (= ?' (char-after)) (= ?\" (char-after))))
-    (bash-completion-split-0 start end pos accum straccum))
+    (bash-completion-split-raw-0 end accum current))
    ;; closing quote
    ((and quote (char-after) (= quote (char-after)))
     (forward-char)
-    (bash-completion-split-0 start end pos accum straccum))
+    (bash-completion-split-raw-0 end accum current))
    ;; space inside a quote
    ((and quote (char-after) (not (= quote (char-after))))
     (forward-char)
-    (bash-completion-split-1
-     start end pos quote accum
-     (concat straccum (char-to-string (char-before)))))
+    (bash-completion-split-raw-append-str current (char-to-string (char-before)))
+    (bash-completion-split-raw-1 end quote accum current))
    ;; word end
    (t
-    (when (and (null (car accum)) (not (null pos)) (<= pos (point)))
-      (setcar accum (length (cdr accum))))
-    (skip-chars-forward " \t\n\r" end)
-    (when (> (length straccum) 0)
-      (setcdr accum (cons straccum (cdr accum))))
-    (if (< (point) end)
-	(bash-completion-split-0 (point) end pos accum "")
-      accum))))
+    (bash-completion-split-raw-set-end current)
+    (push current accum)
+    (bash-completion-split-raw-new-element end accum))))
+
+(defconst bash-completion-nonsep-alist
+  '((nil . "^ \t\n\r'\"")
+    (?' . "^ \t\n\r'")
+    (?\" . "^ \t\n\r\"")))
 
 (defun bash-completion-nonsep (quote)
-  (if quote
-      (concat "^ \t\n\r" (char-to-string quote))
-    "^ \t\n\r'\""))
+  (cdr (assq quote bash-completion-nonsep-alist)))
 
 (defun bash-completion-comm (line pos words cword)
   "Set LINE, POS, WORDS and CWORD, call bash completion, return the result.
