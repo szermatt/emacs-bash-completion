@@ -274,6 +274,9 @@ The result is a list of candidates, which might be empty."
 		(process-send-string process (concat ". " startfile2 "\n")))))
 	    (bash-completion-send "PS1='\v'" process bash-completion-initial-timeout)
 	    (bash-completion-send "function __bash_complete_wrapper { eval $__BASH_COMPLETE_WRAPPER; }" process)
+	    ;; attempt to turn off unexpected status messages from bash
+	    ;; if the current version of bash does not support these options,
+	    ;; the command will fail silently and be ignored
 	    (bash-completion-send "shopt -u mailwarn; shopt -u checkjobs" process)
 	    ;; some bash completion functions use quote_readline to double-quote
 	    ;; strings - which compgen understands but only in some environment.
