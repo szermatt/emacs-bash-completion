@@ -262,7 +262,7 @@ The result is a list of candidates, which might be empty."
 		   "*bash-completion*"
 		   (generate-new-buffer-name " bash-completion")
 		   bash-completion-prog
-		   "--noediting" "+O" "mailwarn"))
+		   "--noediting"))
 	    (set-process-query-on-exit-flag process nil)
 	    (let* ((shell-name (file-name-nondirectory bash-completion-prog))
 		   (startfile1 (concat "~/.emacs_" shell-name ".sh"))
@@ -274,6 +274,7 @@ The result is a list of candidates, which might be empty."
 		(process-send-string process (concat ". " startfile2 "\n")))))
 	    (bash-completion-send "PS1='\v'" process bash-completion-initial-timeout)
 	    (bash-completion-send "function __bash_complete_wrapper { eval $__BASH_COMPLETE_WRAPPER; }" process)
+	    (bash-completion-send "shopt -u mailwarn; shopt -u checkjobs" process)
 	    ;; some bash completion functions use quote_readline to double-quote
 	    ;; strings - which compgen understands but only in some environment.
 	    ;; disable this dreadful business to get a saner way of handling
