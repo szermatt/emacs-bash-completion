@@ -18,8 +18,11 @@
   (require 'sz-testutils)
   (require 'cl)
 
-  (defvar bash-completion-run-integration-tests t
-    "Run integration tests. Set to nil to disable them.")
+  (defvar bash-completion-run-integration-tests nil
+    "Run integration tests. Integration start subprocess (bash
+shells) and as a result are too slow to be run in many
+cases. That's why they need to be enabled manually.")
+
   ;; This code will not appear in the compiled (.elc) file
 
   ;; ---------- unit tests
