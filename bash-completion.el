@@ -48,19 +48,14 @@ Call bash to do the completion."
   (let* ( (pos (point))
 	  (start (bash-completion-line-beginning-position))
 	  (end (line-end-position))
-	  (line (buffer-substring-no-properties start end))
-	  (wordsplit)
-	  (cword)
-	  (words)
-	  (stub)
+	  (parsed (bash-completion-parse-line start end pos))
+	  (line (cdr (assq 'line parsed)))
+	  (cword (cdr (assq 'cword parsed)))
+	  (words (cdr (assq 'words parsed)))
+	  (stub (nth cword words))
 	  ;; Override configuration for comint-dynamic-simple-complete.
 	  ;; Bash adds a space suffix automatically.
 	  (comint-completion-addsuffix nil) )
-    (save-excursion
-      (setq wordsplit (bash-completion-split start end pos))
-      (setq cword (car wordsplit))
-      (setq words (cdr wordsplit))
-      (setq stub (nth cword words)))
     (let ((completions (bash-completion-comm line (- pos start) words cword)))
       (if completions
 	  (comint-dynamic-simple-complete stub completions)
@@ -99,103 +94,146 @@ Call bash to do the completion."
       word
     (replace-regexp-in-string "\\([ '\"]\\)" "\\\\\\1" word)))
 
-(defun bash-completion-split (start end pos)
-  "Split LINE like bash would do, keep track of current word at POS.
+(defun bash-completion-parse-line (start end pos)
+  (bash-completion-parse-line-postprocess
+   (bash-completion-parse-current-command
+    (bash-completion-tokenize start end) pos) pos))
 
-Return a list containing the words and the number of the word
-at POS, the current word: ( (word1 word2 ...) . wordnum )"
-  (bash-completion-split-postprocess
-   (bash-completion-split-raw start end) start pos))
+(defun bash-completion-strings-from-tokens (accum)
+  (mapcar 'bash-completion-tokenize-get-str accum))
 
-(defun bash-completion-split-strings (accum)
-  (mapcar 'bash-completion-split-raw-get-str accum))
-
-(defun bash-completion-split-postprocess (accum start pos)
-  (if (null pos)
-      (cons nil (bash-completion-split-strings accum))
-    ;; find position
-    (let ((index 0) (strings nil) (current nil) (accum-rest accum) (cword nil))
-      (while accum-rest
-	(setq current (car accum-rest))
-	(setq accum-rest (cdr accum-rest))
-	(unless cword
-	  (let ((range (bash-completion-split-raw-get-range current)))
-	    (cond
-	     ((and (>= pos (car range))
-		   (<= pos (cdr range)))
-	      (setq cword index))
-	     ((< pos (car range))
-	      (setq cword index)
-	      (push "" strings)))))
-	(push (bash-completion-split-raw-get-str current) strings)
-	(setq index (1+ index)))
+(defun bash-completion-parse-line-postprocess (accum pos)
+  (let ((index 0) (strings nil) (current nil) (accum-rest accum) (cword nil)
+	(start (car (bash-completion-tokenize-get-range (car accum)))))
+    (while accum-rest
+      (setq current (car accum-rest))
+      (setq accum-rest (cdr accum-rest))
       (unless cword
-	(setq cword index)
-	(push "" strings))
-      (cons cword (nreverse strings)))))
+	(let ((range (bash-completion-tokenize-get-range current)))
+	  (cond
+	   ((and (>= pos (car range))
+		 (<= pos (cdr range)))
+	    (setq cword index))
+	   ((< pos (car range))
+	    (setq cword index)
+	    (push "" strings)))))
+      (push (bash-completion-tokenize-get-str current) strings)
+      (setq index (1+ index)))
+    (unless cword
+      (setq cword index)
+      (push "" strings))
+    (list
+     (cons 'line (buffer-substring-no-properties start (cdr (bash-completion-tokenize-get-range current))))
+     (cons 'cword cword)
+     (cons 'words (nreverse strings)))))
 
-(defsubst bash-completion-split-raw-get-range (current)
+(defun bash-completion-parse-current-command (accum pos)
+  (nreverse (catch 'bash-completion-return
+    (let ((command nil) (state 'initial))
+      (dolist (current accum)
+	(let* ((position (bash-completion-tokenize-range-check current pos))
+	       (string (bash-completion-tokenize-get-str current))
+	       (is-terminal (member string '(";" "&" "|" "&&" "||"))))
+	  (cond
+	   ((and is-terminal
+		 (eq position 'after))
+	    (setq state 'initial)
+	    (setq command nil))
+
+	   (is-terminal
+	    (throw 'bash-completion-return command))
+
+	   ((and (eq state 'initial)
+		 (null (string-match "=" string)))
+	    (setq state 'args)
+	    (push current command))
+
+	   ((and (eq state 'initial)
+		 (eq position 'after)))
+
+	   ((eq state 'initial)
+	    (push current command)
+	    (throw 'bash-completion-return command))
+
+	   ((eq state 'args)
+	    (push current command)))))
+      command))))
+
+(defun bash-completion-tokenize-range-check (current pos)
+  (let ((range (bash-completion-tokenize-get-range current)))
+    (cond
+     ((< pos (car range))
+      'before)
+
+     ((and (>= pos (car range))
+	   (<= pos (cdr range)))
+      'contains)
+
+     ((> pos (cdr range))
+      'after))))
+
+(defsubst bash-completion-tokenize-get-range (current)
   (cdr current))
 
-(defsubst bash-completion-split-raw-set-end (current)
+(defsubst bash-completion-tokenize-set-end (current)
   (setcdr (cdr current) (point)))
 
-(defsubst bash-completion-split-raw-append-str (current str)
+(defsubst bash-completion-tokenize-append-str (current str)
   (setcar current (concat (car current) str)))
 
-(defsubst bash-completion-split-raw-get-str (current)
+(defsubst bash-completion-tokenize-get-str (current)
   (car current))
 
-(defun bash-completion-split-raw (start end)
+(defun bash-completion-tokenize (start end)
   (save-excursion
     (goto-char start)
-    (nreverse (bash-completion-split-raw-new-element end nil))))
+    (nreverse (bash-completion-tokenize-new-element end nil))))
 
-(defun bash-completion-split-raw-new-element (end accum)
+(defun bash-completion-tokenize-new-element (end accum)
   (skip-chars-forward " \t\n\r" end)
   (if (< (point) end)
-      (bash-completion-split-raw-0 end accum (list "" (point)))
+      (bash-completion-tokenize-0 end accum (list "" (point)))
     accum))
 
-(defun bash-completion-split-raw-0 (end accum current)
+(defun bash-completion-tokenize-0 (end accum current)
   (let ( (char-start (char-after))
 	 (quote nil) )
     (when (and char-start (or (= char-start ?') (= char-start ?\")))
       (forward-char)
       (setq quote char-start))
-    (bash-completion-split-raw-1 end quote accum current)))
+    (bash-completion-tokenize-1 end quote accum current)))
 
-(defun bash-completion-split-raw-1 (end quote accum current)
+(defun bash-completion-tokenize-1 (end quote accum current)
   (let ((local-start (point)))
     (when (= (skip-chars-forward "[;&|]" end) 0)
       (skip-chars-forward (bash-completion-nonsep quote) end))
-    (bash-completion-split-raw-append-str
+    (bash-completion-tokenize-append-str
      current
      (buffer-substring-no-properties local-start (point))))
   (cond
    ;; an escaped char, skip, whatever it is
    ((and (char-before) (= ?\\ (char-before)))
     (forward-char)
-    (let ((straccum (bash-completion-split-raw-get-str current)))
+    (let ((straccum (bash-completion-tokenize-get-str current)))
       (aset straccum (1- (length straccum)) (char-before)))
-    (bash-completion-split-raw-1 end quote accum current))
+    (bash-completion-tokenize-1 end quote accum current))
    ;; opening quote
    ((and (not quote) (char-after) (or (= ?' (char-after)) (= ?\" (char-after))))
-    (bash-completion-split-raw-0 end accum current))
+    (bash-completion-tokenize-0 end accum current))
    ;; closing quote
    ((and quote (char-after) (= quote (char-after)))
     (forward-char)
-    (bash-completion-split-raw-0 end accum current))
+    (bash-completion-tokenize-0 end accum current))
    ;; space inside a quote
    ((and quote (char-after) (not (= quote (char-after))))
     (forward-char)
-    (bash-completion-split-raw-append-str current (char-to-string (char-before)))
-    (bash-completion-split-raw-1 end quote accum current))
+    (bash-completion-tokenize-append-str current (char-to-string (char-before)))
+    (bash-completion-tokenize-1 end quote accum current))
    ;; word end
    (t
-    (bash-completion-split-raw-set-end current)
+    (bash-completion-tokenize-set-end current)
     (push current accum)
-    (bash-completion-split-raw-new-element end accum))))
+    (bash-completion-tokenize-new-element end accum))))
 
 (defconst bash-completion-nonsep-alist
   '((nil . "^ \t\n\r;&|'\"")
@@ -411,7 +449,10 @@ Return `bash-completion-alist'."
       (goto-char (point-max))
       (while (= 0 (forward-line -1))
 	(bash-completion-add-to-alist
-	 (cdr (bash-completion-split (line-beginning-position) (line-end-position) nil))))))
+	 (bash-completion-strings-from-tokens
+	  (bash-completion-tokenize
+	   (line-beginning-position)
+	   (line-end-position)))))))
   bash-completion-alist)
 
 (defun bash-completion-add-to-alist (words)

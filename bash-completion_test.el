@@ -48,93 +48,105 @@ cases. That's why they need to be enabled manually.")
       (bash-completion-join '("a" "hello world" "b" "c"))
       "a 'hello world' b c")
 
-     ("bash-completion-split simple"
+     ("bash-completion-tokenize simple"
       (sz-testutils-with-buffer
        '("a hello world b c")
-       (bash-completion-split 1 (line-end-position) nil))
-      '(nil . ("a" "hello" "world" "b" "c")))
+       (bash-completion-strings-from-tokens
+	(bash-completion-tokenize 1 (line-end-position))))
+      '("a" "hello" "world" "b" "c"))
 
-     ("bash-completion-split simple extra spaces"
+     ("bash-completion-tokenize simple extra spaces"
       (sz-testutils-with-buffer
        '("  a  hello \n world \t b \r c  ")
-       (bash-completion-split 1 (line-end-position 2) nil))
-      '(nil . ("a" "hello" "world" "b" "c")))
+       (bash-completion-strings-from-tokens
+	(bash-completion-tokenize 1 (line-end-position 2))))
+      '("a" "hello" "world" "b" "c"))
 
-     ("bash-completion-split escaped space"
+     ("bash-completion-tokenize escaped space"
       (sz-testutils-with-buffer
        '("a hello\\ world b c")
-       (bash-completion-split 1 (line-end-position) nil))
-      '(nil . ("a" "hello world" "b" "c")))
+       (bash-completion-strings-from-tokens
+	(bash-completion-tokenize 1 (line-end-position))))
+      '("a" "hello world" "b" "c"))
 
-     ("bash-completion-split double quotes"
+     ("bash-completion-tokenize double quotes"
       (sz-testutils-with-buffer
        '("a \"hello world\" b c")
-       (bash-completion-split 1 (line-end-position) nil))
-      '(nil . ("a" "hello world" "b" "c")))
+       (bash-completion-strings-from-tokens
+	(bash-completion-tokenize 1 (line-end-position))))
+      '("a" "hello world" "b" "c"))
 
-     ("bash-completion-split double quotes escaped"
+     ("bash-completion-tokenize double quotes escaped"
       (sz-testutils-with-buffer
        '("a \"-\\\"hello world\\\"-\" b c")
-       (bash-completion-split 1 (line-end-position) nil))
-      '(nil . ("a" "-\"hello world\"-" "b" "c")))
+       (bash-completion-strings-from-tokens
+	(bash-completion-tokenize 1 (line-end-position))))
+      '("a" "-\"hello world\"-" "b" "c"))
 
-     ("bash-completion-split single quotes"
+     ("bash-completion-tokenize single quotes"
       (sz-testutils-with-buffer
        '("a \"hello world\" b c")
-       (bash-completion-split 1 (line-end-position) nil))
-      '(nil . ("a" "hello world" "b" "c")))
+       (bash-completion-strings-from-tokens
+	(bash-completion-tokenize 1 (line-end-position))))
+      '("a" "hello world" "b" "c"))
 
-     ("bash-completion-split single quotes escaped"
+     ("bash-completion-tokenize single quotes escaped"
       (sz-testutils-with-buffer
        '("a '-\\'hello world\\'-' b c")
-       (bash-completion-split 1 (line-end-position) nil))
-      '(nil . ("a" "-'hello world'-" "b" "c")))
+       (bash-completion-strings-from-tokens
+	(bash-completion-tokenize 1 (line-end-position))))
+      '("a" "-'hello world'-" "b" "c"))
 
-     ("bash-completion-split complex quote mix"
+     ("bash-completion-tokenize complex quote mix"
       (sz-testutils-with-buffer
        '("a hel\"lo w\"o'rld b'c d")
-       (bash-completion-split 1 (line-end-position) nil))
-      '(nil . ("a" "hello world bc" "d")))
+       (bash-completion-strings-from-tokens
+	(bash-completion-tokenize 1 (line-end-position))))
+      '("a" "hello world bc" "d"))
 
-     ("bash-completion-split cursor at end of word"
-      (sz-testutils-with-buffer
-       '("a hello world" cursor " b c")
-       (bash-completion-split 1 (line-end-position) (point)))
-      '(2 . ("a" "hello" "world" "b" "c")))
-
-     ("bash-completion-split cursor in the middle of a word"
-      (sz-testutils-with-buffer
-       '("a hello wo" cursor "rld b c")
-       (bash-completion-split 1 (line-end-position) (point)))
-      '(2 . ("a" "hello" "world" "b" "c")))
-
-     ("bash-completion-split-raw unescaped semicolon"
+     ("bash-completion-tokenize unescaped semicolon"
       (sz-testutils-with-buffer
        "to infinity;and\\ beyond"
-       (bash-completion-split-strings
-	(bash-completion-split-raw 1 (line-end-position))))
+       (bash-completion-strings-from-tokens
+	(bash-completion-tokenize 1 (line-end-position))))
       '("to" "infinity" ";" "and beyond"))
 
-     ("bash-completion-split-raw unescaped &&"
+     ("bash-completion-tokenize unescaped &&"
       (sz-testutils-with-buffer
        "to infinity&&and\\ beyond"
-       (bash-completion-split-strings
-	(bash-completion-split-raw 1 (line-end-position))))
+       (bash-completion-strings-from-tokens
+	(bash-completion-tokenize 1 (line-end-position))))
       '("to" "infinity" "&&" "and beyond"))
 
-     ("bash-completion-split-raw unescaped ||"
+     ("bash-completion-tokenize unescaped ||"
       (sz-testutils-with-buffer
        "to infinity||and\\ beyond"
-       (bash-completion-split-strings
-	(bash-completion-split-raw 1 (line-end-position))))
+       (bash-completion-strings-from-tokens
+	(bash-completion-tokenize 1 (line-end-position))))
       '("to" "infinity" "||" "and beyond"))
 
-     ("bash-completion-split-raw quoted ;&|"
+     ("bash-completion-tokenize quoted ;&|"
       (sz-testutils-with-buffer
        "to \"infinity;&|and\" beyond"
-       (bash-completion-split-strings
-	(bash-completion-split-raw 1 (line-end-position))))
+       (bash-completion-strings-from-tokens
+	(bash-completion-tokenize 1 (line-end-position))))
       '("to" "infinity;&|and" "beyond"))
+
+     ("bash-completion-parse-line cursor at end of word"
+      (sz-testutils-with-buffer
+       '("a hello world" cursor " b c")
+       (bash-completion-parse-line 1 (line-end-position) (point)))
+      '((line . "a hello world b c")
+	(cword . 2)
+	(words . ("a" "hello" "world" "b" "c"))))
+
+     ("bash-completion-parse-line cursor in the middle of a word"
+      (sz-testutils-with-buffer
+       '("a hello wo" cursor "rld b c")
+       (bash-completion-parse-line 1 (line-end-position) (point)))
+      '((line . "a hello world b c")
+	(cword . 2)
+	(words . ("a" "hello" "world" "b" "c"))))
 
 ;;      ("bash-completion-split cursor at the beginning"
 ;;       (sz-testutils-with-buffer
@@ -148,23 +160,29 @@ cases. That's why they need to be enabled manually.")
 ;;        (bash-completion-split 1 (line-end-position) (point)))
 ;;       '(2 . ("a" "hello" "" "world" "b" "c")))
 
-     ("bash-completion-split cursor at end"
+     ("bash-completion-parse-line cursor at end"
       (sz-testutils-with-buffer
        '("a hello world b c" cursor)
-       (bash-completion-split 1 (line-end-position) (point)))
-      '(4 . ("a" "hello" "world" "b" "c")))
+       (bash-completion-parse-line 1 (line-end-position) (point)))
+      '((line . "a hello world b c")
+	(cword . 4)
+	(words . ("a" "hello" "world" "b" "c"))))
 
      ("bash-completion-split cursor after end"
       (sz-testutils-with-buffer
        '("a hello world b c " cursor)
-       (bash-completion-split 1 (line-end-position) (point)))
-      '(5 . ("a" "hello" "world" "b" "c" "")))
+       (bash-completion-parse-line 1 (line-end-position) (point)))
+      '((line . "a hello world b c")
+	(cword . 5)
+	(words . ("a" "hello" "world" "b" "c" ""))))
 
      ("bash-completion-split with escaped quote"
       (sz-testutils-with-buffer
-       '("cd /vcr/shows/Dexter\\'" cursor)
-       (bash-completion-split 1 (line-end-position) (point)))
-      '(1 . ("cd" "/vcr/shows/Dexter'")))
+       '("cd /vcr/shows/Dexter\\'s" cursor)
+       (bash-completion-parse-line 1 (line-end-position) (point)))
+      '((line . "cd /vcr/shows/Dexter\\'s")
+	(cword . 1)
+	(words . ("cd" "/vcr/shows/Dexter's"))))
 
      ("bash-completion-add-to-alist garbage"
       (let ((bash-completion-alist nil))
