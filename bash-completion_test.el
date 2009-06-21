@@ -460,6 +460,10 @@ garbage
       (bash-completion-fix " world" "hello")
       "hello\\ world")
 
+     ("bash-completion-fix subset of the prefix"
+      (bash-completion-fix "Dexter" "Dexter'")
+      "Dexter")
+
      ("bash-completion-extract-candidates"
       (flet ((bash-completion-buffer () (current-buffer)))
 	(sz-testutils-with-buffer
