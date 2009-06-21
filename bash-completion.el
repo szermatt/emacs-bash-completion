@@ -7,18 +7,47 @@
 ;;  echo "ON"
 ;;fi
 
-(defvar bash-completion-prog "bash"
-  "Command-line to execute bash")
+(defgroup bash-completion nil
+  "BASH configurable command-line completion "
+  :group 'shell
+  :group 'shell-command)
 
-(defvar bash-completion-process-timeout 2.5
+(defcustom bash-completion-enabled t
+  "Enable/Disable BASH configurable command-line completion globally.
+
+This flag is useful for temporarily disabling bash completion
+once it's been installed.
+
+Setting this variable to t is NOT enough to enable BASH completion.
+BASH completion is only available in the environment for which
+`bash-completion-dynamic-complete' has been registered. See
+`bash-completion-setup' for that.
+"
+  :type '(boolean)
+  :group 'bash-completion)
+
+(defcustom bash-completion-prog "/bin/bash"
+  "Name or path of the BASH executable to run for command-line completion.
+This should be either an absolute path to the BASH executable or
+the name of the bash command if it is on Emacs' PATH.  This
+should point to a recent version of BASH (BASH 3) with support
+for command-line completion."
+  :type '(file :must-match t)
+  :group 'bash-completion)
+
+(defcustom bash-completion-process-timeout 2.5
   "Timeout value to apply when waiting from an answer from the
 bash process. If bash takes longer than that to answer, the answer
-will be ignored.")
+will be ignored."
+  :type '(float)
+  :group 'bash-completion)
 
-(defvar bash-completion-initial-timeout 30
+(defcustom bash-completion-initial-timeout 30
   "Timeout value to apply when talking to bash for the first time.
 The first thing bash is supposed to do is process /etc/bash_complete,
-which typically takes a long time.")
+which typically takes a long time."
+  :type '(float)
+  :group 'bash-completion)
 
 (defvar bash-completion-process nil
   "Bash process object")
@@ -54,26 +83,27 @@ colon-separated values.")
   "Bash completion function for `comint-complete-dynamic-functions'.
 
 Call bash to do the completion."
-  (when (not (window-minibuffer-p))
-    (message "Bash completion..."))
-  (let* ( (pos (point))
-	  (start (comint-line-beginning-position))
-	  (end (line-end-position))
-	  (parsed (bash-completion-parse-line start end pos))
-	  (line (cdr (assq 'line parsed)))
-	  (point (cdr (assq 'point parsed)))
-	  (cword (cdr (assq 'cword parsed)))
-	  (words (cdr (assq 'words parsed)))
-	  (stub (nth cword words))
-	  (completions (bash-completion-comm line point words cword))
-	  ;; Override configuration for comint-dynamic-simple-complete.
-	  ;; Bash adds a space suffix automatically.
-	  (comint-completion-addsuffix nil) )
-    (if completions
-	(comint-dynamic-simple-complete stub completions)
-      ;; no standard completion
-      ;; try default (file) completion after a wordbreak
-      (bash-completion-dynamic-try-wordbreak-complete stub))))
+  (when bash-completion-enabled
+    (when (not (window-minibuffer-p))
+      (message "Bash completion..."))
+    (let* ( (pos (point))
+	    (start (comint-line-beginning-position))
+	    (end (line-end-position))
+	    (parsed (bash-completion-parse-line start end pos))
+	    (line (cdr (assq 'line parsed)))
+	    (point (cdr (assq 'point parsed)))
+	    (cword (cdr (assq 'cword parsed)))
+	    (words (cdr (assq 'words parsed)))
+	    (stub (nth cword words))
+	    (completions (bash-completion-comm line point words cword))
+	    ;; Override configuration for comint-dynamic-simple-complete.
+	    ;; Bash adds a space suffix automatically.
+	    (comint-completion-addsuffix nil) )
+      (if completions
+	  (comint-dynamic-simple-complete stub completions)
+	;; no standard completion
+	;; try default (file) completion after a wordbreak
+	(bash-completion-dynamic-try-wordbreak-complete stub)))))
 
 (defun bash-completion-dynamic-try-wordbreak-complete (stub)
   (let* ((wordbreak-split (bash-completion-last-wordbreak-split stub))
