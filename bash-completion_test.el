@@ -460,11 +460,11 @@ garbage
       (bash-completion-fix " world" "hello")
       "hello\\ world")
 
-     ("bash-completion-extract"
+     ("bash-completion-extract-candidates"
       (flet ((bash-completion-buffer () (current-buffer)))
 	(sz-testutils-with-buffer
 	 "hello world\nhello \n\n"
-	 (bash-completion-extract "hello")))
+	 (bash-completion-extract-candidates "hello")))
       '("hello\\ world" "hello "))
 
      ("bash-completion-nonsep"
@@ -475,16 +475,16 @@ garbage
       '("^ \t\n\r;&|'\"" "^ \t\n\r'" "^ \t\n\r\""))
 
 
-     ("bash-completion-escape"
-      (bash-completion-escape "He said: \"hello, 'you'\"")
+     ("bash-completion-escape-candidate"
+      (bash-completion-escape-candidate "He said: \"hello, 'you'\"")
       "He\\ said:\\ \\\"hello,\\ \\'you\\'\\\"")
 
-     ("bash-completion-escape not if double quoted"
-      (bash-completion-escape "\"hello, you")
+     ("bash-completion-escape-candidate not if double quoted"
+      (bash-completion-escape-candidate "\"hello, you")
       "\"hello, you")
 
-     ("bash-completion-escape not if single quoted"
-      (bash-completion-escape "'hello, you")
+     ("bash-completion-escape-candidate not if single quoted"
+      (bash-completion-escape-candidate "'hello, you")
       "'hello, you")
 
      ("bash-completion-quote allowed"
