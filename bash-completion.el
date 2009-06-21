@@ -125,7 +125,11 @@ Call bash to do the completion."
       (dolist (current accum)
 	(let* ((position (bash-completion-tokenize-range-check current pos))
 	       (string (bash-completion-tokenize-get-str current))
-	       (is-terminal (member string '(";" "&" "|" "&&" "||"))))
+	       (is-terminal
+		(and (member string '(";" "&" "|" "&&" "||"))
+		     (let ((range (bash-completion-tokenize-get-range current)))
+		       (= (- (cdr range) (car range))
+			  (length string))))))
 	  (cond
 	   ((and is-terminal
 		 (eq position 'after))

@@ -172,6 +172,39 @@ cases. That's why they need to be enabled manually.")
 	(cword . 4)
 	(words . ("a" "hello" "world" "b" "c"))))
 
+     ("bash-completion-parse-line complex multi-command line"
+      (sz-testutils-with-buffer
+       '("cd /var/tmp ; ZORG=t make -" cursor " -f Makefile && ./zorg")
+       (bash-completion-parse-line 1 (line-end-position) (point)))
+      '((line . "make - -f Makefile")
+	(cword . 1)
+	(words . ("make" "-" "-f" "Makefile"))))
+
+
+     ("bash-completion-parse-line pipe"
+      (sz-testutils-with-buffer
+       '("ls /var/tmp | sort -" cursor)
+       (bash-completion-parse-line 1 (line-end-position) (point)))
+      '((line . "sort -")
+	(cword . 1)
+	(words . ("sort" "-"))))
+
+     ("bash-completion-parse-line escaped semicolon"
+      (sz-testutils-with-buffer
+       '("find -name '*.txt' -" cursor " -exec echo {} ';' | head")
+       (bash-completion-parse-line 1 (line-end-position) (point)))
+      '((line . "find -name '*.txt' - -exec echo {} ';'")
+	(cword . 3)
+	(words . ("find" "-name" "*.txt" "-" "-exec" "echo" "{}" ";"))))
+
+     ("bash-completion-parse-line at var assignment"
+      (sz-testutils-with-buffer
+       '("cd /var/tmp ; A=f ZORG=t" cursor " make -f Makefile && ./zorg")
+       (bash-completion-parse-line 1 (line-end-position) (point)))
+      '((line . "ZORG=t")
+	(cword . 0)
+	(words . ("ZORG=t"))))
+
      ("bash-completion-split cursor after end"
       (sz-testutils-with-buffer
        '("a hello world b c " cursor)
