@@ -400,6 +400,49 @@ garbage
       (bash-completion-fix " world" "hello")
       "hello\\ world")
 
+     ("bash-completion-extract"
+      (flet ((bash-completion-buffer () (current-buffer)))
+	(sz-testutils-with-buffer
+	 "hello world\nhello \n\n"
+	 (bash-completion-extract "hello")))
+      '("hello\\ world" "hello "))
+
+     ("bash-completion-nonsep"
+      (list
+       (bash-completion-nonsep nil)
+       (bash-completion-nonsep ?')
+       (bash-completion-nonsep ?\"))
+      '("^ \t\n\r'\"" "^ \t\n\r'" "^ \t\n\r\""))
+
+
+     ("bash-completion-escape"
+      (bash-completion-escape "He said: \"hello, 'you'\"")
+      "He\\ said:\\ \\\"hello,\\ \\'you\\'\\\"")
+
+     ("bash-completion-escape not if double quoted"
+      (bash-completion-escape "\"hello, you")
+      "\"hello, you")
+
+     ("bash-completion-escape not if single quoted"
+      (bash-completion-escape "'hello, you")
+      "'hello, you")
+
+     ("bash-completion-quote allowed"
+      (bash-completion-quote "abc_ABC/1-2.3")
+      "abc_ABC/1-2.3")
+
+     ("bash-completion-quote quoted"
+      (bash-completion-quote "a$b")
+      "'a$b'")
+
+     ("bash-completion-quote quoted single quote"
+      (bash-completion-quote "a'b")
+      "'a'\\''b'")
+
+     ("bash-completion-join"
+      (bash-completion-join '("ls" "-l" "/a/b" "/a/b c" "/a/b'c" "$help/d"))
+      "ls -l /a/b '/a/b c' '/a/b'\\''c' '$help/d'")
+
      ))
 
   ;; ---------- integration tests

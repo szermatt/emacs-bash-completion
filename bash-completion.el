@@ -95,7 +95,6 @@ Call bash to do the completion."
 	    "'")))
 
 (defun bash-completion-escape (word)
-  (message "escape: %s" word)
   (if (string-match "^['\"]" word)
       word
     (replace-regexp-in-string "\\([ '\"]\\)" "\\\\\\1" word)))
