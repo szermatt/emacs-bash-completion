@@ -573,7 +573,7 @@ garbage
        ("bash-completion execute wordbreak completion"
 	(bash-completion_test-with-shell
 	 (let ((start (point)))
-	   (insert "export PATH=/sbin:/b")
+	   (insert "export PATH=/sbin:/bi")
 	   (bash-completion-dynamic-complete)))
 	"export PATH=/sbin:/bin/")
 

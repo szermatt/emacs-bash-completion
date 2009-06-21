@@ -21,6 +21,24 @@
 ;;
 ;; Interactive command:
 ;; 'bash-completion-reset`
+;;
+;; Tried on:
+;;
+;; Emacs:
+;;
+;; GNU Emacs 22.3.1 (Aquamacs 1.7)
+;; GNU Emacs 22.1.1 (OSX 10.5)
+;; GNU Emacs 22.1.1 (Ubuntu Dapper)
+;; GNU Emacs 23.0.94.1 (custom build)
+;;    Workaround for this version: Disable minibuffer messages.
+;;    (defun minibuffer-message (message &rest args))
+;;
+;;
+;; Environments:
+;; OSX 10.5
+;; Ubuntu 8.04
+;; Ubuntu 8.10
+;;
 
 ;;; History:
 ;;
