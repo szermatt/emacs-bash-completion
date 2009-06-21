@@ -297,13 +297,16 @@ The result is a list of candidates, which might be empty."
 			 (bash-completion-starts-with str (expand-file-name "~")))
 		    (substring (concat "~" (substring str (length (expand-file-name "~"))))
 			       (length prefix)))
-		   ;; bash sometimes just prints whatever needs to be expanded,
-		   ;; for example: "export PATH=<complete>". Prepend the old
-		   ;; prefix to avoid confusing comint-dynamic-simple-complete
+		   ;; completion sometimes only applies to the last word, as
+		   ;; defined by COMP_WORDBREAKS. This detects and works around
+		   ;; this feature.
 		   ((bash-completion-starts-with
 		     (setq rebuilt (concat (bash-completion-before-last-wordbreak prefix) str))
 		     prefix)
 		    (substring rebuilt (length prefix)))
+		   ;; there is no meaningful link between the prefix and
+		   ;; the string. just append the string to the prefix and
+		   ;; hope for the best.
 		   (t str))))
        (when (bash-completion-ends-with rest " ")
 	 (setq rest (substring rest 0 -1))
@@ -375,12 +378,12 @@ The result is a list of candidates, which might be empty."
 	    (bash-completion-send "function __bash_complete_wrapper { eval $__BASH_COMPLETE_WRAPPER; }" process)
 	    ;; attempt to turn off unexpected status messages from bash
 	    ;; if the current version of bash does not support these options,
-	    ;; the command will fail silently and be ignored
+	    ;; the command will fail silently and be ignored.
 	    (bash-completion-send "shopt -u mailwarn; shopt -u checkjobs" process)
 	    ;; some bash completion functions use quote_readline to double-quote
 	    ;; strings - which compgen understands but only in some environment.
 	    ;; disable this dreadful business to get a saner way of handling
-	    ;; spaces.
+	    ;; spaces. Noticed in bash_completion v1.872.
 	    (bash-completion-send "function quote_readline { echo \"$1\"; }" process)
 	    (bash-completion-send "complete -p" process)
 	    (bash-completion-build-alist (process-buffer process))
@@ -408,7 +411,8 @@ The result is a list of candidates, which might be empty."
      (if (not compgen-args)
 	 ;; no custom completion. use default completion
 	 (if (= cword 0)
-	     ;; a command. let emacs expand executable, let bash expand builtins, aliases and functions
+	     ;; a command. let emacs expand executable, let bash
+	     ;; expand builtins, aliases and functions
 	     (concat (bash-completion-join (list "compgen" "-S" " " "-b" "-a" "-A" "function" (car words))))
 	   ;; argument
 	   (bash-completion-join (list "compgen" "-o" "default" (nth cword words))))
