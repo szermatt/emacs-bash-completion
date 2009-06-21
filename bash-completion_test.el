@@ -459,6 +459,26 @@ garbage
 		(kill-buffer buffer)))
 	  (error (message "error in bash-completion_test tearDown: %s" err))))))
 
+  (defmacro bash-completion_test-with-shell (&rest body)
+    `(bash-completion_test-harness
+	(let ((shell-buffer nil)
+	      (explicit-shell-file-name bash-completion-prog))
+	  (unwind-protect
+	      (progn
+		(setq shell-buffer (shell (generate-new-buffer-name "*bash-completion_test-with-shell*")))
+		;; accept process output until there's nothing left
+		(while (accept-process-output nil 0.6))
+		;; do a completion and return the result
+		(with-current-buffer shell-buffer
+		  (let ((start (point)))
+		    (progn ,@body)
+		    (buffer-substring-no-properties start (point-max)))))
+	    ;; finally
+	    (when (and shell-buffer (buffer-live-p shell-buffer))
+	      (with-current-buffer shell-buffer
+		(insert "\nexit\n"))
+	      (kill-buffer shell-buffer))))))
+
   (put 'bash-completion-regress-integration 'regression-suite t)
   (setq bash-completion-regress-integration '(
        ("bash-completion interaction"
@@ -482,6 +502,13 @@ garbage
 	 (with-current-buffer (bash-completion-buffer)
 	   (buffer-string)))
 	"t\n")
+
+       ("bash-completion execute one completion"
+	(bash-completion_test-with-shell
+	 (let ((start (point)))
+	   (insert "__bash_complete_")
+	   (bash-completion-dynamic-complete)))
+	"__bash_complete_wrapper ")
 
        )))
 
