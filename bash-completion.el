@@ -46,7 +46,7 @@ Call bash to do the completion."
   (when (not (window-minibuffer-p))
     (message "Bash completion..."))
   (let* ( (pos (point))
-	  (start (bash-completion-line-beginning-position))
+	  (start (comint-line-beginning-position))
 	  (end (line-end-position))
 	  (parsed (bash-completion-parse-line start end pos))
 	  (line (cdr (assq 'line parsed)))
@@ -64,15 +64,6 @@ Call bash to do the completion."
 	  (when (not (equal stub after-wordbreak))
 	    (bash-completion-send (concat (bash-completion-cd-command-prefix) "compgen -o default -- " after-wordbreak))
 	    (comint-dynamic-simple-complete after-wordbreak (bash-completion-extract after-wordbreak))))))))
-
-(defun bash-completion-line-beginning-position (&optional start)
-  (save-excursion
-    (let ((start (or start (comint-line-beginning-position)))
-	  (end (line-end-position)))
-      (goto-char end)
-      (if (search-backward-regexp "\\(;\\|\\(&&\\)\\|\\(||\\)\\)[ \t\n]" start t)
-	  (match-end 0)
-	start))))
 
 (defun bash-completion-join (words)
   "Join WORDS into a shell line, escaped all words with single quotes"
@@ -104,7 +95,8 @@ Call bash to do the completion."
 
 (defun bash-completion-parse-line-postprocess (accum pos)
   (let ((index 0) (strings nil) (current nil) (accum-rest accum) (cword nil)
-	(start (car (bash-completion-tokenize-get-range (car accum)))))
+	(start (min pos
+		    (car (bash-completion-tokenize-get-range (car accum))))))
     (while accum-rest
       (setq current (car accum-rest))
       (setq accum-rest (cdr accum-rest))

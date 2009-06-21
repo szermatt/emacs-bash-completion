@@ -148,17 +148,21 @@ cases. That's why they need to be enabled manually.")
 	(cword . 2)
 	(words . ("a" "hello" "world" "b" "c"))))
 
-;;      ("bash-completion-split cursor at the beginning"
-;;       (sz-testutils-with-buffer
-;;        '(" " cursor " a hello world b c")
-;;        (bash-completion-split 1 (line-end-position) (point)))
-;;       '(0 . ("" "a" "hello" "world" "b" "c")))
+     ("bash-completion-parse-line cursor at the beginning"
+      (sz-testutils-with-buffer
+       '(" " cursor " a hello world b c")
+       (bash-completion-parse-line 1 (line-end-position) (point)))
+      '((line . " a hello world b c")
+	(cword . 0)
+	(words . ("" "a" "hello" "world" "b" "c"))))
 
-;;      ("bash-completion-split cursor in the middle"
-;;       (sz-testutils-with-buffer
-;;        '("a hello " cursor " world b c")
-;;        (bash-completion-split 1 (line-end-position) (point)))
-;;       '(2 . ("a" "hello" "" "world" "b" "c")))
+     ("bash-completion-parse-line cursor in the middle"
+      (sz-testutils-with-buffer
+       '("a hello " cursor " world b c")
+       (bash-completion-parse-line 1 (line-end-position) (point)))
+      '((line . "a hello  world b c")
+	(cword . 2)
+	(words . ("a" "hello" "" "world" "b" "c"))))
 
      ("bash-completion-parse-line cursor at end"
       (sz-testutils-with-buffer
@@ -263,43 +267,6 @@ garbage
 	(bash-completion-generate-line "zorg worl" 7 '("zorg" "worl") 1))
       "cd 2>/dev/null /test ; __BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; COMP_POINT=7; COMP_CWORD=1; COMP_WORDS=( zorg worl ); __zorg \"${COMP_WORDS[@]}\"' compgen -F __bash_complete_wrapper -- worl")
 
-     ("bash-completion-line-beginning-position start"
-      (sz-testutils-with-buffer
-       "cd /home/x"
-       (bash-completion-line-beginning-position 1))
-      1)
-
-     ("bash-completion-line-beginning-position semicolon"
-      (sz-testutils-with-buffer
-       '("cd /home/x ; " cursor "echo hello")
-       (list
-	(point)
-	(bash-completion-line-beginning-position 1)))
-      '(14 14))
-
-     ("bash-completion-line-beginning-position 2 semicolon"
-      (sz-testutils-with-buffer
-       '("cd /home/x ; blah; " cursor "echo hello")
-       (list
-	(point)
-	(bash-completion-line-beginning-position 1)))
-      '(20 20))
-
-     ("bash-completion-line-beginning-position &&"
-      (sz-testutils-with-buffer
-       '("cd /home/x && " cursor "echo hello")
-       (list
-	(point)
-	(bash-completion-line-beginning-position 1)))
-      '(15 15))
-
-     ("bash-completion-line-beginning-position ||"
-      (sz-testutils-with-buffer
-       '("cd /home/x || " cursor "echo hello")
-       (list
-	(point)
-	(bash-completion-line-beginning-position 1)))
-      '(15 15))
 
      ("bash-completion-starts-with empty str"
       (bash-completion-starts-with "" "prefix")
