@@ -69,6 +69,13 @@ cases. That's why they need to be enabled manually.")
 	(bash-completion-tokenize 1 (line-end-position))))
       '("a" "hello world" "b" "c"))
 
+     ("bash-completion-tokenize escaped #"
+      (sz-testutils-with-buffer
+       '("a hello \\#world\\# b")
+       (bash-completion-strings-from-tokens
+	(bash-completion-tokenize 1 (line-end-position))))
+      '("a" "hello" "#world#" "b"))
+
      ("bash-completion-tokenize double quotes"
       (sz-testutils-with-buffer
        '("a \"hello world\" b c")
@@ -476,12 +483,16 @@ garbage
        (bash-completion-nonsep nil)
        (bash-completion-nonsep ?')
        (bash-completion-nonsep ?\"))
-      '("^ \t\n\r;&|'\"" "^ \t\n\r'" "^ \t\n\r\""))
+      '("^ \t\n\r;&|'\"#" "^ \t\n\r'" "^ \t\n\r\""))
 
 
      ("bash-completion-escape-candidate"
       (bash-completion-escape-candidate "He said: \"hello, 'you'\"")
       "He\\ said:\\ \\\"hello,\\ \\'you\\'\\\"")
+
+     ("bash-completion-escape-candidate"
+      (bash-completion-escape-candidate "#hello#")
+      "\\#hello\\#")
 
      ("bash-completion-escape-candidate not if double quoted"
       (bash-completion-escape-candidate "\"hello, you")

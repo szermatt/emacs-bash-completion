@@ -268,7 +268,9 @@ as returned by `bash-completion-parse-line' given the current position POS."
       (setq cword index)
       (push "" strings))
     (list
-     (cons 'line (buffer-substring-no-properties start (cdr (bash-completion-tokenize-get-range token))))
+     (cons 'line (buffer-substring-no-properties
+		  start
+		  (cdr (bash-completion-tokenize-get-range token))))
      (cons 'point (- pos start))
      (cons 'cword cword)
      (cons 'words (nreverse strings)))))
@@ -496,7 +498,7 @@ Return TOKENS with new tokens prepended to it."
     (bash-completion-tokenize-new-element end tokens))))
 
 (defconst bash-completion-nonsep-alist
-  '((nil . "^ \t\n\r;&|'\"")
+  '((nil . "^ \t\n\r;&|'\"#")
     (?' . "^ \t\n\r'")
     (?\" . "^ \t\n\r\""))
   "Alist of sets of non-breaking characters.
@@ -566,7 +568,6 @@ Modification include:
 
 It should be invoked with the comint buffer as the current buffer
 for directory name detection to work."
-
   (let ((prefix (or prefix bash-completion-prefix))
 	(suffix ""))
     (bash-completion-addsuffix
@@ -612,7 +613,7 @@ like a quoted string.
 Return a possibly escaped version of COMPLETION-CANDIDATE."
   (if (string-match "^['\"]" completion-candidate)
       completion-candidate
-    (replace-regexp-in-string "\\([ '\"]\\)" "\\\\\\1" completion-candidate)))
+    (replace-regexp-in-string "\\([ '\"#]\\)" "\\\\\\1" completion-candidate)))
 
 (defconst bash-completion-known-suffixes-regexp
   (concat "[" (regexp-quote bash-completion-wordbreaks-str) "/ ]$")
