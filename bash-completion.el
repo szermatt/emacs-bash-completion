@@ -158,7 +158,7 @@ completion.  Return nil if no match was found."
       (message "Bash completion..."))
     (let* ( (pos (point))
 	    (start (comint-line-beginning-position))
-	    (end (line-end-position))
+	    (end (point))
 	    (parsed (bash-completion-parse-line start end pos))
 	    (line (cdr (assq 'line parsed)))
 	    (point (cdr (assq 'point parsed)))
