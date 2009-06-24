@@ -244,7 +244,7 @@ Return an association list with the current symbol as keys:
 
 This function takes a list of TOKENS created by `bash-completion-tokenize'
 for the current buffer and generate the data needed by compgen functions
-as returned by `bash-completion-parse-line' given the current position POS."
+as returned by `bash-completion-parse-line' given the cursor position POS."
   (let* ((first-token (car tokens))
 	 (last-token (car (last tokens)))
 	 (start (or (car (bash-completion-tokenize-get-range first-token)) pos))
