@@ -157,7 +157,7 @@ completion.  Return nil if no match was found."
     (when (not (window-minibuffer-p))
       (message "Bash completion..."))
     (let* ( (start (comint-line-beginning-position))
-	    (end (point))
+	    (pos (point))
 	    (tokens (bash-completion-tokenize start pos))
 	    (open-quote (bash-completion-tokenize-open-quote tokens))
 	    (parsed (bash-completion-parse-line tokens pos))
