@@ -469,7 +469,7 @@ Return TOKENS with new tokens prepended to it."
    (t
     (bash-completion-tokenize-set-end token)
     (when quote
-      (push ('quote quote) token))
+      (push (cons 'quote quote) token))
     (push token tokens)
     (bash-completion-tokenize-new-element end tokens))))
 
