@@ -160,7 +160,7 @@ completion.  Return nil if no match was found."
 	    (pos (point))
 	    (tokens (bash-completion-tokenize start pos))
 	    (open-quote (bash-completion-tokenize-open-quote tokens))
-	    (parsed (bash-completion-parse-line tokens pos))
+	    (parsed (bash-completion-process-tokens tokens pos))
 	    (line (cdr (assq 'line parsed)))
 	    (point (cdr (assq 'point parsed)))
 	    (cword (cdr (assq 'cword parsed)))
@@ -174,9 +174,9 @@ completion.  Return nil if no match was found."
 	  (comint-dynamic-simple-complete stub completions)
 	;; no standard completion
 	;; try default (file) completion after a wordbreak
-	(bash-completion-dynamic-try-wordbreak-complete stub)))))
+	(bash-completion-dynamic-try-wordbreak-complete stub open-quote)))))
 
-(defun bash-completion-dynamic-try-wordbreak-complete (stub)
+(defun bash-completion-dynamic-try-wordbreak-complete (stub open-quote)
   "Try wordbreak completion on STUB if the complete completion failed.
 
 Split STUB using the wordbreak list and apply compgen default
@@ -194,7 +194,7 @@ This function is not meant to be called outside of
 			     (bash-completion-quote after-wordbreak)))
       (comint-dynamic-simple-complete
        after-wordbreak
-       (bash-completion-extract-candidates after-wordbreak)))))
+       (bash-completion-extract-candidates after-wordbreak open-quote)))))
 
 ;;; ---------- Functions: parsing and tokenizing
 
