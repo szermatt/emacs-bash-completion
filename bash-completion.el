@@ -190,7 +190,7 @@ This function is not meant to be called outside of
       (bash-completion-send (concat
 			     (bash-completion-cd-command-prefix)
 			     "compgen -o default -- "
-			     after-wordbreak))
+			     (bash-completion-quote after-wordbreak)))
       (comint-dynamic-simple-complete
        after-wordbreak
        (bash-completion-extract-candidates after-wordbreak)))))
@@ -664,7 +664,7 @@ Wordbreaks characters are defined in 'bash-completion-wordbreak'.
 Return a CONS containing (before . after)."
   (catch 'bash-completion-return
     (let ((end (- (length str) 1)))
-      (while (> end 0)
+      (while (>= end 0)
 	(when (memq (aref str end) bash-completion-wordbreaks)
 	  (throw 'bash-completion-return (cons (substring str 0 (1+ end)) (substring str (1+ end)))))
 	(setq end (1- end))))

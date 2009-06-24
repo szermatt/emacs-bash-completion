@@ -424,10 +424,12 @@ garbage
        (bash-completion-last-wordbreak-split "a:b:c:d:e")
        (bash-completion-last-wordbreak-split "hello=world")
        (bash-completion-last-wordbreak-split "hello>world")
+       (bash-completion-last-wordbreak-split ">world")
        (bash-completion-last-wordbreak-split "hello"))
       '(("a:b:c:d:" . "e")
 	("hello=" . "world")
 	("hello>" . "world")
+	(">" . "world")
 	("" . "hello")))
 
 
