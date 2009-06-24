@@ -278,7 +278,7 @@ Return a sublist of TOKENS."
    (catch 'bash-completion-return
      (let ((command nil) (state 'initial))
        (dolist (token tokens)
-	 (let* ((position (bash-completion-tokenize-range-check pos token))
+	 (let* (
 		(string (bash-completion-tokenize-get-str token))
 		(is-terminal
 		 (and (member string '(";" "&" "|" "&&" "||"))
@@ -286,29 +286,18 @@ Return a sublist of TOKENS."
 			(= (- (cdr range) (car range))
 			   (length string))))))
 	   (cond
-	    ((and is-terminal
-		  (eq position 'after))
+	    (is-terminal
 	     (setq state 'initial)
 	     (setq command nil))
-
-	    (is-terminal
-	     (throw 'bash-completion-return command))
 
 	    ((and (eq state 'initial)
 		  (null (string-match "=" string)))
 	     (setq state 'args)
 	     (push token command))
 
-	    ((and (eq state 'initial)
-		  (eq position 'after)))
-
-	    ((eq state 'initial)
-	     (push token command)
-	     (throw 'bash-completion-return command))
-
 	    ((eq state 'args)
 	     (push token command)))))
-       command))))
+       (or command (last tokens))))))
 
 (defun bash-completion-strings-from-tokens (tokens)
   "Extract the strings from TOKENS.
@@ -318,24 +307,6 @@ list of strings.
 
 TOKENS should be in the format returned by `bash-completion-tokenize'."
   (mapcar 'bash-completion-tokenize-get-str tokens))
-
-(defun bash-completion-tokenize-range-check (pos token)
-  "Describes where POS is in relation to TOKEN.
-
-If POS comes before TOKEN, return 'before.
-If POS comes after TOKEN, return 'after.
-If POS is inside TOKEN or just after it, return 'contains."
-  (let ((range (bash-completion-tokenize-get-range token)))
-    (cond
-     ((< pos (car range))
-      'before)
-
-     ((and (>= pos (car range))
-	   (<= pos (cdr range)))
-      'contains)
-
-     ((> pos (cdr range))
-      'after))))
 
 (defsubst bash-completion-tokenize-get-range (token)
   "Return the TOKEN range as a cons: (start . end)."
@@ -375,8 +346,7 @@ that belongs to the token.  End is the position of the first
 character that doesn't belong to the token.  For example in the
 string \" hello world \", the first token range is (2 . 7) and
 the second token range (9 . 14). It can be accessed using
-`bash-completion-tokenize-get-range' and
-`bash-completion-tokenize-range-check'. The end position can be
+`bash-completion-tokenize-get-range'. The end position can be
 set using `bash-completion-tokenize-set-end'.
 
 Tokens should always be accessed using the functions specified above,
