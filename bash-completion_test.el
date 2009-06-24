@@ -141,44 +141,44 @@ cases. That's why they need to be enabled manually.")
 
      ("bash-completion-parse-line cursor at end of word"
       (sz-testutils-with-buffer
-       '("a hello world" cursor " b c")
-       (bash-completion-parse-line 1 (line-end-position) (point)))
-      '((line . "a hello world b c")
+       "a hello world"
+       (bash-completion-parse-line 1 (line-end-position)))
+      '((line . "a hello world")
 	(point . 13)
 	(cword . 2)
-	(words . ("a" "hello" "world" "b" "c"))))
+	(words . ("a" "hello" "world"))))
 
      ("bash-completion-parse-line cursor in the middle of a word"
       (sz-testutils-with-buffer
-       '("a hello wo" cursor "rld b c")
-       (bash-completion-parse-line 1 (line-end-position) (point)))
-      '((line . "a hello world b c")
+       "a hello wo"
+       (bash-completion-parse-line 1 (line-end-position)))
+      '((line . "a hello wo")
 	(point . 10)
 	(cword . 2)
-	(words . ("a" "hello" "world" "b" "c"))))
+	(words . ("a" "hello" "wo"))))
 
      ("bash-completion-parse-line cursor at the beginning"
       (sz-testutils-with-buffer
-       '(" " cursor " a hello world b c")
-       (bash-completion-parse-line 1 (line-end-position) (point)))
-      '((line . " a hello world b c")
+       " "
+       (bash-completion-parse-line 1 (line-end-position)))
+      '((line . "")
 	(point . 0)
 	(cword . 0)
-	(words . ("" "a" "hello" "world" "b" "c"))))
+	(words . (""))))
 
      ("bash-completion-parse-line cursor in the middle"
       (sz-testutils-with-buffer
-       '("a hello " cursor " world b c")
-       (bash-completion-parse-line 1 (line-end-position) (point)))
-      '((line . "a hello  world b c")
+       "a hello "
+       (bash-completion-parse-line 1 (line-end-position)))
+      '((line . "a hello ")
 	(point . 8)
 	(cword . 2)
-	(words . ("a" "hello" "" "world" "b" "c"))))
+	(words . ("a" "hello" ""))))
 
      ("bash-completion-parse-line cursor at end"
       (sz-testutils-with-buffer
-       '("a hello world b c" cursor)
-       (bash-completion-parse-line 1 (line-end-position) (point)))
+       "a hello world b c"
+       (bash-completion-parse-line 1 (line-end-position)))
       '((line . "a hello world b c")
 	(point . 17)
 	(cword . 4)
@@ -186,18 +186,18 @@ cases. That's why they need to be enabled manually.")
 
      ("bash-completion-parse-line complex multi-command line"
       (sz-testutils-with-buffer
-       '("cd /var/tmp ; ZORG=t make -" cursor " -f Makefile && ./zorg")
-       (bash-completion-parse-line 1 (line-end-position) (point)))
-      '((line . "make - -f Makefile")
+       "cd /var/tmp ; ZORG=t make -"
+       (bash-completion-parse-line 1 (line-end-position)))
+      '((line . "make -")
 	(point . 6)
 	(cword . 1)
-	(words . ("make" "-" "-f" "Makefile"))))
+	(words . ("make" "-"))))
 
 
      ("bash-completion-parse-line pipe"
       (sz-testutils-with-buffer
-       '("ls /var/tmp | sort -" cursor)
-       (bash-completion-parse-line 1 (line-end-position) (point)))
+       "ls /var/tmp | sort -"
+       (bash-completion-parse-line 1 (line-end-position)))
       '((line . "sort -")
 	(point . 6)
 	(cword . 1)
@@ -205,35 +205,35 @@ cases. That's why they need to be enabled manually.")
 
      ("bash-completion-parse-line escaped semicolon"
       (sz-testutils-with-buffer
-       '("find -name '*.txt' -" cursor " -exec echo {} ';' | head")
-       (bash-completion-parse-line 1 (line-end-position) (point)))
-      '((line . "find -name '*.txt' - -exec echo {} ';'")
-	(point . 20)
-	(cword . 3)
-	(words . ("find" "-name" "*.txt" "-" "-exec" "echo" "{}" ";"))))
+       "find -name '*.txt' -exec echo {} ';' -"
+       (bash-completion-parse-line 1 (line-end-position)))
+      '((line . "find -name '*.txt' -exec echo {} ';' -")
+	(point . 38)
+	(cword . 7)
+	(words . ("find" "-name" "*.txt" "-exec" "echo" "{}" ";" "-"))))
 
      ("bash-completion-parse-line at var assignment"
       (sz-testutils-with-buffer
-       '("cd /var/tmp ; A=f ZORG=t" cursor " make -f Makefile && ./zorg")
-       (bash-completion-parse-line 1 (line-end-position) (point)))
+       "cd /var/tmp ; A=f ZORG=t"
+       (bash-completion-parse-line 1 (line-end-position)))
       '((line . "ZORG=t")
 	(point . 6)
 	(cword . 0)
 	(words . ("ZORG=t"))))
 
-     ("bash-completion-split cursor after end"
+     ("bash-completion-parse-line cursor after end"
       (sz-testutils-with-buffer
-       '("a hello world b c " cursor)
-       (bash-completion-parse-line 1 (line-end-position) (point)))
-      '((line . "a hello world b c")
+       "a hello world b c "
+       (bash-completion-parse-line 1 (line-end-position)))
+      '((line . "a hello world b c ")
 	(point . 18)
 	(cword . 5)
 	(words . ("a" "hello" "world" "b" "c" ""))))
 
-     ("bash-completion-split with escaped quote"
+     ("bash-completion-parse-line with escaped quote"
       (sz-testutils-with-buffer
-       '("cd /vcr/shows/Dexter\\'s" cursor)
-       (bash-completion-parse-line 1 (line-end-position) (point)))
+       "cd /vcr/shows/Dexter\\'s"
+       (bash-completion-parse-line 1 (line-end-position)))
       '((line . "cd /vcr/shows/Dexter\\'s")
 	(point . 23)
 	(cword . 1)

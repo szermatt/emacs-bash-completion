@@ -156,10 +156,8 @@ completion.  Return nil if no match was found."
   (when bash-completion-enabled
     (when (not (window-minibuffer-p))
       (message "Bash completion..."))
-    (let* ( (pos (point))
-	    (start (comint-line-beginning-position))
-	    (end (point))
-	    (parsed (bash-completion-parse-line start end pos))
+    (let* ( (start (comint-line-beginning-position))
+	    (parsed (bash-completion-parse-line start (point)))
 	    (line (cdr (assq 'line parsed)))
 	    (point (cdr (assq 'point parsed)))
 	    (cword (cdr (assq 'cword parsed)))
@@ -222,24 +220,24 @@ functions adds single quotes around it and return the result."
 	    (replace-regexp-in-string "'" "'\\''" word :literal t)
 	    "'")))
 
-(defun bash-completion-parse-line (start end pos)
-  "Parse a command line between START and END with POS as the cursor position.
+(defun bash-completion-parse-line (start pos)
+  "Parse a command line between START and POS, the cursor position.
 
 This function parse the portion of the current buffer between
-START and END as a BASH command-line and returns the variables
+START and POS as a BASH command-line and returns the variables
 compgen function expect in an association list.
 
 POS specifies the current cursor position and marks the word to
 be completed.
 
 Return an association list with the current symbol as keys:
- line - the relevant command between START and END (string)
+ line - the relevant command between START and POS (string)
  point - position of the cursor in line (number)
  words - line split into words, unescaped (list of strings)
  cword - 0-based index of the word to be completed in words (number)"
   (bash-completion-parse-line-postprocess
    (bash-completion-parse-current-command
-    (bash-completion-tokenize start end) pos) pos))
+    (bash-completion-tokenize start pos)) pos))
 
 (defun bash-completion-parse-line-postprocess (tokens pos)
   "Extract from TOKENS the data needed by compgen functions.
@@ -247,84 +245,70 @@ Return an association list with the current symbol as keys:
 This function takes a list of TOKENS created by `bash-completion-tokenize'
 for the current buffer and generate the data needed by compgen functions
 as returned by `bash-completion-parse-line' given the current position POS."
-  (let ((index 0) (strings nil) (token nil) (tokens-rest tokens) (cword nil)
-	(start (min pos
-		    (car (bash-completion-tokenize-get-range (car tokens))))))
-    (while tokens-rest
-      (setq token (car tokens-rest))
-      (setq tokens-rest (cdr tokens-rest))
-      (unless cword
-	(let ((range (bash-completion-tokenize-get-range token)))
-	  (cond
-	   ((and (>= pos (car range))
-		 (<= pos (cdr range)))
-	    (setq cword index))
-	   ((< pos (car range))
-	    (setq cword index)
-	    (push "" strings)))))
-      (push (bash-completion-tokenize-get-str token) strings)
-      (setq index (1+ index)))
-    (unless cword
-      (setq cword index)
-      (push "" strings))
+  (let* ((first-token (car tokens))
+	 (last-token (car (last tokens)))
+	 (start (or (car (bash-completion-tokenize-get-range first-token)) pos))
+	 (end (or (cdr (bash-completion-tokenize-get-range last-token)) pos))
+	 (words (bash-completion-strings-from-tokens tokens)))
+    (when (or (> pos end) (= start end))
+      (setq words (append words '(""))))
     (list
-     (cons 'line (buffer-substring-no-properties
-		  start
-		  (cdr (bash-completion-tokenize-get-range token))))
+     (cons 'line (buffer-substring-no-properties start pos))
      (cons 'point (- pos start))
-     (cons 'cword cword)
-     (cons 'words (nreverse strings)))))
+     (cons 'cword (- (length words) 1))
+     (cons 'words words))))
 
-(defun bash-completion-parse-current-command (tokens pos)
-  "Extract from TOKENS the tokens forming the current command at POS.
+(defun bash-completion-parse-current-command (tokens)
+  "Extract from TOKENS the tokens forming the current command.
 
 This function takes a list of TOKENS created by
 `bash-completion-tokenize' for the current buffer and select the
-tokens on this list that form the current command given that to
-be completed is at POS.
+tokens on this list that form the current command given that the
+word to be completed is the last token.
 
 For example, given this stream of tokens:
-  cd /var/tmp && ls -l *.txt | sort -u
-if POS is on -l, it will select:
-  ls -l *.txt
-if POS is on /var/tmp, it will select:
+  cd /var/tmp && ls -l
+if the last token is -l, it will select:
+  ls -l
+if the last token is /var/tmp, it will select:
   cd /var/tmp
 
 Return a sublist of TOKENS."
-  (nreverse (catch 'bash-completion-return
-    (let ((command nil) (state 'initial))
-      (dolist (token tokens)
-	(let* ((position (bash-completion-tokenize-range-check pos token))
-	       (string (bash-completion-tokenize-get-str token))
-	       (is-terminal
-		(and (member string '(";" "&" "|" "&&" "||"))
-		     (let ((range (bash-completion-tokenize-get-range token)))
-		       (= (- (cdr range) (car range))
-			  (length string))))))
-	  (cond
-	   ((and is-terminal
-		 (eq position 'after))
-	    (setq state 'initial)
-	    (setq command nil))
+  (nreverse
+   (catch 'bash-completion-return
+     (let ((command nil) (state 'initial))
+       (dolist (token tokens)
+	 (let* ((position (bash-completion-tokenize-range-check pos token))
+		(string (bash-completion-tokenize-get-str token))
+		(is-terminal
+		 (and (member string '(";" "&" "|" "&&" "||"))
+		      (let ((range (bash-completion-tokenize-get-range token)))
+			(= (- (cdr range) (car range))
+			   (length string))))))
+	   (cond
+	    ((and is-terminal
+		  (eq position 'after))
+	     (setq state 'initial)
+	     (setq command nil))
 
-	   (is-terminal
-	    (throw 'bash-completion-return command))
+	    (is-terminal
+	     (throw 'bash-completion-return command))
 
-	   ((and (eq state 'initial)
-		 (null (string-match "=" string)))
-	    (setq state 'args)
-	    (push token command))
+	    ((and (eq state 'initial)
+		  (null (string-match "=" string)))
+	     (setq state 'args)
+	     (push token command))
 
-	   ((and (eq state 'initial)
-		 (eq position 'after)))
+	    ((and (eq state 'initial)
+		  (eq position 'after)))
 
-	   ((eq state 'initial)
-	    (push token command)
-	    (throw 'bash-completion-return command))
+	    ((eq state 'initial)
+	     (push token command)
+	     (throw 'bash-completion-return command))
 
-	   ((eq state 'args)
-	    (push token command)))))
-      command))))
+	    ((eq state 'args)
+	     (push token command)))))
+       command))))
 
 (defun bash-completion-strings-from-tokens (tokens)
   "Extract the strings from TOKENS.
