@@ -477,7 +477,7 @@ garbage
       (flet ((bash-completion-buffer () (current-buffer)))
 	(sz-testutils-with-buffer
 	 "hello world\nhello \n\n"
-	 (bash-completion-extract-candidates "hello")))
+	 (bash-completion-extract-candidates "hello" nil)))
       '("hello\\ world" "hello "))
 
      ("bash-completion-nonsep"
@@ -488,20 +488,28 @@ garbage
       '("^ \t\n\r;&|'\"#" "^ \t\n\r'" "^ \t\n\r\""))
 
 
-     ("bash-completion-escape-candidate"
-      (bash-completion-escape-candidate "He said: \"hello, 'you'\"")
+     ("bash-completion-escape-candidate no quote"
+      (bash-completion-escape-candidate "He said: \"hello, 'you'\"" nil)
       "He\\ said:\\ \\\"hello,\\ \\'you\\'\\\"")
 
-     ("bash-completion-escape-candidate"
-      (bash-completion-escape-candidate "#hello#")
+     ("bash-completion-escape-candidate no quote"
+      (bash-completion-escape-candidate "#hello#" nil)
       "\\#hello\\#")
 
-     ("bash-completion-escape-candidate not if double quoted"
-      (bash-completion-escape-candidate "\"hello, you")
+     ("bash-completion-escape-candidate single quote"
+      (bash-completion-escape-candidate "He said: \"hello, 'you'\"" ?')
+      "He said: \"hello, '\\''you'\\''\"")
+
+     ("bash-completion-escape-candidate double quote"
+      (bash-completion-escape-candidate "He said: \"hello, 'you'\"" ?\")
+      "He said: \\\"hello, 'you'\\\"")
+
+     ("bash-completion-escape-candidate no quote not if double quoted"
+      (bash-completion-escape-candidate "\"hello, you" nil)
       "\"hello, you")
 
-     ("bash-completion-escape-candidate not if single quoted"
-      (bash-completion-escape-candidate "'hello, you")
+     ("bash-completion-escape-candidate no quote not if single quoted"
+      (bash-completion-escape-candidate "'hello, you" nil)
       "'hello, you")
 
      ("bash-completion-quote allowed"

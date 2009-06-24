@@ -157,13 +157,16 @@ completion.  Return nil if no match was found."
     (when (not (window-minibuffer-p))
       (message "Bash completion..."))
     (let* ( (start (comint-line-beginning-position))
-	    (parsed (bash-completion-parse-line start (point)))
+	    (end (point))
+	    (tokens (bash-completion-tokenize start pos))
+	    (open-quote (bash-completion-tokenize-open-quote tokens))
+	    (parsed (bash-completion-parse-line tokens pos))
 	    (line (cdr (assq 'line parsed)))
 	    (point (cdr (assq 'point parsed)))
 	    (cword (cdr (assq 'cword parsed)))
 	    (words (cdr (assq 'words parsed)))
 	    (stub (nth cword words))
-	    (completions (bash-completion-comm line point words cword))
+	    (completions (bash-completion-comm line point words cword open-quote))
 	    ;; Override configuration for comint-dynamic-simple-complete.
 	    ;; Bash adds a space suffix automatically.
 	    (comint-completion-addsuffix nil) )
@@ -221,14 +224,21 @@ functions adds single quotes around it and return the result."
 	    "'")))
 
 (defun bash-completion-parse-line (start pos)
-  "Parse a command line between START and POS, the cursor position.
+  "Split a command line in the current buffer between START and POS.
 
-This function parse the portion of the current buffer between
-START and POS as a BASH command-line and returns the variables
-compgen function expect in an association list.
+This function combines `bash-completion-tokenize' and
+`bash-completion-process-tokens'.  It takes the same arguments as
+`bash-completion-tokenize' and returns the same value as
+`bash-completion-process-tokens'."
+  (bash-completion-process-tokens
+   (bash-completion-tokenize start pos) pos))
 
-POS specifies the current cursor position and marks the word to
-be completed.
+(defun bash-completion-process-tokens (tokens pos)
+  "Process a command line split into TOKENS that end at POS.
+
+This function takes a list of tokens built by
+`bash-completion-tokenize' and returns the variables compgen
+function expect in an association list.
 
 Return an association list with the current symbol as keys:
  line - the relevant command between START and POS (string)
@@ -236,8 +246,7 @@ Return an association list with the current symbol as keys:
  words - line split into words, unescaped (list of strings)
  cword - 0-based index of the word to be completed in words (number)"
   (bash-completion-parse-line-postprocess
-   (bash-completion-parse-current-command
-    (bash-completion-tokenize start pos)) pos))
+   (bash-completion-parse-current-command tokens) pos))
 
 (defun bash-completion-parse-line-postprocess (tokens pos)
   "Extract from TOKENS the data needed by compgen functions.
@@ -310,19 +319,27 @@ TOKENS should be in the format returned by `bash-completion-tokenize'."
 
 (defsubst bash-completion-tokenize-get-range (token)
   "Return the TOKEN range as a cons: (start . end)."
-  (cdr token))
+  (cdr (assq 'range token)))
 
 (defsubst bash-completion-tokenize-set-end (token)
   "Set the end position of TOKEN to the cursor position."
-  (setcdr (cdr token) (point)))
+  (setcdr (bash-completion-tokenize-get-range token) (point)))
 
 (defsubst bash-completion-tokenize-append-str (token str)
   "Append to TOKEN the string STR."
-  (setcar token (concat (car token) str)))
+  (let ((str-cons (assq 'str token)))
+    (setcdr str-cons (concat (cdr str-cons) str))))
 
 (defsubst bash-completion-tokenize-get-str (token)
   "Return the TOKEN string."
-  (car token))
+  (cdr (assq 'str token)))
+
+(defsubst bash-completion-tokenize-open-quote (tokens)
+  "Return the quote character that was still open in the last token.
+
+TOKENS is a list of token as returned by
+`bash-completion-tokenize'."
+  (cdr (assq 'quote (car (last tokens)))))
 
 (defun bash-completion-tokenize (start end)
   "Tokenize the portion of the current buffer between START and END.
@@ -369,7 +386,10 @@ Return TOKENS with new tokens found betwen the current point and
 END prepended to it."
   (skip-chars-forward " \t\n\r" end)
   (if (< (point) end)
-      (bash-completion-tokenize-0 end tokens (list "" (point)))
+      (bash-completion-tokenize-0 end tokens
+				  (list
+				   (cons 'str "")
+				   (cons 'range (cons (point) nil))))
     tokens))
 
 (defun bash-completion-tokenize-0 (end tokens token)
@@ -448,6 +468,8 @@ Return TOKENS with new tokens prepended to it."
    ;; word end
    (t
     (bash-completion-tokenize-set-end token)
+    (when quote
+      (push ('quote quote) token))
     (push token tokens)
     (bash-completion-tokenize-new-element end tokens))))
 
@@ -468,12 +490,15 @@ QUOTE should be nil, ?' or ?\"."
 
 ;;; ---------- Functions: getting candidates from bash
 
-(defun bash-completion-comm (line pos words cword)
+(defun bash-completion-comm (line pos words cword open-quote)
   "Set LINE, POS, WORDS and CWORD, call compgen, return the result.
 
 This function starts a separate bash process if necessary, sets
 up the completion environment (COMP_LINE, COMP_POINT, COMP_WORDS,
 COMP_CWORD) and calls compgen.
+
+OPEN-QUOTE should be the quote, a character, that's still open in
+the last word or nil.
 
 The result is a list of candidates, which might be empty."
   ;; start process now, to make sure bash-completion-alist is
@@ -483,9 +508,9 @@ The result is a list of candidates, which might be empty."
    (concat
     (bash-completion-generate-line line pos words cword)
     " 2>/dev/null"))
-  (bash-completion-extract-candidates (nth cword words)))
+  (bash-completion-extract-candidates (nth cword words) open-quote))
 
-(defun bash-completion-extract-candidates (stub)
+(defun bash-completion-extract-candidates (stub open-quote)
   "Extract the completion candidates from the process buffer for STUB.
 
 This command takes the content of the completion process buffer, split
@@ -498,18 +523,24 @@ for directory name detection to work.
 Post-processing includes escaping special characters, adding a /
 to directory names, merging STUB with the result.  See `bash-completion-fix'
 for more details."
-  (let ((bash-completion-prefix stub))
+  (let ((bash-completion-prefix stub)
+	(bash-completion-open-quote open-quote))
     (mapcar 'bash-completion-fix
 	    (with-current-buffer (bash-completion-buffer)
 	      (split-string (buffer-string) "\n" t)))))
 
-(defun bash-completion-fix (str &optional prefix)
+(defun bash-completion-fix (str &optional prefix open-quote)
   "Fix completion candidate in STR if PREFIX is the current prefix.
 
 STR is the completion candidate to modify.
 
 PREFIX should be the current string being completed.  If it is
 nil, the value of `bash-completion-prefix' is used.  This allows
+calling this function from `mapcar'.
+
+OPEN-QUOTE should be the quote that's still open in prefix.  A
+character (' or \") or nil. If it is nil, the value of
+`bash-completion-open-quote' is used.  This allows
 calling this function from `mapcar'.
 
 Return a modified version of the completion candidate.
@@ -523,6 +554,7 @@ Modification include:
 It should be invoked with the comint buffer as the current buffer
 for directory name detection to work."
   (let ((prefix (or prefix bash-completion-prefix))
+	(open-quote (or open-quote (and (boundp 'bash-completion-open-quote) bash-completion-open-quote)))
 	(suffix ""))
     (bash-completion-addsuffix
      (let* ((rebuilt)
@@ -555,19 +587,29 @@ for directory name detection to work."
        (when (bash-completion-ends-with rest " ")
 	 (setq rest (substring rest 0 -1))
 	 (setq suffix " "))
-       (concat prefix (bash-completion-escape-candidate rest) suffix)))))
+       (concat prefix (bash-completion-escape-candidate rest open-quote) suffix)))))
 
-(defun bash-completion-escape-candidate (completion-candidate)
+(defun bash-completion-escape-candidate (completion-candidate open-quote)
   "Escapes COMPLETION-CANDIDATE.
 
 This function escapes all special characters in the result of
 bash completion.  It does nothing if COMPLETION-CANDIDATE looks
 like a quoted string.
 
+It uses escape characters appropriate for the quote defined in
+OPEN-QUOTE, either nil, ' or \".
+
 Return a possibly escaped version of COMPLETION-CANDIDATE."
-  (if (string-match "^['\"]" completion-candidate)
-      completion-candidate
-    (replace-regexp-in-string "\\([ '\"#]\\)" "\\\\\\1" completion-candidate)))
+  (cond
+   ((and (null open-quote)
+	 (null (string-match "^['\"]" completion-candidate)))
+    (replace-regexp-in-string "\\([ '\"#]\\)" "\\\\\\1" completion-candidate))
+   ((eq ?' open-quote)
+    (replace-regexp-in-string "'" "'\\''" completion-candidate :literal t))
+   ((eq ?\" open-quote)
+    (replace-regexp-in-string "\"" "\\\"" completion-candidate :literal t))
+   (t
+    completion-candidate)))
 
 (defconst bash-completion-known-suffixes-regexp
   (concat "[" (regexp-quote bash-completion-wordbreaks-str) "/ ]$")
