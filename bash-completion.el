@@ -42,6 +42,7 @@
 
 ;;; History:
 ;;
+;; $Id$
 
 (require 'comint)
 
