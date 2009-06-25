@@ -5,7 +5,7 @@
 ;;; Commentary:
 ;;
 ;; This file defines dynamic completion hooks for shell-mode and
-;; shell-command that are based on bash completion.
+;; shell-command prompts that are based on bash completion.
 ;;
 ;; Bash completion for emacs:
 ;; - is aware of bash builtins, aliases and functions
@@ -16,12 +16,17 @@
 ;;
 ;; When the first completion is requested in shell model or a shell
 ;; command, bash-completion.el starts a separate bash
-;; process. Bash-completion.el then uses this process to do the actual
-;; completion and includes it into emacs completion suggestions.
+;; process.  Bash-completion.el then uses this process to do the actual
+;; completion and includes it into Emacs completion suggestions.
+;;
+;; A simpler alternative to bash-completion.el is to run a bash shell
+;; in a buffer in term mode(M-x `ansi-term').  Unfortunately, many
+;; Emacs editing features are not available when running in term mode.
+;; Also, term mode is not available in shell-command prompts.
 ;;
 ;; INSTALLATION
 ;;
-;; 1. copy bash-completion.el into a directory that's on emacs load-path
+;; 1. copy bash-completion.el into a directory that's on Emacs load-path
 ;; 2. add this into your .emacs file:
 ;;   (autoload 'bash-completion-dynamic-complete \"bash-completion\"
 ;;     \"BASH completion hook\")
@@ -29,11 +34,11 @@
 ;; 	'bash-completion-dynamic-complete)
 ;;   (add-hook 'shell-command-complete-functions
 ;; 	'bash-completion-dynamic-complete))
-;; 3. reload your .emacs (M-x eval-buffer) or restart
+;; 3. reload your .emacs (M-x `eval-buffer') or restart
 ;;
 ;; Once this is done, use <TAB> as usual do dynamic completion from
 ;; shell mode or a shell command minibuffer, such as the one started
-;; for `compile'. Note that the first completion is slow, as emacs
+;; for M-x `compile'. Note that the first completion is slow, as emacs
 ;; launches a new bash process.
 ;;
 ;; You'll get better results if you turn on programmable bash completion.
@@ -42,9 +47,9 @@
 ;; and then adding this to your .bashrc:
 ;;   . /etc/bash_completion
 ;;
-;; Once this is done, and whenever you make changes to you .bashrc,
-;; call `bash-completion-restart' to make sure bash completion takes
-;; your new settings into account.
+;; Right after enabling programmable bash completion, and whenever you
+;; make changes to you .bashrc, call `bash-completion-restart' to make
+;; sure bash completion takes your new settings into account.
 ;;
 ;; Loading /etc/bash_completion often takes time, and is not necessary
 ;; in shell mode, since completion is done by a separate process, not
@@ -96,6 +101,8 @@
 ;;
 
 ;;; History:
+;;
+;; Initial version - June 2009
 ;;
 ;; Current version:
 ;; $Id$
@@ -186,12 +193,12 @@ This function is convenient, but it might not be the best way of enabling
 bash completion in your .emacs file because it forces you to load the module
 before it is needed. For an autoload version, add:
 
-(autoload 'bash-completion-dynamic-complete \"bash-completion\"
-  \"BASH completion hook\")
-(add-hook 'shell-dynamic-complete-functions
-	  'bash-completion-dynamic-complete)
-(add-hook 'shell-command-complete-functions
-	  'bash-completion-dynamic-complete))
+  (autoload 'bash-completion-dynamic-complete \"bash-completion\"
+    \"BASH completion hook\")
+  (add-hook 'shell-dynamic-complete-functions
+  	  'bash-completion-dynamic-complete)
+  (add-hook 'shell-command-complete-functions
+  	  'bash-completion-dynamic-complete))
 "
   (add-hook 'shell-dynamic-complete-functions
 	    'bash-completion-dynamic-complete)
@@ -238,6 +245,9 @@ completion.  Return nil if no match was found."
 
 Split STUB using the wordbreak list and apply compgen default
 completion on the last part.  Return non-nil if a match was found.
+
+If STUB is quoted, the quote character, ' or \", should be passed
+to the parameter OPEN-QUOTE.
 
 This function is not meant to be called outside of
 `bash-completion-dynamic-complete'."
@@ -577,6 +587,9 @@ of strings.
 It should be invoked with the comint buffer as the current buffer
 for directory name detection to work.
 
+If STUB is quoted, the quote character, ' or \", should be passed
+in OPEN-QUOTE.
+
 Post-processing includes escaping special characters, adding a /
 to directory names, merging STUB with the result.  See `bash-completion-fix'
 for more details."
@@ -596,7 +609,7 @@ nil, the value of `bash-completion-prefix' is used.  This allows
 calling this function from `mapcar'.
 
 OPEN-QUOTE should be the quote that's still open in prefix.  A
-character (' or \") or nil. If it is nil, the value of
+character (' or \") or nil.  If it is nil, the value of
 `bash-completion-open-quote' is used.  This allows
 calling this function from `mapcar'.
 

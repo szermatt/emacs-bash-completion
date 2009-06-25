@@ -572,7 +572,7 @@ garbage
 	  (bash-completion-is-running)
 	  (buffer-live-p (bash-completion-buffer))
 	  (bash-completion-is-running)
-	  (bash-completion-comm "hel" 4 '("hel") 0)
+	  (bash-completion-comm "hel" 4 '("hel") 0 nil)
 	  (progn
 	    (bash-completion-send "echo $EMACS_BASH_COMPLETE")
 	    (with-current-buffer (bash-completion-buffer)
