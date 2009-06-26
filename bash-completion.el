@@ -96,6 +96,7 @@
 ;; and using the following bash versions:
 ;;   BASH 3.2.17
 ;;   BASH 3.2.32
+;;   BASH 3.2.39
 ;;
 ;; bash-completion.el does not works on XEmacs.
 ;;
