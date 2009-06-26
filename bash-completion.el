@@ -102,8 +102,6 @@
 
 ;;; History:
 ;;
-;; Initial version - June 2009
-;;
 ;; Current version:
 ;; $Id$
 ;;
