@@ -1,6 +1,6 @@
 ;;; bash-completion.el --- BASH completion for the shell buffer
 
-;; Author: Stephane Zermatten <szermatt@gmx.net>
+;; Author: Stephane Zermatten <szermatt@google.com>
 
 ;;; Commentary:
 ;;
