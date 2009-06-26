@@ -19,10 +19,11 @@
 ;; process.  Bash-completion.el then uses this process to do the actual
 ;; completion and includes it into Emacs completion suggestions.
 ;;
-;; A simpler alternative to bash-completion.el is to run a bash shell
-;; in a buffer in term mode(M-x `ansi-term').  Unfortunately, many
-;; Emacs editing features are not available when running in term mode.
-;; Also, term mode is not available in shell-command prompts.
+;; A simpler and more complete alternative to bash-completion.el is to
+;; run a bash shell in a buffer in term mode(M-x `ansi-term').
+;; Unfortunately, many Emacs editing features are not available when
+;; running in term mode.  Also, term mode is not available in
+;; shell-command prompts.
 ;;
 ;; INSTALLATION
 ;;
@@ -36,7 +37,7 @@
 ;; 	'bash-completion-dynamic-complete))
 ;; 3. reload your .emacs (M-x `eval-buffer') or restart
 ;;
-;; Once this is done, use <TAB> as usual do dynamic completion from
+;; Once this is done, use <TAB> as usual to do dynamic completion from
 ;; shell mode or a shell command minibuffer, such as the one started
 ;; for M-x `compile'. Note that the first completion is slow, as emacs
 ;; launches a new bash process.
@@ -53,7 +54,7 @@
 ;;
 ;; Loading /etc/bash_completion often takes time, and is not necessary
 ;; in shell mode, since completion is done by a separate process, not
-;; the process shel-mode process.
+;; the process shell-mode process.
 ;;
 ;; To turn off bash completion when running from emacs but keep it on
 ;; for processes started by bash-completion.el, add this to your .bashrc:
