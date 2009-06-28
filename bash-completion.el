@@ -7,6 +7,9 @@
 ;; This file defines dynamic completion hooks for shell-mode and
 ;; shell-command prompts that are based on bash completion.
 ;;
+;; You will need shell-command.el to get tab completion in the
+;; minibuffer. See http://www.namazu.org/~tsuchiya/elisp/shell-command.el
+;;
 ;; Bash completion for emacs:
 ;; - is aware of bash builtins, aliases and functions
 ;; - does file expansion inside of colon-separated variables
