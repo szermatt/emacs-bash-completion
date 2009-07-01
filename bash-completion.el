@@ -37,7 +37,13 @@
 ;;   (add-hook 'shell-dynamic-complete-functions
 ;; 	'bash-completion-dynamic-complete)
 ;;   (add-hook 'shell-command-complete-functions
-;; 	'bash-completion-dynamic-complete))
+;; 	'bash-completion-dynamic-complete)
+;;
+;;   or simpler, but forces you to load this file at startup:
+;; 
+;;   (require 'bash-completion)
+;;   (bash-completion-setup)
+;;
 ;; 3. reload your .emacs (M-x `eval-buffer') or restart
 ;;
 ;; Once this is done, use <TAB> as usual to do dynamic completion from
@@ -52,7 +58,7 @@
 ;;   . /etc/bash_completion
 ;;
 ;; Right after enabling programmable bash completion, and whenever you
-;; make changes to you .bashrc, call `bash-completion-restart' to make
+;; make changes to you .bashrc, call `bash-completion-reset' to make
 ;; sure bash completion takes your new settings into account.
 ;;
 ;; Loading /etc/bash_completion often takes time, and is not necessary
@@ -86,7 +92,7 @@
 ;;   Bash-completion.el cannot do that, as it is not aware of anything
 ;;   configured in the current shell. To make bash-completion.el aware
 ;;   of a new alias, you need to add it to .bashrc and restart the
-;;   completion process using `bash-completion-restart'.
+;;   completion process using `bash-completion-reset'.
 ;;
 ;; COMPATIBILITY
 ;;
