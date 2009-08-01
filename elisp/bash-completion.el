@@ -113,6 +113,11 @@
 
 ;;; History:
 ;;
+;; 2009-08-01   Stephane Zermatten <szermatt@gmail.com>
+;;
+;; * bash-completion-generate-line: add missing compgen 
+;; option to complete commands (duh!).
+;;
 ;; Current version:
 ;; $Id$
 ;;
@@ -917,7 +922,7 @@ candidates."
       ((= cword 0)
        ;; a command. let emacs expand executable, let bash
        ;; expand builtins, aliases and functions
-       (concat "compgen -S ' ' -b -a -A function " stub))
+       (concat "compgen -S ' ' -b -c -a -A function " stub))
 
       ((not compgen-args)
        ;; no completion configured for this command
