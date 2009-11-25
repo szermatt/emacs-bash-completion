@@ -113,6 +113,11 @@
 
 ;;; History:
 ;;
+;; 2009-11-25   Stephane Zermatten <szermatt@gmail.com>
+;;
+;; * bash-completion-require-process: set MAILCHECK to -1
+;; to disable mail check message. 
+;;
 ;; 2009-08-01   Stephane Zermatten <szermatt@gmail.com>
 ;;
 ;; * bash-completion-generate-line: add missing compgen 
