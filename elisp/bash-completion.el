@@ -821,11 +821,11 @@ is set to t."
 	    ;; attempt to turn off unexpected status messages from bash
 	    ;; if the current version of bash does not support these options,
 	    ;; the commands will fail silently and be ignored.
-	    ;; export MAIL='' is a desperate attempt to make sure the mail warning
-	    ;; is really switched off
 	    (bash-completion-send "shopt -u checkjobs" process)
 	    (bash-completion-send "shopt -u mailwarn" process)
-	    (bash-completion-send "export MAIL=''" process)
+	    (bash-completion-send "export MAILCHECK=-1" process)
+	    (bash-completion-send "export -n MAIL" process)
+	    (bash-completion-send "export -n MAILPATH" process)
 	    ;; some bash completion functions use quote_readline to double-quote
 	    ;; strings - which compgen understands but only in some environment.
 	    ;; disable this dreadful business to get a saner way of handling
