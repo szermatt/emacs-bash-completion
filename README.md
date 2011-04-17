@@ -89,8 +89,8 @@ important disadvantages:
   in the current buffer.
   In a standard terminal, you could do:
 
-      $ alias myalias=ls
-      $ myal<TAB>
+        $ alias myalias=ls
+        $ myal<TAB>
 
   and bash would propose the new alias.
   Bash-completion.el cannot do that, as it is not aware of anything
