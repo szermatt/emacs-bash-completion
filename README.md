@@ -29,8 +29,8 @@ shell-command prompts.
 2. add this into your .emacs file:
 
         (autoload 'bash-completion-dynamic-complete 
-          \"bash-completion\"
-          \"BASH completion hook\")
+          "bash-completion"
+          "BASH completion hook")
         (add-hook 'shell-dynamic-complete-functions
           'bash-completion-dynamic-complete)
         (add-hook 'shell-command-complete-functions
