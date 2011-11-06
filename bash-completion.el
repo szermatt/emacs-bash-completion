@@ -871,7 +871,7 @@ is set to t."
 
 Return a bash command-line for going to default-directory or \"\"."
   (if default-directory
-      (concat "cd 2>/dev/null "
+      (concat "cd >/dev/null 2>&1 "
 	      (bash-completion-quote (expand-file-name default-directory))
 	      " ; ")
     ""))
