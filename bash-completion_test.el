@@ -313,25 +313,25 @@ garbage
       (let ((bash-completion-alist nil)
 	    (default-directory "~/test"))
 	(bash-completion-generate-line "hello worl" 7 '("hello" "worl") 1))
-      (concat "cd 2>/dev/null " (expand-file-name "~/test") " ; compgen -o default worl"))
+      (concat "cd >/dev/null 2>&1 " (expand-file-name "~/test") " ; compgen -o default worl"))
 
      ("bash-completion-generate-line custom completion no function or command"
       (let ((bash-completion-alist '(("zorg" . ("-A" "-G" "*.txt"))))
 	    (default-directory "/test"))
 	(bash-completion-generate-line "zorg worl" 7 '("zorg" "worl") 1))
-      "cd 2>/dev/null /test ; compgen -A -G '*.txt' -- worl")
+      "cd >/dev/null 2>&1 /test ; compgen -A -G '*.txt' -- worl")
 
      ("bash-completion-generate-line custom completion function"
       (let ((bash-completion-alist '(("zorg" . ("-F" "__zorg"))))
 	    (default-directory "/test"))
 	(bash-completion-generate-line "zorg worl" 7 '("zorg" "worl") 1))
-      "cd 2>/dev/null /test ; __BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; COMP_POINT=7; COMP_CWORD=1; COMP_WORDS=( zorg worl ); __zorg \"${COMP_WORDS[@]}\"' compgen -F __bash_complete_wrapper -- worl")
+      "cd >/dev/null 2>&1 /test ; __BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; COMP_POINT=7; COMP_CWORD=1; COMP_WORDS=( zorg worl ); __zorg \"${COMP_WORDS[@]}\"' compgen -F __bash_complete_wrapper -- worl")
 
      ("bash-completion-generate-line custom completion command"
       (let ((bash-completion-alist '(("zorg" . ("-C" "__zorg"))))
 	    (default-directory "/test"))
 	(bash-completion-generate-line "zorg worl" 7 '("zorg" "worl") 1))
-      "cd 2>/dev/null /test ; __BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; COMP_POINT=7; COMP_CWORD=1; COMP_WORDS=( zorg worl ); __zorg \"${COMP_WORDS[@]}\"' compgen -F __bash_complete_wrapper -- worl")
+      "cd >/dev/null 2>&1 /test ; __BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; COMP_POINT=7; COMP_CWORD=1; COMP_WORDS=( zorg worl ); __zorg \"${COMP_WORDS[@]}\"' compgen -F __bash_complete_wrapper -- worl")
 
 
      ("bash-completion-starts-with empty str"
@@ -384,12 +384,12 @@ garbage
      ("bash-completion-cd-command-prefix current dir"
       (let ((default-directory "/tmp/x"))
 	(bash-completion-cd-command-prefix))
-      "cd 2>/dev/null /tmp/x ; ")
+      "cd >/dev/null 2>&1 /tmp/x ; ")
 
      ("bash-completion-cd-command-prefix expand tilde"
       (let ((default-directory "~/x"))
 	(bash-completion-cd-command-prefix))
-      (concat "cd 2>/dev/null " (expand-file-name "~/x") " ; "))
+      (concat "cd >/dev/null 2>&1 " (expand-file-name "~/x") " ; "))
 
      ("bash-completion-addsuffix ends with /"
       (flet ((file-accessible-directory-p (a) (error "unexpected")))
