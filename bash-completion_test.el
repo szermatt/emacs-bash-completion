@@ -469,8 +469,14 @@ garbage
       "a\\ bc\\ d\\ e")
 
      ("bash-completion-fix do not escape final space"
-      (bash-completion-fix "ab " "a")
+      (let ((bash-completion-nospace nil))
+	(bash-completion-fix "ab " "a"))
       "ab ")
+     
+     ("bash-completion-fix remove final space"
+      (let ((bash-completion-nospace t))
+	(bash-completion-fix "ab " "a"))
+      "ab")
 
      ("bash-completion-fix unexpand home and escape"
       (bash-completion-fix (expand-file-name "~/a/hello world") "~/a/he")
@@ -489,10 +495,11 @@ garbage
       "Dexter")
 
      ("bash-completion-extract-candidates"
-      (flet ((bash-completion-buffer () (current-buffer)))
-	(sz-testutils-with-buffer
-	 "hello world\nhello \n\n"
-	 (bash-completion-extract-candidates "hello" nil)))
+      (let ((bash-completion-nospace nil))
+	(flet ((bash-completion-buffer () (current-buffer)))
+	  (sz-testutils-with-buffer
+	   "hello world\nhello \n\n"
+	   (bash-completion-extract-candidates "hello" nil))))
       '("hello\\ world" "hello "))
 
      ("bash-completion-nonsep"

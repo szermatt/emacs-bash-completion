@@ -189,6 +189,19 @@ which typically takes a long time."
   :type '(float)
   :group 'bash-completion)
 
+(defcustom bash-completion-nospace nil
+  "Never let bash add a final space at the end of a completion.
+
+When there is only one completion candidate, bash sometimes adds
+a space at the end of the completion to move the cursor at the
+appropriate position to add more command-line arguments. This
+feature doesn't always work perfectly with programmable completion.
+
+Enable this option if you find yourself having to often backtrack
+to remove the extra space bash adds after a completion."
+  :type '(boolean)
+  :group 'bash-completion)
+
 ;;; ---------- Internal variables and constants
 
 (defvar bash-completion-process nil
@@ -691,7 +704,8 @@ for directory name detection to work."
 		   (t str))))
        (when (bash-completion-ends-with rest " ")
 	 (setq rest (substring rest 0 -1))
-	 (setq suffix " "))
+	 (unless bash-completion-nospace
+	     (setq suffix " ")))
        (concat prefix (bash-completion-escape-candidate rest open-quote) suffix)))))
 
 (defun bash-completion-escape-candidate (completion-candidate open-quote)
