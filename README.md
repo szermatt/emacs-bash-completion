@@ -109,6 +109,7 @@ This package is known to work on the following environment:
 - GNU Emacs 23.0.94.1 (Ubuntu 8.10)
 - GNU Emacs 24.1.1 (OSX 10.7)
 - GNU Emacs 24.1.1 (OSX 10.8)
+
 and using the following bash versions:
 
 - BASH 3.2.17
