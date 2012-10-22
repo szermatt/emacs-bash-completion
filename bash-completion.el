@@ -851,7 +851,7 @@ is set to t."
 		(process-send-string process (concat ". " startfile1 "\n")))
 	       ((file-exists-p startfile2)
 		(process-send-string process (concat ". " startfile2 "\n")))))
-	    (bash-completion-send "PS1='\v'" process bash-completion-initial-timeout)
+	    (bash-completion-send "PROMPT_COMMAND='';PS1='\v'" process bash-completion-initial-timeout)
 	    (bash-completion-send "function __bash_complete_wrapper { eval $__BASH_COMPLETE_WRAPPER; }" process)
 	    ;; attempt to turn off unexpected status messages from bash
 	    ;; if the current version of bash does not support these options,
