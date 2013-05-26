@@ -56,7 +56,7 @@
 ;; 	'bash-completion-dynamic-complete)
 ;;
 ;;   or simpler, but forces you to load this file at startup:
-;; 
+;;
 ;;   (require 'bash-completion)
 ;;   (bash-completion-setup)
 ;;
@@ -132,11 +132,11 @@
 ;; 2009-11-25   Stephane Zermatten <szermatt@gmail.com>
 ;;
 ;; * bash-completion-require-process: set MAILCHECK to -1
-;; to disable mail check message. 
+;; to disable mail check message.
 ;;
 ;; 2009-08-01   Stephane Zermatten <szermatt@gmail.com>
 ;;
-;; * bash-completion-generate-line: add missing compgen 
+;; * bash-completion-generate-line: add missing compgen
 ;; option to complete commands (duh!).
 ;;
 ;; Current version:
@@ -206,6 +206,7 @@ to remove the extra space bash adds after a completion."
 
 (defvar bash-completion-process nil
   "Bash process object.")
+(defvar bash-completion-prefix "" "")
 (defvar bash-completion-alist nil
   "Maps from command name to the 'complete' arguments.
 
@@ -226,6 +227,32 @@ completion in colon-separated values.")
 (defconst bash-completion-wordbreaks
   (append bash-completion-wordbreaks-str nil)
   "`bash-completion-wordbreaks-str' as a list of characters.")
+
+;;; ---------- Inline functions
+
+(defsubst bash-completion-tokenize-get-range (token)
+  "Return the TOKEN range as a cons: (start . end)."
+  (cdr (assq 'range token)))
+
+(defsubst bash-completion-tokenize-set-end (token)
+  "Set the end position of TOKEN to the cursor position."
+  (setcdr (bash-completion-tokenize-get-range token) (point)))
+
+(defsubst bash-completion-tokenize-append-str (token str)
+  "Append to TOKEN the string STR."
+  (let ((str-cons (assq 'str token)))
+    (setcdr str-cons (concat (cdr str-cons) str))))
+
+(defsubst bash-completion-tokenize-get-str (token)
+  "Return the TOKEN string."
+  (cdr (assq 'str token)))
+
+(defsubst bash-completion-tokenize-open-quote (tokens)
+  "Return the quote character that was still open in the last token.
+
+TOKENS is a list of token as returned by
+`bash-completion-tokenize'."
+  (cdr (assq 'quote (car (last tokens)))))
 
 ;;; ---------- Functions: completion
 
@@ -431,30 +458,6 @@ list of strings.
 
 TOKENS should be in the format returned by `bash-completion-tokenize'."
   (mapcar 'bash-completion-tokenize-get-str tokens))
-
-(defsubst bash-completion-tokenize-get-range (token)
-  "Return the TOKEN range as a cons: (start . end)."
-  (cdr (assq 'range token)))
-
-(defsubst bash-completion-tokenize-set-end (token)
-  "Set the end position of TOKEN to the cursor position."
-  (setcdr (bash-completion-tokenize-get-range token) (point)))
-
-(defsubst bash-completion-tokenize-append-str (token str)
-  "Append to TOKEN the string STR."
-  (let ((str-cons (assq 'str token)))
-    (setcdr str-cons (concat (cdr str-cons) str))))
-
-(defsubst bash-completion-tokenize-get-str (token)
-  "Return the TOKEN string."
-  (cdr (assq 'str token)))
-
-(defsubst bash-completion-tokenize-open-quote (tokens)
-  "Return the quote character that was still open in the last token.
-
-TOKENS is a list of token as returned by
-`bash-completion-tokenize'."
-  (cdr (assq 'quote (car (last tokens)))))
 
 (defun bash-completion-tokenize (start end)
   "Tokenize the portion of the current buffer between START and END.
@@ -689,8 +692,8 @@ for directory name detection to work."
 		    ;; completion is a substring of prefix something's
 		    ;; gone wrong. Treat it as one (useless)
 		    ;; candidate.
-		    (setq prefix "")
-		    (setq rest str))
+                    (setq prefix "")
+                    str)
 		   ;; completion sometimes only applies to the last word, as
 		   ;; defined by COMP_WORDBREAKS. This detects and works around
 		   ;; this feature.
@@ -1040,7 +1043,7 @@ of the command in the bash completion process buffer."
 	(unless (accept-process-output process timeout)
 	  (error "Timeout while waiting for an answer from bash-completion process")))
       (goto-char (point-max))
-      (delete-backward-char 1))))
+      (delete-char -1))))
 
 (provide 'bash-completion)
 ;;; bash-completion.el ends here
