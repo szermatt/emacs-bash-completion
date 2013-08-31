@@ -56,7 +56,7 @@
 ;; 	'bash-completion-dynamic-complete)
 ;;
 ;;   or simpler, but forces you to load this file at startup:
-;; 
+;;
 ;;   (require 'bash-completion)
 ;;   (bash-completion-setup)
 ;;
@@ -132,11 +132,11 @@
 ;; 2009-11-25   Stephane Zermatten <szermatt@gmail.com>
 ;;
 ;; * bash-completion-require-process: set MAILCHECK to -1
-;; to disable mail check message. 
+;; to disable mail check message.
 ;;
 ;; 2009-08-01   Stephane Zermatten <szermatt@gmail.com>
 ;;
-;; * bash-completion-generate-line: add missing compgen 
+;; * bash-completion-generate-line: add missing compgen
 ;; option to complete commands (duh!).
 ;;
 ;; Current version:
@@ -206,6 +206,7 @@ to remove the extra space bash adds after a completion."
 
 (defvar bash-completion-process nil
   "Bash process object.")
+(defvar bash-completion-prefix "" "")
 (defvar bash-completion-alist nil
   "Maps from command name to the 'complete' arguments.
 
@@ -233,6 +234,32 @@ completion in colon-separated values.")
 function returns status code 124, meaning that the completion
 should be retried. This should be a string that's unlikely
 to be included into a completion output.")
+
+;;; ---------- Inline functions
+
+(defsubst bash-completion-tokenize-get-range (token)
+  "Return the TOKEN range as a cons: (start . end)."
+  (cdr (assq 'range token)))
+
+(defsubst bash-completion-tokenize-set-end (token)
+  "Set the end position of TOKEN to the cursor position."
+  (setcdr (bash-completion-tokenize-get-range token) (point)))
+
+(defsubst bash-completion-tokenize-append-str (token str)
+  "Append to TOKEN the string STR."
+  (let ((str-cons (assq 'str token)))
+    (setcdr str-cons (concat (cdr str-cons) str))))
+
+(defsubst bash-completion-tokenize-get-str (token)
+  "Return the TOKEN string."
+  (cdr (assq 'str token)))
+
+(defsubst bash-completion-tokenize-open-quote (tokens)
+  "Return the quote character that was still open in the last token.
+
+TOKENS is a list of token as returned by
+`bash-completion-tokenize'."
+  (cdr (assq 'quote (car (last tokens)))))
 
 ;;; ---------- Functions: completion
 
@@ -438,30 +465,6 @@ list of strings.
 
 TOKENS should be in the format returned by `bash-completion-tokenize'."
   (mapcar 'bash-completion-tokenize-get-str tokens))
-
-(defsubst bash-completion-tokenize-get-range (token)
-  "Return the TOKEN range as a cons: (start . end)."
-  (cdr (assq 'range token)))
-
-(defsubst bash-completion-tokenize-set-end (token)
-  "Set the end position of TOKEN to the cursor position."
-  (setcdr (bash-completion-tokenize-get-range token) (point)))
-
-(defsubst bash-completion-tokenize-append-str (token str)
-  "Append to TOKEN the string STR."
-  (let ((str-cons (assq 'str token)))
-    (setcdr str-cons (concat (cdr str-cons) str))))
-
-(defsubst bash-completion-tokenize-get-str (token)
-  "Return the TOKEN string."
-  (cdr (assq 'str token)))
-
-(defsubst bash-completion-tokenize-open-quote (tokens)
-  "Return the quote character that was still open in the last token.
-
-TOKENS is a list of token as returned by
-`bash-completion-tokenize'."
-  (cdr (assq 'quote (car (last tokens)))))
 
 (defun bash-completion-tokenize (start end)
   "Tokenize the portion of the current buffer between START and END.
@@ -708,8 +711,8 @@ for directory name detection to work."
 		    ;; completion is a substring of prefix something's
 		    ;; gone wrong. Treat it as one (useless)
 		    ;; candidate.
-		    (setq prefix "")
-		    (setq rest str))
+                    (setq prefix "")
+                    str)
 		   ;; completion sometimes only applies to the last word, as
 		   ;; defined by COMP_WORDBREAKS. This detects and works around
 		   ;; this feature.
@@ -870,7 +873,7 @@ is set to t."
 		(process-send-string process (concat ". " startfile1 "\n")))
 	       ((file-exists-p startfile2)
 		(process-send-string process (concat ". " startfile2 "\n")))))
-	    (bash-completion-send "PS1='\t$?\v'" process bash-completion-initial-timeout)
+	    (bash-completion-send "PROMPT_COMMAND='';PS1='\t$?\v'" process bash-completion-initial-timeout)
 	    (bash-completion-send (concat "function __bash_complete_wrapper {"
 					  " eval $__BASH_COMPLETE_WRAPPER;"
 					  " n=$?; if [[ $n = 124 ]]; then"
