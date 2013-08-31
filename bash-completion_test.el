@@ -33,6 +33,33 @@
   (require 'sz-testutils)
   (require 'cl)
 
+  (defun bash-completion-test-send (buffer-content)
+    "Run `bash-completion-send' on BUFFER-CONTENT.
+Return (const return-value new-buffer-content)"
+    (let ((process 'proces))
+      (flet ((process-buffer
+	      (process)
+	      (unless (eq process 'process)
+		(error "unexpected: %s" process))
+	      (current-buffer))
+	     (process-send-string
+	      (process command)
+	      (unless (eq process 'process)
+		(error "unexpected process: %s" process))
+	      (unless (equal "cmd\n" command)
+		(error "unexpected command: %s" command)))
+	     (accept-process-output
+	      (process timeout)
+	      (unless (eq process 'process)
+		(error "unexpected process: %s" process))
+	      (unless (= timeout 3.14)
+		(error "unexpected timeout: %s" timeout))
+	      (insert buffer-content)
+	      t))
+	(sz-testutils-with-buffer-ret-and-content
+	 ""
+	 (bash-completion-send "cmd" 'process 3.14)))))
+  
   (defvar bash-completion-run-integration-tests nil
     "Run integration tests. Integration start subprocess (bash
 shells) and as a result are too slow to be run in many
@@ -287,6 +314,7 @@ complete -F complete_projects project
 complete -F complete_projects pro
 complete -F _cdargs_aliases cv
 complete -F _cdargs_aliases cb
+complete -F _completion_loader -D
 garbage
 "
        (let ((bash-completion-alist '(garbage)))
@@ -295,8 +323,9 @@ garbage
 	("project" "-F" "complete_projects")
 	("pro" "-F" "complete_projects")
 	("cv" "-F" "_cdargs_aliases")
-	("cb" "-F" "_cdargs_aliases")))
-
+	("cb" "-F" "_cdargs_aliases")
+	(nil "-F" "_completion_loader")))
+     
      ("bash-completion-quote not necessary"
       (bash-completion-quote "hello")
       "hello")
@@ -312,28 +341,39 @@ garbage
      ("bash-completion-generate-line no custom completion"
       (let ((bash-completion-alist nil)
 	    (default-directory "~/test"))
-	(bash-completion-generate-line "hello worl" 7 '("hello" "worl") 1))
-      (concat "cd >/dev/null 2>&1 " (expand-file-name "~/test") " ; compgen -o default worl"))
+	(bash-completion-generate-line "hello worl" 7 '("hello" "worl") 1 nil))
+      (concat "cd >/dev/null 2>&1 " (expand-file-name "~/test") " ; compgen -o default worl 2>/dev/null"))
 
      ("bash-completion-generate-line custom completion no function or command"
       (let ((bash-completion-alist '(("zorg" . ("-A" "-G" "*.txt"))))
 	    (default-directory "/test"))
-	(bash-completion-generate-line "zorg worl" 7 '("zorg" "worl") 1))
-      "cd >/dev/null 2>&1 /test ; compgen -A -G '*.txt' -- worl")
+	(bash-completion-generate-line "zorg worl" 7 '("zorg" "worl") 1 nil))
+      "cd >/dev/null 2>&1 /test ; compgen -A -G '*.txt' -- worl 2>/dev/null")
 
      ("bash-completion-generate-line custom completion function"
       (let ((bash-completion-alist '(("zorg" . ("-F" "__zorg"))))
 	    (default-directory "/test"))
-	(bash-completion-generate-line "zorg worl" 7 '("zorg" "worl") 1))
-      "cd >/dev/null 2>&1 /test ; __BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; COMP_POINT=7; COMP_CWORD=1; COMP_WORDS=( zorg worl ); __zorg \"${COMP_WORDS[@]}\"' compgen -F __bash_complete_wrapper -- worl")
+	(bash-completion-generate-line "zorg worl" 7 '("zorg" "worl") 1 nil))
+      "cd >/dev/null 2>&1 /test ; __BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; COMP_POINT=7; COMP_CWORD=1; COMP_WORDS=( zorg worl ); __zorg \"${COMP_WORDS[@]}\"' compgen -F __bash_complete_wrapper -- worl 2>/dev/null")
 
      ("bash-completion-generate-line custom completion command"
       (let ((bash-completion-alist '(("zorg" . ("-C" "__zorg"))))
 	    (default-directory "/test"))
-	(bash-completion-generate-line "zorg worl" 7 '("zorg" "worl") 1))
-      "cd >/dev/null 2>&1 /test ; __BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; COMP_POINT=7; COMP_CWORD=1; COMP_WORDS=( zorg worl ); __zorg \"${COMP_WORDS[@]}\"' compgen -F __bash_complete_wrapper -- worl")
+	(bash-completion-generate-line "zorg worl" 7 '("zorg" "worl") 1 nil))
+      "cd >/dev/null 2>&1 /test ; __BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; COMP_POINT=7; COMP_CWORD=1; COMP_WORDS=( zorg worl ); __zorg \"${COMP_WORDS[@]}\"' compgen -F __bash_complete_wrapper -- worl 2>/dev/null")
 
+     ("bash-completion-generate-line default completion function"
+      (let ((bash-completion-alist '((nil . ("-F" "__zorg"))))
+	    (default-directory "/test"))
+	(bash-completion-generate-line "zorg worl" 7 '("zorg" "worl") 1 t))
+      "cd >/dev/null 2>&1 /test ; __BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; COMP_POINT=7; COMP_CWORD=1; COMP_WORDS=( zorg worl ); __zorg \"${COMP_WORDS[@]}\"' compgen -F __bash_complete_wrapper -- worl 2>/dev/null")
 
+     ("bash-completion-generate-line ignore completion function"
+      (let ((bash-completion-alist '((nil . ("-F" "__zorg"))))
+	    (default-directory "/test"))
+	(bash-completion-generate-line "zorg worl" 7 '("zorg" "worl") 1 nil))
+      "cd >/dev/null 2>&1 /test ; compgen -o default worl 2>/dev/null")
+     
      ("bash-completion-starts-with empty str"
       (bash-completion-starts-with "" "prefix")
       nil)
@@ -351,30 +391,16 @@ garbage
       t)
 
      ("bash-completion-send"
-      (let ((process 'proces))
-	(flet ((process-buffer
-		(process)
-		(unless (eq process 'process)
-		  (error "unexpected: %s" process))
-		(current-buffer))
-	       (process-send-string
-		(process command)
-		(unless (eq process 'process)
-		  (error "unexpected process: %s" process))
-		(unless (equal "cmd\n" command)
-		  (error "unexpected command: %s" command)))
-	       (accept-process-output
-		(process timeout)
-		(unless (eq process 'process)
-		  (error "unexpected process: %s" process))
-		(unless (= timeout 3.14)
-		  (error "unexpected timeout: %s" timeout))
-		(insert "line1\nline2\n\v")
-		t))
-	  (sz-testutils-with-buffer-content
-	   ""
-	   (bash-completion-send "cmd" 'process 3.14))))
-	  "line1\nline2\n")
+      (bash-completion-test-send "line1\nline2\n\t0\v")
+      (cons 0 "line1\nline2\n"))
+
+     ("bash-completion-send command failed"
+      (bash-completion-test-send "line1\nline2\n\t1\v")
+      (cons 1 "line1\nline2\n"))
+
+     ("bash-completion-send wrapped function returned 124"
+      (bash-completion-test-send (concat "line1\nli" bash-completion-wrapped-status "ne2\n\t0\v"))
+      (cons 124 "line1\nline2\n"))
 
      ("bash-completion-cd-command-prefix no current dir"
       (let ((default-directory nil))

@@ -227,6 +227,13 @@ completion in colon-separated values.")
   (append bash-completion-wordbreaks-str nil)
   "`bash-completion-wordbreaks-str' as a list of characters.")
 
+(defconst bash-completion-wrapped-status
+  "\e\ebash-completion-wrapped-status=124\e\e"
+  "String output by __bash_complete_wrapper when the wrapped
+function returns status code 124, meaning that the completion
+should be retried. This should be a string that's unlikely
+to be included into a completion output.")
+
 ;;; ---------- Functions: completion
 
 ;;;###autoload
@@ -618,12 +625,24 @@ the last word or nil.
 The result is a list of candidates, which might be empty."
   ;; start process now, to make sure bash-completion-alist is
   ;; set before we run bash-completion-generate-line
-  (bash-completion-require-process)
-  (bash-completion-send
-   (concat
-    (bash-completion-generate-line line pos words cword)
-    " 2>/dev/null"))
-  (bash-completion-extract-candidates (nth cword words) open-quote))
+  
+  (let* ((process (bash-completion-require-process))
+	 (completion-status
+	  (bash-completion-send
+	   (bash-completion-generate-line line pos words cword t))))
+    (when (eq 124 completion-status)
+      ;; special 'retry-completion' exit status, typically returned by
+      ;; functions bound by complete -D. Presumably, the function has
+      ;; just setup completion for the current command and is asking
+      ;; us to retry once with the new configuration. 
+      (bash-completion-send "complete -p" process)
+      (bash-completion-build-alist (process-buffer process))
+      (setq completion-status
+	    (bash-completion-send
+	     (concat
+	      (bash-completion-generate-line line pos words cword nil)))))
+    (when (eq 0 completion-status)
+	(bash-completion-extract-candidates (nth cword words) open-quote))))
 
 (defun bash-completion-extract-candidates (stub open-quote)
   "Extract the completion candidates from the process buffer for STUB.
@@ -851,8 +870,14 @@ is set to t."
 		(process-send-string process (concat ". " startfile1 "\n")))
 	       ((file-exists-p startfile2)
 		(process-send-string process (concat ". " startfile2 "\n")))))
-	    (bash-completion-send "PS1='\v'" process bash-completion-initial-timeout)
-	    (bash-completion-send "function __bash_complete_wrapper { eval $__BASH_COMPLETE_WRAPPER; }" process)
+	    (bash-completion-send "PS1='\t$?\v'" process bash-completion-initial-timeout)
+	    (bash-completion-send (concat "function __bash_complete_wrapper {"
+					  " eval $__BASH_COMPLETE_WRAPPER;"
+					  " n=$?; if [[ $n = 124 ]]; then"
+					  "  echo -n \""
+					  bash-completion-wrapped-status
+					  "\"; return 1; "
+					  " fi; }") process)
 	    ;; attempt to turn off unexpected status messages from bash
 	    ;; if the current version of bash does not support these options,
 	    ;; the commands will fail silently and be ignored.
@@ -922,14 +947,18 @@ Lines that do not start with the word complete are skipped.
 
 Return `bash-completion-alist'."
   (when (string= "complete" (car words))
-    (let* ( (reverse-wordsrest (nreverse (cdr words)))
-	    (command (car reverse-wordsrest))
-	    (options (nreverse (cdr reverse-wordsrest))) )
-      (when (and command options)
-	(push (cons command options) bash-completion-alist))))
+    (if (member "-D" (cdr words))
+	;; default completion 
+	(push (cons nil (delete "-D" (cdr words))) bash-completion-alist)
+      ;; normal completion
+      (let* ( (reverse-wordsrest (nreverse (cdr words)))
+	      (command (car reverse-wordsrest))
+	      (options (nreverse (cdr reverse-wordsrest))) )
+	(when (and command options)
+	  (push (cons command options) bash-completion-alist)))))
   bash-completion-alist)
 
-(defun bash-completion-generate-line (line pos words cword)
+(defun bash-completion-generate-line (line pos words cword allowdefault)
   "Generate a command-line that calls compgen.
 
 This function looks into `bash-completion-alist' for a matching compgen
@@ -940,6 +969,7 @@ LINE is the command-line to complete.
 POS is the position of the cursor on LINE
 WORDS is the content of LINE split by words and unescaped
 CWORD is the word 0-based index of the word to complete in WORDS
+ALLOWDEFAULT controls whether to fallback on a possible -D completion 
 
 If the compgen argument set specifies a custom function or command, the
 arguments will be passed to this function or command as:
@@ -953,7 +983,9 @@ candidates."
   (concat
    (bash-completion-cd-command-prefix)
    (let* ( (command-name (file-name-nondirectory (car words)))
-	   (compgen-args (cdr (assoc command-name bash-completion-alist)))
+	   (compgen-args
+	    (or (cdr (assoc command-name bash-completion-alist))
+		(and allowdefault (cdr (assoc nil bash-completion-alist)))))
 	   (stub (nth cword words)) )
      (cond
       ((= cword 0)
@@ -984,7 +1016,8 @@ candidates."
 		 (bash-completion-quote stub))))
       (t
        ;; simple custom completion
-       (format "compgen %s -- %s" (bash-completion-join compgen-args) stub))))))
+       (format "compgen %s -- %s" (bash-completion-join compgen-args) stub))))
+   " 2>/dev/null"))
 
 ;;;###autoload
 (defun bash-completion-reset ()
@@ -1029,8 +1062,10 @@ TIMEOUT is the timeout value for this operation, if nil the value of
 `bash-completion-process-timeout' is used.
 
 Once this command has run without errors, you will find the result
-of the command in the bash completion process buffer."
-  ;;(message commandline)
+of the command in the bash completion process buffer.
+
+Return the status code of the command, as a number."
+  ;; (message commandline)
   (let ((process (or process (bash-completion-require-process)))
 	(timeout (or timeout bash-completion-process-timeout)))
     (with-current-buffer (process-buffer process)
@@ -1039,8 +1074,22 @@ of the command in the bash completion process buffer."
       (while (not (progn (goto-char 1) (search-forward "\v" nil t)))
 	(unless (accept-process-output process timeout)
 	  (error "Timeout while waiting for an answer from bash-completion process")))
-      (goto-char (point-max))
-      (delete-backward-char 1))))
+      (let* ((control-v-position (point))
+	     (control-t-position (progn (search-backward "\t" nil t) (point)))
+	     (status-code (string-to-number
+			   (buffer-substring-no-properties
+			    (1+ control-t-position) (1- control-v-position)))))
+	(delete-region control-t-position (point-max))
+	(goto-char (point-min))
+	(let ((case-fold-search nil))
+	  (when (search-forward bash-completion-wrapped-status nil t)
+	    (setq status-code 124)
+	    (delete-region (match-beginning 0) (match-end 0))))
+	;; (message "status: %d content: \"%s\""
+	;; 	 status-code
+	;; 	 (buffer-substring-no-properties
+	;; 	  (point-min) (point-max)))
+	status-code))))
 
 (provide 'bash-completion)
 ;;; bash-completion.el ends here
