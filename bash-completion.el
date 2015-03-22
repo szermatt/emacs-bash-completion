@@ -323,7 +323,11 @@ instead."
       (if completions
 	  (if bash-completion-comint-uses-standard-completion
 	      (list stub-start pos completions)
-	    (comint-dynamic-simple-complete stub completions))
+	    ;; Setting comint-completion-addsuffix overrides
+	    ;; configuration for comint-dynamic-simple-complete.
+	    ;; Bash adds a space suffix automatically.
+	    (let ((comint-completion-addsuffix nil))
+	      (comint-dynamic-simple-complete stub completions)))
 	;; no standard completion
 	;; try default (file) completion after a wordbreak
 	(bash-completion-dynamic-try-wordbreak-complete stub stub-start pos
