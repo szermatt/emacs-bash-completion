@@ -188,7 +188,8 @@ cases. That's why they need to be enabled manually.")
       '((line . "a hello world")
 	(point . 13)
 	(cword . 2)
-	(words . ("a" "hello" "world"))))
+	(words . ("a" "hello" "world"))
+	(stub-start . 9)))
 
      ("bash-completion-parse-line cursor in the middle of a word"
       (sz-testutils-with-buffer
@@ -197,7 +198,8 @@ cases. That's why they need to be enabled manually.")
       '((line . "a hello wo")
 	(point . 10)
 	(cword . 2)
-	(words . ("a" "hello" "wo"))))
+	(words . ("a" "hello" "wo"))
+	(stub-start . 9)))
 
      ("bash-completion-parse-line cursor at the beginning"
       (sz-testutils-with-buffer
@@ -206,7 +208,9 @@ cases. That's why they need to be enabled manually.")
       '((line . "")
 	(point . 0)
 	(cword . 0)
-	(words . (""))))
+	(words . (""))
+	(stub-start . 2)
+	))
 
      ("bash-completion-parse-line cursor in the middle"
       (sz-testutils-with-buffer
@@ -215,7 +219,8 @@ cases. That's why they need to be enabled manually.")
       '((line . "a hello ")
 	(point . 8)
 	(cword . 2)
-	(words . ("a" "hello" ""))))
+	(words . ("a" "hello" ""))
+	(stub-start . 9)))
 
      ("bash-completion-parse-line cursor at end"
       (sz-testutils-with-buffer
@@ -224,7 +229,8 @@ cases. That's why they need to be enabled manually.")
       '((line . "a hello world b c")
 	(point . 17)
 	(cword . 4)
-	(words . ("a" "hello" "world" "b" "c"))))
+	(words . ("a" "hello" "world" "b" "c"))
+	(stub-start . 17)))
 
      ("bash-completion-parse-line complex multi-command line"
       (sz-testutils-with-buffer
@@ -233,7 +239,8 @@ cases. That's why they need to be enabled manually.")
       '((line . "make -")
 	(point . 6)
 	(cword . 1)
-	(words . ("make" "-"))))
+	(words . ("make" "-"))
+	(stub-start . 27)))
 
 
      ("bash-completion-parse-line pipe"
@@ -243,7 +250,8 @@ cases. That's why they need to be enabled manually.")
       '((line . "sort -")
 	(point . 6)
 	(cword . 1)
-	(words . ("sort" "-"))))
+	(words . ("sort" "-"))
+	(stub-start . 20)))
 
      ("bash-completion-parse-line escaped semicolon"
       (sz-testutils-with-buffer
@@ -252,7 +260,8 @@ cases. That's why they need to be enabled manually.")
       '((line . "find -name '*.txt' -exec echo {} ';' -")
 	(point . 38)
 	(cword . 7)
-	(words . ("find" "-name" "*.txt" "-exec" "echo" "{}" ";" "-"))))
+	(words . ("find" "-name" "*.txt" "-exec" "echo" "{}" ";" "-"))
+	(stub-start . 38)))
 
      ("bash-completion-parse-line at var assignment"
       (sz-testutils-with-buffer
@@ -261,7 +270,8 @@ cases. That's why they need to be enabled manually.")
       '((line . "ZORG=t")
 	(point . 6)
 	(cword . 0)
-	(words . ("ZORG=t"))))
+	(words . ("ZORG=t"))
+	(stub-start . 19)))
 
      ("bash-completion-parse-line cursor after end"
       (sz-testutils-with-buffer
@@ -270,7 +280,8 @@ cases. That's why they need to be enabled manually.")
       '((line . "a hello world b c ")
 	(point . 18)
 	(cword . 5)
-	(words . ("a" "hello" "world" "b" "c" ""))))
+	(words . ("a" "hello" "world" "b" "c" ""))
+	(stub-start . 19)))
 
      ("bash-completion-parse-line with escaped quote"
       (sz-testutils-with-buffer
@@ -279,7 +290,8 @@ cases. That's why they need to be enabled manually.")
       '((line . "cd /vcr/shows/Dexter\\'s")
 	(point . 23)
 	(cword . 1)
-	(words . ("cd" "/vcr/shows/Dexter's"))))
+	(words . ("cd" "/vcr/shows/Dexter's"))
+	(stub-start . 4)))
 
      ("bash-completion-add-to-alist garbage"
       (let ((bash-completion-alist nil))
