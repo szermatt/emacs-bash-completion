@@ -889,6 +889,7 @@ is set to t."
 	    (bash-completion-send "export MAILCHECK=-1" process)
 	    (bash-completion-send "export -n MAIL" process)
 	    (bash-completion-send "export -n MAILPATH" process)
+	    (bash-completion-send "unset HISTFILE" process)
 	    ;; some bash completion functions use quote_readline to double-quote
 	    ;; strings - which compgen understands but only in some environment.
 	    ;; disable this dreadful business to get a saner way of handling
