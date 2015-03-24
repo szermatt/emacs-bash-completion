@@ -129,6 +129,13 @@
 
 ;;; History:
 ;;
+;; Full history is available on
+;; https://github.com/szermatt/emacs-bash-completion
+;;
+;; 2015-03-20   Filipp Gunbin
+;;
+;; * Using Emacs 24.1's shell-dynamic-complete-functions
+;;
 ;; 2009-11-25   Stephane Zermatten <szermatt@gmail.com>
 ;;
 ;; * bash-completion-require-process: set MAILCHECK to -1
