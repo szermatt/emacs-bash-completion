@@ -53,7 +53,7 @@
 ;;   (add-hook 'shell-dynamic-complete-functions
 ;; 	'bash-completion-dynamic-complete)
 ;;   (add-hook 'shell-command-complete-functions
-;; 	'bash-completion-dynamic-complete)
+;; 	'bash-completion-dynamic-complete-legacy)
 ;;
 ;;   or simpler, but forces you to load this file at startup:
 ;;
@@ -294,15 +294,51 @@ before it is needed. For an autoload version, add:
   (add-hook 'shell-dynamic-complete-functions
   	  'bash-completion-dynamic-complete)
   (add-hook 'shell-command-complete-functions
-   	  'bash-completion-dynamic-complete)
+   	  'bash-completion-dynamic-complete-legacy)
 "
   (add-hook 'shell-dynamic-complete-functions
 	    'bash-completion-dynamic-complete)
   (add-hook 'shell-command-complete-functions
-	    'bash-completion-dynamic-complete))
+	    'bash-completion-dynamic-complete-legacy))
 
 ;;;###autoload
 (defun bash-completion-dynamic-complete ()
+    "Returns the completion table for bash command at point.
+
+This function is meant to be added into
+`shell-dynamic-complete-functions'.  It uses `comint' to figure
+out what the current command is and returns a completion table or
+nil if no completions available.
+
+If emacs version is below 24.1 it calls
+`comint-dynamic-simple-complete-legacy' to do the completion instead."
+    (if bash-completion-comint-uses-standard-completion
+	(bash-completion-dynamic-complete-standard)
+      (bash-completion-dynamic-complete-legacy)))
+
+(defun bash-completion-dynamic-complete-legacy ()
+  "Returns the completion table for bash command at point.
+
+This function is meant to be added into
+`shell-dynamic-complete-functions' or
+`shell-command-complete-functions'.  It uses `comint' to figure
+out what the current command is and calls
+`comint-dynamic-simple-complete' to do the completion instead.
+
+In most cases, you should call `bash-completion-dynamic' instead.
+This is only meant to be used when pre-emacs 24.1 behavior is
+required, such as when added to `shell-command-complete-functions'."
+  (let ((result (bash-completion-dynamic-complete-0)))
+    (when result
+      (let* ((stub (car result))
+	     (completions (nth 3 result))
+	     ;; Setting comint-completion-addsuffix overrides
+	     ;; configuration for comint-dynamic-simple-complete.
+	     ;; Bash adds a space suffix automatically.
+	     (comint-completion-addsuffix nil))
+	(comint-dynamic-simple-complete stub completions)))))
+
+(defun bash-completion-dynamic-complete-standard ()
   "Returns the completion table for bash command at point.  
 
 This function is meant to be added into
@@ -312,6 +348,17 @@ out what the current command is and returns a completion table or
 nil if no completions available.  If emacs version is below 24.1
 is calls `comint-dynamic-simple-complete' to do the completion
 instead."
+  (cdr (bash-completion-dynamic-complete-0)))
+
+(defun bash-completion-dynamic-complete-0 ()
+  "Returns completion information for bash command at point.
+
+This function returns enough information for both
+`bash-completion-dynamic-complete-standard' and
+`bash-completion-dynamic-complete-legacy'. It is not meant to
+be called directly.
+
+Returns (list unescaped-stub stub-start pos completions)"
   (when bash-completion-enabled
     (when (not (window-minibuffer-p))
       (message "Bash completion..."))
@@ -325,20 +372,13 @@ instead."
 	   (cword (cdr (assq 'cword parsed)))
 	   (words (cdr (assq 'words parsed)))
 	   (stub-start (cdr (assq 'stub-start parsed)))
-	   (stub (nth cword words))	; used only for older emacsen
+	   (stub (nth cword words))
 	   (completions (bash-completion-comm line point words cword open-quote)))
       (if completions
-	  (if bash-completion-comint-uses-standard-completion
-	      (list stub-start pos completions)
-	    ;; Setting comint-completion-addsuffix overrides
-	    ;; configuration for comint-dynamic-simple-complete.
-	    ;; Bash adds a space suffix automatically.
-	    (let ((comint-completion-addsuffix nil))
-	      (comint-dynamic-simple-complete stub completions)))
-	;; no standard completion
-	;; try default (file) completion after a wordbreak
-	(bash-completion-dynamic-try-wordbreak-complete stub stub-start pos
-							open-quote))))) 
+	  (list stub stub-start pos completions)
+	;; fallback to default (file) completion after a wordbreak
+	(bash-completion-dynamic-try-wordbreak-complete
+	 stub stub-start pos open-quote)))))
 
 (defun bash-completion-dynamic-try-wordbreak-complete (stub stub-start pos open-quote)
   "Try wordbreak completion on STUB if the complete completion failed.
@@ -362,9 +402,10 @@ This function is not meant to be called outside of
 			     (bash-completion-quote after-wordbreak)))
       (let ((completions
 	     (bash-completion-extract-candidates after-wordbreak open-quote)))
-	(if bash-completion-comint-uses-standard-completion
-	    (list (+ stub-start (length before-wordbreak)) pos completions)
-	  (comint-dynamic-simple-complete after-wordbreak completions))))))
+	(list after-wordbreak
+	      (+ stub-start (length before-wordbreak))
+	      pos
+	      completions)))))
 	  
 ;;; ---------- Functions: parsing and tokenizing
 
