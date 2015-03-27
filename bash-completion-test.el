@@ -38,25 +38,25 @@
   "Run `bash-completion-send' on BUFFER-CONTENT.
 Return (const return-value new-buffer-content)"
   (let ((process 'proces))
-    (flet ((process-buffer
-	    (process)
-	    (unless (eq process 'process)
-	      (error "unexpected: %s" process))
-	    (current-buffer))
-	   (process-send-string
-	    (process command)
-	    (unless (eq process 'process)
-	      (error "unexpected process: %s" process))
-	    (unless (equal "cmd\n" command)
-	      (error "unexpected command: %s" command)))
-	   (accept-process-output
-	    (process timeout)
-	    (unless (eq process 'process)
-	      (error "unexpected process: %s" process))
-	    (unless (= timeout 3.14)
-	      (error "unexpected timeout: %s" timeout))
-	    (insert buffer-content)
-	    t))
+    (cl-letf (((symbol-function 'process-buffer)
+	       (lambda (process)
+		 (unless (eq process 'process)
+		   (error "unexpected: %s" process))
+		 (current-buffer)))
+	      ((symbol-function 'process-send-string)
+	       (lambda (process command)
+		 (unless (eq process 'process)
+		   (error "unexpected process: %s" process))
+		 (unless (equal "cmd\n" command)
+		   (error "unexpected command: %s" command))))
+	      ((symbol-function 'accept-process-output)
+	       (lambda (process timeout)
+		 (unless (eq process 'process)
+		   (error "unexpected process: %s" process))
+		 (unless (= timeout 3.14)
+		   (error "unexpected timeout: %s" timeout))
+		 (insert buffer-content)
+		 t)))
       (sz-testutils-with-buffer-ret-and-content
        ""
        (bash-completion-send "cmd" 'process 3.14)))))
@@ -432,32 +432,22 @@ garbage
 	     (bash-completion-cd-command-prefix)))))
 
 (ert-deftest bash-completion-addsuffix-test ()
-  (should (equal "hello/"
-		 (flet ((file-accessible-directory-p (a) (error "unexpected")))
-		   (bash-completion-addsuffix "hello/"))))
-
-  ;; ends with space"
-  (should (equal "hello "
-		 (flet ((file-accessible-directory-p (a) (error "unexpected")))
-		   (bash-completion-addsuffix "hello "))))
-
-  ;; ends with separator"
-  (should (equal "hello:"
-		 (flet ((file-accessible-directory-p (a) (error "unexpected")))
-		   (bash-completion-addsuffix "hello:"))))
-
+  (cl-letf (((symbol-function 'file-accessible-directory-p)
+	     (lambda (a) (error "unexpected"))))
+    (should (equal "hello/" (bash-completion-addsuffix "hello/")))
+    ;; ends with space"
+    (should (equal "hello " (bash-completion-addsuffix "hello ")))
+    ;; ends with separator"
+    (should (equal "hello:" (bash-completion-addsuffix "hello:"))))
   ;; check directory"
-  (should (equal "hello/"
-		 (flet ((file-accessible-directory-p (a) (equal a "/tmp/hello")))
-		   (let ((default-directory "/tmp"))
-		     (bash-completion-addsuffix "hello")))))
-
-  ;; check directory, expand tilde"
-  (should (equal "y/"
-		 (flet ((file-accessible-directory-p (a)
-			(equal a (concat (expand-file-name "y" "~/x")))))
-		   (let ((default-directory "~/x"))
-		     (bash-completion-addsuffix "y"))))))
+  (cl-letf (((symbol-function 'file-accessible-directory-p)
+	     (lambda (a) (equal a "/tmp/hello")))
+	    (default-directory "/tmp"))
+    (should (equal "hello/" (bash-completion-addsuffix "hello"))))
+  (cl-letf (((symbol-function 'file-accessible-directory-p)
+	     (lambda (a) (equal a (concat (expand-file-name "y" "~/x")))))
+	    (default-directory "~/x"))
+    (should (equal "y/" (bash-completion-addsuffix "y")))))
 
 (ert-deftest bash-completion-starts-with-test ()
   (should (equal nil (bash-completion-starts-with "" "hello ")))
@@ -537,11 +527,12 @@ garbage
 (ert-deftest bash-completion-extract-candidates-test ()
   (should (equal 
 	   '("hello\\ world" "hello ")
-	   (let ((bash-completion-nospace nil))
-	     (flet ((bash-completion-buffer () (current-buffer)))
-	       (sz-testutils-with-buffer
-		"hello world\nhello \n\n"
-		(bash-completion-extract-candidates "hello" nil)))))))
+	   (sz-testutils-with-buffer
+	    "hello world\nhello \n\n"
+	    (cl-letf (((symbol-function 'bash-completion-buffer)
+		       (lambda () (current-buffer)))
+		      (bash-completion-nospace nil))
+	      (bash-completion-extract-candidates "hello" nil))))))
 
 (ert-deftest bash-completion-nonsep-test ()
   (should (equal "^ \t\n\r;&|'\"#"
