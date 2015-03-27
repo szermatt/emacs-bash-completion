@@ -21,8 +21,8 @@
 
 :;;; Commentary:
 ;;
-;; This file defines `bash-completion-regress' and run the
-;; regression tests if and only if regress is already imported.
+;; This file defines unit and integrations ERT tests for
+;; `bash-completion'.
 ;;
 
 ;;; History:
