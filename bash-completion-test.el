@@ -632,6 +632,7 @@ garbage
 	  (kill-buffer shell-buffer))))))
 
 (ert-deftest bash-completion-interaction-test ()
+  (skip-unless (file-executable-p bash-completion-prog))
   (should (equal
 	   '(nil t t ("help ") "t\n" nil nil)
 	   (bash-completion_test-harness
@@ -651,6 +652,7 @@ garbage
 	     (bash-completion-is-running))))))
 
 (ert-deftest bash-completion-setenv-test ()
+  (skip-unless (file-executable-p bash-completion-prog))
   (should (equal
 	   "t\n"
 	   (bash-completion_test-harness
@@ -659,12 +661,14 @@ garbage
 	      (buffer-string))))))
 
 (ert-deftest bash-completion-one-completion-test ()
+  (skip-unless (file-executable-p bash-completion-prog))
   (should (equal '(16 ("__bash_complete_wrapper "
 		       ;; TODO: again, why is this duplicated?
 		       "__bash_complete_wrapper "))
 		 (bash-completion_test-with-shell "__bash_complete_"))))
 
 (ert-deftest bash-completion-wordbreak-completion-test ()
+  (skip-unless (file-executable-p bash-completion-prog))
   (should (equal '(3 ("/bin/"))
 		 (bash-completion_test-with-shell "export PATH=/sbin:/bi"))))
 
