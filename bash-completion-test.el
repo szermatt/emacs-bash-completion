@@ -619,9 +619,12 @@ garbage
 	    ;; do a completion and return the result
 	    (with-current-buffer shell-buffer
 	      (insert ,complete-me)
-	      (let ((start (point)))
-		(bash-completion-dynamic-complete-legacy)
-		(buffer-substring-no-properties start (point-max)))))
+	      (let ((result (bash-completion-dynamic-complete-standard)))
+		;; (start end completions)
+		;; start and end depend on the prompt length, so just return:
+		;; ((- end start) completion)
+		(list (- (nth 1 result) (nth 0 result))
+		      (nth 2 result)))))
 	;; finally
 	(when (and shell-buffer (buffer-live-p shell-buffer))
 	  (with-current-buffer shell-buffer
@@ -656,14 +659,13 @@ garbage
 	      (buffer-string))))))
 
 (ert-deftest bash-completion-one-completion-test ()
-  ;; TODO: Fix this test. It is flakey because of timing issues. 
-  (should (bash-completion-ends-with
-	   (bash-completion_test-with-shell "__bash_complete_")
-	   "__bash_complete_wrapper ")))
+  (should (equal '(16 ("__bash_complete_wrapper "
+		       ;; TODO: again, why is this duplicated?
+		       "__bash_complete_wrapper "))
+		 (bash-completion_test-with-shell "__bash_complete_"))))
 
 (ert-deftest bash-completion-wordbreak-completion-test ()
-  (should (bash-completion-ends-with
-	   (bash-completion_test-with-shell "export PATH=/sbin:/bi")
-	   "export PATH=/sbin:/bin/")))
+  (should (equal '(3 ("/bin/"))
+		 (bash-completion_test-with-shell "export PATH=/sbin:/bi"))))
 
 ;;; bash-completion_test.el ends here
