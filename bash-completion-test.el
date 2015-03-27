@@ -625,16 +625,15 @@ garbage
 (ert-deftest bash-completion-interaction-test ()
   (skip-unless (file-executable-p bash-completion-prog))
   (should (equal
-	   '(nil t t ("help ") "t\n" nil nil)
+	   '(nil t t t "t\n" nil nil)
 	   (bash-completion_test-harness
 	    (list
 	     (bash-completion-is-running)
 	     (buffer-live-p (bash-completion-buffer))
 	     (bash-completion-is-running)
-	     ;; TODO: why does bash-completion-comm return twice the
-	     ;; same string? Fix.
-	     (delete-dups  
-	      (bash-completion-comm "hel" 4 '("hel") 0 nil))
+	     (not (null
+		   (member "help "
+			   (bash-completion-comm "hel" 4 '("hel") 0 nil))))
 	     (progn
 	       (bash-completion-send "echo $EMACS_BASH_COMPLETE")
 	       (with-current-buffer (bash-completion-buffer)
