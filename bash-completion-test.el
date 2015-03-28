@@ -624,31 +624,22 @@ garbage
 
 (ert-deftest bash-completion-interaction-test ()
   (skip-unless (file-executable-p bash-completion-prog))
-  (should (equal
-	   '(nil t t t "t\n" nil nil)
-	   (bash-completion_test-harness
-	    (list
-	     (bash-completion-is-running)
-	     (buffer-live-p (bash-completion-buffer))
-	     (bash-completion-is-running)
-	     (not (null
-		   (member "help "
-			   (bash-completion-comm "hel" 4 '("hel") 0 nil))))
-	     (progn
-	       (bash-completion-send "echo $EMACS_BASH_COMPLETE")
-	       (with-current-buffer (bash-completion-buffer)
-		 (buffer-string)))
-	     (bash-completion-reset)
-	     (bash-completion-is-running))))))
+  (bash-completion_test-harness
+   (should-not (bash-completion-is-running))
+   (should (buffer-live-p (bash-completion-buffer)))
+   (should (bash-completion-is-running))
+   (should-not (null (member
+		      "help "
+		      (bash-completion-comm "hel" 4 '("hel") 0 nil))))
+   (bash-completion-reset)
+   (should-not (bash-completion-is-running))))
 
 (ert-deftest bash-completion-setenv-test ()
   (skip-unless (file-executable-p bash-completion-prog))
-  (should (equal
-	   "t\n"
-	   (bash-completion_test-harness
-	    (bash-completion-send "echo $EMACS_BASH_COMPLETE")
-	    (with-current-buffer (bash-completion-buffer)
-	      (buffer-string))))))
+  (bash-completion_test-harness
+   (bash-completion-send "echo $EMACS_BASH_COMPLETE")
+   (with-current-buffer (bash-completion-buffer)
+     (should (equal "t\n" (buffer-string))))))
 
 (ert-deftest bash-completion-one-completion-test ()
   (skip-unless (file-executable-p bash-completion-prog))
