@@ -23,9 +23,6 @@
 ;; This file defines dynamic completion hooks for shell-mode and
 ;; shell-command prompts that are based on bash completion.
 ;;
-;; You will need shell-command.el to get tab completion in the
-;; minibuffer. See http://www.namazu.org/~tsuchiya/elisp/shell-command.el
-;;
 ;; Bash completion for emacs:
 ;; - is aware of bash builtins, aliases and functions
 ;; - does file expansion inside of colon-separated variables
@@ -52,8 +49,6 @@
 ;;     \"BASH completion hook\")
 ;;   (add-hook 'shell-dynamic-complete-functions
 ;; 	'bash-completion-dynamic-complete)
-;;   (add-hook 'shell-command-complete-functions
-;; 	'bash-completion-dynamic-complete-legacy)
 ;;
 ;;   or simpler, but forces you to load this file at startup:
 ;;
@@ -112,19 +107,8 @@
 ;;
 ;; COMPATIBILITY
 ;;
-;; bash-completion.el is quite sensitive to the OS and BASH version.
-;; This package is known to work on the following environment:
-;;   GNU Emacs 22.3.1 (Aquamacs 1.7)
-;;   GNU Emacs 22.1.1 (OSX 10.5)
-;;   GNU Emacs 22.1.1 (Ubuntu 8.04)
-;;   GNU Emacs 23.0.94.1 (Ubuntu 8.10)
-;;
-;; and using the following bash versions:
-;;   BASH 3.2.17
-;;   BASH 3.2.32
-;;   BASH 3.2.39
-;;
-;; bash-completion.el does not works on XEmacs.
+;; bash-completion.el is known to work on Emacs 22 and later under
+;; Linux and OSX. It does not works on XEmacs.
 ;;
 
 ;;; History:
@@ -282,8 +266,7 @@ TOKENS is a list of token as returned by
   "Register bash completion for the shell buffer and shell command line.
 
 This function adds `bash-completion-dynamic-complete' to the completion
-function list of shell mode, `shell-dynamic-complete-functions' and to the
-completion function list of shell-command, `shell-command-complete-functions'.
+function list of shell mode, `shell-dynamic-complete-functions'.
 
 This function is convenient, but it might not be the best way of enabling
 bash completion in your .emacs file because it forces you to load the module
@@ -293,13 +276,9 @@ before it is needed. For an autoload version, add:
     \"BASH completion hook\")
   (add-hook 'shell-dynamic-complete-functions
   	  'bash-completion-dynamic-complete)
-  (add-hook 'shell-command-complete-functions
-   	  'bash-completion-dynamic-complete-legacy)
 "
   (add-hook 'shell-dynamic-complete-functions
-	    'bash-completion-dynamic-complete)
-  (add-hook 'shell-command-complete-functions
-	    'bash-completion-dynamic-complete-legacy))
+	    'bash-completion-dynamic-complete))
 
 ;;;###autoload
 (defun bash-completion-dynamic-complete ()
@@ -308,55 +287,26 @@ before it is needed. For an autoload version, add:
 This function is meant to be added into
 `shell-dynamic-complete-functions'.  It uses `comint' to figure
 out what the current command is and returns a completion table or
-nil if no completions available.
-
-If emacs version is below 24.1 it calls
-`comint-dynamic-simple-complete-legacy' to do the completion instead."
+nil if no completions available."
     (if bash-completion-comint-uses-standard-completion
-	(bash-completion-dynamic-complete-standard)
-      (bash-completion-dynamic-complete-legacy)))
-
-(defun bash-completion-dynamic-complete-legacy ()
-  "Returns the completion table for bash command at point.
-
-This function is meant to be added into
-`shell-dynamic-complete-functions' or
-`shell-command-complete-functions'.  It uses `comint' to figure
-out what the current command is and calls
-`comint-dynamic-simple-complete' to do the completion instead.
-
-In most cases, you should call `bash-completion-dynamic' instead.
-This is only meant to be used when pre-emacs 24.1 behavior is
-required, such as when added to `shell-command-complete-functions'."
-  (let ((result (bash-completion-dynamic-complete-0)))
-    (when result
-      (let* ((stub (car result))
-	     (completions (nth 3 result))
-	     ;; Setting comint-completion-addsuffix overrides
-	     ;; configuration for comint-dynamic-simple-complete.
-	     ;; Bash adds a space suffix automatically.
-	     (comint-completion-addsuffix nil))
-	(comint-dynamic-simple-complete stub completions)))))
-
-(defun bash-completion-dynamic-complete-standard ()
-  "Returns the completion table for bash command at point.  
-
-This function is meant to be added into
-`shell-dynamic-complete-functions' or
-`shell-command-complete-functions'.  It uses `comint' to figure
-out what the current command is and returns a completion table or
-nil if no completions available.  If emacs version is below 24.1
-is calls `comint-dynamic-simple-complete' to do the completion
-instead."
-  (cdr (bash-completion-dynamic-complete-0)))
+	(cdr (bash-completion-dynamic-complete-0))
+      ;; pre-emacs 24.1 compatibility code
+      (let ((result (bash-completion-dynamic-complete-0)))
+	(when result
+	  (let* ((stub (car result))
+		 (completions (nth 3 result))
+		 ;; Setting comint-completion-addsuffix overrides
+		 ;; configuration for comint-dynamic-simple-complete.
+		 ;; Bash adds a space suffix automatically.
+		 (comint-completion-addsuffix nil))
+	    (comint-dynamic-simple-complete stub completions))))))
 
 (defun bash-completion-dynamic-complete-0 ()
   "Returns completion information for bash command at point.
 
-This function returns enough information for both
-`bash-completion-dynamic-complete-standard' and
-`bash-completion-dynamic-complete-legacy'. It is not meant to
-be called directly.
+This function returns enough information for both standard and
+legacy modes of `bash-completion-dynamic-complete' It is not
+meant to be called directly.
 
 Returns (list unescaped-stub stub-start pos completions)"
   (when bash-completion-enabled
