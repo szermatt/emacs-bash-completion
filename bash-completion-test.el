@@ -19,7 +19,7 @@
 ;; `http://www.gnu.org/licenses/'.
 
 
-:;;; Commentary:
+;;; Commentary:
 ;;
 ;; This file defines unit and integrations ERT tests for
 ;; `bash-completion'.
