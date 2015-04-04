@@ -1,9 +1,6 @@
 bash-completion.el defines dynamic completion hooks for shell-mode and
 shell-command prompts that are based on bash completion.
 
-You will need shell-command.el to get tab completion in the
-minibuffer. See [http://www.namazu.org/~tsuchiya/elisp/shell-command.el](http://www.namazu.org/~tsuchiya/elisp/shell-command.el)
-
 Bash completion for emacs:
 
 - is aware of bash builtins, aliases and functions
@@ -32,8 +29,6 @@ shell-command prompts.
           "bash-completion"
           "BASH completion hook")
         (add-hook 'shell-dynamic-complete-functions
-          'bash-completion-dynamic-complete)
-        (add-hook 'shell-command-complete-functions
           'bash-completion-dynamic-complete)
 
   or simpler, but forces you to load this file at startup:
@@ -100,20 +95,5 @@ important disadvantages:
 
 ## COMPATIBILITY
 
-bash-completion.el is quite sensitive to the OS and BASH version.
-This package is known to work on the following environment:
-
-- GNU Emacs 22.3.1 (Aquamacs 1.7)
-- GNU Emacs 22.1.1 (OSX 10.5)
-- GNU Emacs 22.1.1 (Ubuntu 8.04)
-- GNU Emacs 23.0.94.1 (Ubuntu 8.10)
-- GNU Emacs 24.1.1 (OSX 10.7)
-- GNU Emacs 24.1.1 (OSX 10.8)
-
-and using the following bash versions:
-
-- BASH 3.2.17
-- BASH 3.2.32
-- BASH 3.2.39
-
-bash-completion.el does not works on XEmacs.
+bash-completion.el is known to work on Emacs 22 through 24.4 under
+Linux and OSX. It does not works on XEmacs.
