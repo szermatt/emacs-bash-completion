@@ -167,7 +167,7 @@ for command-line completion."
   :group 'bash-completion)
 
 (defcustom bash-completion-process-timeout 2.5
-  "Timeout value to apply when waiting from an answer from bash.
+  "Number of seconds to wait for an answer from bash.
 If bash takes longer than that to answer, the answer will be
 ignored."
   :type '(float)
@@ -293,12 +293,12 @@ nil if no completions available."
       ;; pre-emacs 24.1 compatibility code
       (let ((result (bash-completion-dynamic-complete-0)))
 	(when result
-	  (let* ((stub (car result))
-		 (completions (nth 3 result))
-		 ;; Setting comint-completion-addsuffix overrides
-		 ;; configuration for comint-dynamic-simple-complete.
-		 ;; Bash adds a space suffix automatically.
-		 (comint-completion-addsuffix nil))
+	  (let ((stub (car result))
+		(completions (nth 3 result))
+		;; Setting comint-completion-addsuffix overrides
+		;; configuration for comint-dynamic-simple-complete.
+		;; Bash adds a space suffix automatically.
+		(comint-completion-addsuffix nil))
 	    (comint-dynamic-simple-complete stub completions))))))
 
 (defun bash-completion-dynamic-complete-0 ()
@@ -316,7 +316,7 @@ Returns (list unescaped-stub stub-start pos completions)"
 	   (pos (point))
 	   (tokens (bash-completion-tokenize start pos))
 	   (open-quote (bash-completion-tokenize-open-quote tokens))
-	   (parsed (bash-completion-process-tokens tokens pos))
+	   (parsed (bash-completion-process-tokens tokens pos open-quote))
 	   (line (cdr (assq 'line parsed)))
 	   (point (cdr (assq 'point parsed)))
 	   (cword (cdr (assq 'cword parsed)))
@@ -381,21 +381,14 @@ functions adds single quotes around it and return the result."
   (if (string-match "^[a-zA-Z0-9_./-]*$" word)
       word
     (concat "'"
-	    (replace-regexp-in-string "'" "'\\''" word :literal t)
+	    (replace-regexp-in-string "'" "'\\''" word nil t)
 	    "'")))
 
-(defun bash-completion-parse-line (start pos)
-  "Split a command line in the current buffer between START and POS.
-
-This function combines `bash-completion-tokenize' and
-`bash-completion-process-tokens'.  It takes the same arguments as
-`bash-completion-tokenize' and returns the same value as
-`bash-completion-process-tokens'."
-  (bash-completion-process-tokens
-   (bash-completion-tokenize start pos) pos))
-
-(defun bash-completion-process-tokens (tokens pos)
+(defun bash-completion-process-tokens (tokens pos open-quote)
   "Process a command line split into TOKENS that end at POS.
+
+If stub is quoted, the quote character should be passed as
+OPEN-QUOTE.
 
 This function takes a list of tokens built by
 `bash-completion-tokenize' and returns the variables compgen
@@ -403,28 +396,31 @@ function expect in an association list.
 
 Return an association list with the current symbol as keys:
  line - the relevant command between START and POS (string)
- point - position of the cursor in line (number)
+ point - 0-based position of the cursor in line (number)
  cword - 0-based index of the word to be completed in words (number)
  words - line split into words, unescaped (list of strings)
  stub-start - start position of the thing we are completing"
   (bash-completion-parse-line-postprocess
-   (bash-completion-parse-current-command tokens) pos))
+   (bash-completion-parse-current-command tokens) pos open-quote))
 
-(defun bash-completion-parse-line-postprocess (tokens pos)
+(defun bash-completion-parse-line-postprocess (tokens pos open-quote)
   "Extract from TOKENS the data needed by compgen functions.
 
-This function takes a list of TOKENS created by `bash-completion-tokenize'
-for the current buffer and generate the data needed by compgen functions
-as returned by `bash-completion-parse-line' given the cursor position POS."
+This function takes a list of TOKENS created by
+`bash-completion-tokenize' for the current buffer and generate
+the data needed by compgen functions given the cursor position
+POS and the quote character OPEN-QUOTE, if any."
   (let* ((first-token (car tokens))
 	 (last-token (car (last tokens)))
 	 (start (or (car (bash-completion-tokenize-get-range first-token)) pos))
 	 (end (or (cdr (bash-completion-tokenize-get-range last-token)) pos))
 	 (words (bash-completion-strings-from-tokens tokens))
 	 (stub-empty (or (> pos end) (= start end)))
-	 (stub-start (if stub-empty
-			 pos
-		       (car (bash-completion-tokenize-get-range last-token)))))
+	 (stub-start
+	  (if stub-empty
+	      pos
+	    (+ (car (bash-completion-tokenize-get-range last-token))
+	       (if open-quote 1 0)))))
     (when stub-empty (setq words (append words '(""))))
     (list
      (cons 'line (buffer-substring-no-properties start pos))
@@ -601,7 +597,7 @@ Return TOKENS with new tokens prepended to it."
    ((and quote (char-after) (= quote (char-after)))
     (forward-char)
     (bash-completion-tokenize-0 end tokens token))
-   ;; space inside a quote
+   ;; inside a quote
    ((and quote (char-after) (not (= quote (char-after))))
     (forward-char)
     (bash-completion-tokenize-append-str token (char-to-string (char-before)))
@@ -658,8 +654,7 @@ The result is a list of candidates, which might be empty."
       (bash-completion-build-alist (process-buffer process))
       (setq completion-status
 	    (bash-completion-send
-	     (concat
-	      (bash-completion-generate-line line pos words cword nil)))))
+	     (bash-completion-generate-line line pos words cword nil))))
     (when (eq 0 completion-status)
       (bash-completion-extract-candidates (nth cword words) open-quote))))
 
@@ -713,7 +708,7 @@ for directory name detection to work."
 	(open-quote (or open-quote (and (boundp 'bash-completion-open-quote) bash-completion-open-quote)))
 	(suffix ""))
     (bash-completion-addsuffix
-     (let* ((rebuilt)
+     (let* (rebuilt
 	    (rest (cond
 		   ((bash-completion-starts-with str prefix)
 		    (substring str (length prefix)))
@@ -723,9 +718,8 @@ for directory name detection to work."
 		    (substring (concat "~" (substring str (length (expand-file-name "~"))))
 		   	       (length prefix)))
 		   ((bash-completion-starts-with prefix str)
-		    ;; completion is a substring of prefix something's
-		    ;; gone wrong. Treat it as one (useless)
-		    ;; candidate.
+		    ;; completion is a substring of prefix something's gone
+		    ;; wrong. Treat it as one (useless) candidate.
                     (setq prefix "")
                     str)
 		   ;; completion sometimes only applies to the last word, as
@@ -757,13 +751,18 @@ OPEN-QUOTE, either nil, ' or \".
 
 Return a possibly escaped version of COMPLETION-CANDIDATE."
   (cond
+   ((zerop (length completion-candidate)) "")
    ((and (null open-quote)
 	 (null (string-match "^['\"]" completion-candidate)))
-    (replace-regexp-in-string "\\([ '\"#]\\)" "\\\\\\1" completion-candidate))
+    (shell-quote-argument completion-candidate))
    ((eq ?' open-quote)
-    (replace-regexp-in-string "'" "'\\''" completion-candidate :literal t))
+    (replace-regexp-in-string "'" "'\\''" completion-candidate nil t))
    ((eq ?\" open-quote)
-    (replace-regexp-in-string "\"" "\\\"" completion-candidate :literal t))
+    ;; quote '$', '`' or '"'
+    (replace-regexp-in-string
+     "[$`\"]" "\\\\\\&"
+     ;; quote backslash if it's followed by '$', '`' or '"'
+     (replace-regexp-in-string "\\\\\\([$`\"]\\)" "\\\\\\\\\\1" completion-candidate)))
    (t
     completion-candidate)))
 
@@ -970,9 +969,9 @@ Return `bash-completion-alist'."
 	;; default completion 
 	(push (cons nil (delete "-D" (cdr words))) bash-completion-alist)
       ;; normal completion
-      (let* ( (reverse-wordsrest (nreverse (cdr words)))
-	      (command (car reverse-wordsrest))
-	      (options (nreverse (cdr reverse-wordsrest))) )
+      (let* ((reverse-wordsrest (nreverse (cdr words)))
+	     (command (car reverse-wordsrest))
+	     (options (nreverse (cdr reverse-wordsrest))) )
 	(when (and command options)
 	  (push (cons command options) bash-completion-alist)))))
   bash-completion-alist)
@@ -1018,9 +1017,9 @@ candidates."
 
       ((or (member "-F" compgen-args) (member "-C" compgen-args))
        ;; custom completion with a function of command
-       (let* ( (args (copy-tree compgen-args))
-	       (function (or (member "-F" args) (member "-C" args)))
-	       (function-name (car (cdr function))) )
+       (let* ((args (copy-tree compgen-args))
+	      (function (or (member "-F" args) (member "-C" args)))
+	      (function-name (car (cdr function))) )
 	 (setcar function "-F")
 	 (setcar (cdr function) "__bash_complete_wrapper")
 	 (format "__BASH_COMPLETE_WRAPPER=%s compgen %s -- %s"
