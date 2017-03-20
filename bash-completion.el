@@ -779,7 +779,7 @@ buffer-local variable default-directory. If it exists, it returns
   (if (and (null (string-match bash-completion-known-suffixes-regexp str))
 	   (file-accessible-directory-p (expand-file-name str default-directory)))
 	(concat str "/")
-    str))
+    (concat str " ")))
 
 (defun bash-completion-before-last-wordbreak (str)
   "Return the part of STR that comes after the last wordbreak character.
