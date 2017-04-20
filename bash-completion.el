@@ -299,7 +299,8 @@ nil if no completions available."
 		;; configuration for comint-dynamic-simple-complete.
 		;; Bash adds a space suffix automatically.
 		(comint-completion-addsuffix nil))
-	    (comint-dynamic-simple-complete stub completions))))))
+	    (with-no-warnings
+	      (comint-dynamic-simple-complete stub completions)))))))
 
 (defun bash-completion-dynamic-complete-0 ()
   "Returns completion information for bash command at point.
