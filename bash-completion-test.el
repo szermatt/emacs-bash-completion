@@ -31,7 +31,6 @@
 ;;; Code:
 (require 'ert)
 (require 'sz-testutils)
-(require 'cl)
 (require 'bash-completion)
 
 (defun bash-completion-test-send (buffer-content)

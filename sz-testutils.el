@@ -108,7 +108,7 @@ is: '(\"Here >>\" cursor \"<<.\")"
 (eval-when-compile
   ;; This code will not appear in the compiled (.elc) file
   (put 'sz-testutils-regress 'regression-suite t)
-  (setq sz-testutils-regress
+  (defvar sz-testutils-regress
    '("sz-testutils-regress"
      ;; Each test in the suite is of the form:
      ;;   ([description] probe grader)
