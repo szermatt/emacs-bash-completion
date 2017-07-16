@@ -166,6 +166,11 @@ for command-line completion."
   :type '(file :must-match t)
   :group 'bash-completion)
 
+(defcustom bash-completion-args '("--noediting")
+  "Args passed to the BASH shell."
+  :type '(repeat (string :tag "Argument"))
+  :group 'bash-completion)
+
 (defcustom bash-completion-process-timeout 2.5
   "Number of seconds to wait for an answer from bash.
 If bash takes longer than that to answer, the answer will be
@@ -874,11 +879,12 @@ is set to t."
 	    (setenv "EMACS_BASH_COMPLETE" "t")
 	    (setenv "TERM" "dumb")
 	    (setq process
-		  (start-process
-		   "*bash-completion*"
-		   (generate-new-buffer-name " bash-completion")
-		   bash-completion-prog
-		   "--noediting"))
+		  (apply 'start-process
+                         (append
+                          `("*bash-completion*"
+                            ,(generate-new-buffer-name " bash-completion")
+                            ,bash-completion-prog)
+                          bash-completion-args)))
 	    (set-process-query-on-exit-flag process nil)
 	    (let* ((shell-name (file-name-nondirectory bash-completion-prog))
 		   (startfile1 (concat "~/.emacs_" shell-name ".sh"))
