@@ -547,6 +547,10 @@ garbage
   (should (equal "\\(hello\\)"
 		 (bash-completion-escape-candidate "(hello)" nil)))
 
+  ;; no quote
+  (should (equal "--hello="
+		 (bash-completion-escape-candidate "--hello=" nil)))
+
   ;; single quote
   (should (equal "He said: \"hello, '\\''you'\\''\""
 		 (bash-completion-escape-candidate "He said: \"hello, 'you'\"" ?')))

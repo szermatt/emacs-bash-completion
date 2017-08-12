@@ -224,6 +224,9 @@ completion in colon-separated values.")
   (append bash-completion-wordbreaks-str nil)
   "`bash-completion-wordbreaks-str' as a list of characters.")
 
+(defconst bash-completion-special-chars "[^-0-9a-zA-Z_./\n=]"
+  "Regexp of characters that must be escaped or quoted.")
+
 (defconst bash-completion-wrapped-status
   "\e\ebash-completion-wrapped-status=124\e\e"
   "String output by __bash_complete_wrapper when the wrapped
@@ -760,7 +763,10 @@ Return a possibly escaped version of COMPLETION-CANDIDATE."
    ((zerop (length completion-candidate)) "")
    ((and (null open-quote)
 	 (null (string-match "^['\"]" completion-candidate)))
-    (shell-quote-argument completion-candidate))
+    (replace-regexp-in-string
+     "\n" "'\n'"
+     (replace-regexp-in-string
+      bash-completion-special-chars "\\\\\\&" completion-candidate)))
    ((eq ?' open-quote)
     (replace-regexp-in-string "'" "'\\''" completion-candidate nil t))
    ((eq ?\" open-quote)
