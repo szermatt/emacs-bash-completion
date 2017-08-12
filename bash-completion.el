@@ -290,40 +290,51 @@ before it is needed. For an autoload version, add:
 
 ;;;###autoload
 (defun bash-completion-dynamic-complete ()
-    "Returns the completion table for bash command at point.
+    "Return the completion table for bash command at point.
 
 This function is meant to be added into
 `shell-dynamic-complete-functions'.  It uses `comint' to figure
 out what the current command is and returns a completion table or
-nil if no completions available."
-    (if bash-completion-comint-uses-standard-completion
-	(cdr (bash-completion-dynamic-complete-0))
-      ;; pre-emacs 24.1 compatibility code
-      (let ((result (bash-completion-dynamic-complete-0)))
-	(when result
-	  (let ((stub (car result))
-		(completions (nth 3 result))
-		;; Setting comint-completion-addsuffix overrides
-		;; configuration for comint-dynamic-simple-complete.
-		;; Bash adds a space suffix automatically.
-		(comint-completion-addsuffix nil))
-	    (with-no-warnings
-	      (comint-dynamic-simple-complete stub completions)))))))
+nil if no completions available.
 
-(defun bash-completion-dynamic-complete-0 ()
-  "Returns completion information for bash command at point.
-
-This function returns enough information for both standard and
-legacy modes of `bash-completion-dynamic-complete' It is not
-meant to be called directly.
-
-Returns (list unescaped-stub stub-start pos completions)"
-  (when bash-completion-enabled
+When doing completion outside of a comint buffer, call
+`bash-completion-dynamic-complete-nocomint' instead."
     (when (not (window-minibuffer-p))
       (message "Bash completion..."))
-    (let* ((start (comint-line-beginning-position))
-	   (pos (point))
-	   (tokens (bash-completion-tokenize start pos))
+    (let ((result (bash-completion-dynamic-complete-nocomint
+                   (comint-line-beginning-position)
+                   (point))))
+      (if bash-completion-comint-uses-standard-completion
+          result
+        ;; pre-emacs 24.1 compatibility code
+        (let ((result (bash-completion-dynamic-complete-0)))
+          (when result
+            (let ((stub (buffer-substring-no-properties
+                         (nth 0 result)
+                         (nth 1 result)))
+                  (completions (nth 2 result))
+                  ;; Setting comint-completion-addsuffix overrides
+                  ;; configuration for comint-dynamic-simple-complete.
+                  ;; Bash adds a space suffix automatically.
+                  (comint-completion-addsuffix nil))
+              (with-no-warnings
+                (comint-dynamic-simple-complete stub completions))))))))
+
+(defun bash-completion-dynamic-complete-nocomint (start pos)
+  "Return completion information for bash command at an arbitrary position.
+
+The bash command to be completed begins at START in the current
+buffer. POS is the point where completion should happen.
+
+This function is meant to be usable even in non comint buffers.
+It is meant to be called directly from any completion engine.
+
+Returns (list stub-start stub-end completions) with
+ - stub-start, the position at which the completed region starts
+ - stub-end, the position at which the completed region ends
+ - completions, a possibly empty list of completion candidates"
+  (when bash-completion-enabled
+    (let* ((tokens (bash-completion-tokenize start pos))
 	   (open-quote (bash-completion-tokenize-open-quote tokens))
 	   (parsed (bash-completion-process-tokens tokens pos open-quote))
 	   (line (cdr (assq 'line parsed)))
@@ -334,12 +345,12 @@ Returns (list unescaped-stub stub-start pos completions)"
 	   (stub (nth cword words))
 	   (completions (bash-completion-comm line point words cword open-quote)))
       (if completions
-	  (list stub stub-start pos completions)
+	  (list stub-start pos completions)
 	;; fallback to default (file) completion after a wordbreak
-	(bash-completion-dynamic-try-wordbreak-complete
+	(bash-completion--try-wordbreak-complete
 	 stub stub-start pos open-quote)))))
 
-(defun bash-completion-dynamic-try-wordbreak-complete (stub stub-start pos open-quote)
+(defun bash-completion--try-wordbreak-complete (stub stub-start pos open-quote)
   "Try wordbreak completion on STUB if the complete completion failed.
 
 Split STUB using the wordbreak list and apply compgen default
@@ -361,9 +372,8 @@ This function is not meant to be called outside of
 			     (bash-completion-quote after-wordbreak)))
       (let ((completions
 	     (bash-completion-extract-candidates after-wordbreak open-quote)))
-	(list after-wordbreak
-	      (+ stub-start (length before-wordbreak))
-	      pos
+	(list (+ stub-start (length before-wordbreak))
+              pos
 	      completions)))))
 	  
 ;;; ---------- Functions: parsing and tokenizing
@@ -1121,6 +1131,35 @@ Return the status code of the command, as a number."
 	;; 	 (buffer-substring-no-properties
 	;; 	  (point-min) (point-max)))
 	status-code))))
+
+;; Backward compatibility
+
+(defun bash-completion-dynamic-complete-0 ()
+  "Obsolete function, kept for backward compatibility.
+
+Call `bash-completion-dynamic' or `bash-completion-nocomint'."
+  (let ((result (bash-completion-dynamic-complete-nocomint
+                 (comint-line-beginning-position)
+                 (point))))
+    (cons (buffer-substring-no-properties (nth 0 result) (nth 1 result))
+          result)))
+(make-obsolete
+ 'bash-completion-dynamic-complete-0
+ "call bash-completion-dynamic or bash-completion-dynamic-nocomint")
+
+(defun bash-completion-dynamic-try-wordbreak-complete (stub stub-start pos open-quote)
+  "Obsolete function, kept for backward compatibility.
+
+`bash-completion-dynamic-try-wordbreak-complete' became
+`bash-completion--try-wordbreak-complete' and its return value
+changed. This shouldn't be a problem, since the function isn't meant to
+be called from outside bash-completion.
+"
+  (let ((result (bash-completion--try-wordbreak-complete stub stub-start pos open-quote)))
+    (cons (buffer-substring-no-properties (car result) pos) result)))
+(make-obsolete
+ 'bash-completion-dynamic-try-wordbreak-complete
+ 'bash-completion--try-wordbreak-complete)
 
 (provide 'bash-completion)
 ;;; bash-completion.el ends here
