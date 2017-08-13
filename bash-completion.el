@@ -178,6 +178,16 @@ ignored."
   :type '(float)
   :group 'bash-completion)
 
+(defcustom bash-completion-message-delay 0.4
+  "Time to wait before displaying a message while waiting for results.
+
+If completion takes longer than that time, a message is displayed
+on the minibuffer to make it clear what's happening. Set to nil
+to never display any such message. 0 to always display it.
+
+Only relevant when using bash completion in a shell, through
+`bash-completion-dynamic-complete'.")
+
 (defcustom bash-completion-initial-timeout 30
   "Timeout value to apply when talking to bash for the first time.
 The first thing bash is supposed to do is process /etc/bash_complete,
@@ -299,26 +309,34 @@ nil if no completions available.
 
 When doing completion outside of a comint buffer, call
 `bash-completion-dynamic-complete-nocomint' instead."
-    (when (not (window-minibuffer-p))
-      (message "Bash completion..."))
-    (let ((result (bash-completion-dynamic-complete-nocomint
-                   (comint-line-beginning-position)
-                   (point))))
-      (if bash-completion-comint-uses-standard-completion
-          result
-        ;; pre-emacs 24.1 compatibility code
-        (let ((result (bash-completion-dynamic-complete-0)))
-          (when result
-            (let ((stub (buffer-substring-no-properties
-                         (nth 0 result)
-                         (nth 1 result)))
-                  (completions (nth 2 result))
-                  ;; Setting comint-completion-addsuffix overrides
-                  ;; configuration for comint-dynamic-simple-complete.
-                  ;; Bash adds a space suffix automatically.
-                  (comint-completion-addsuffix nil))
-              (with-no-warnings
-                (comint-dynamic-simple-complete stub completions))))))))
+    (let ((message-timer
+           (if (and (not (window-minibuffer-p))
+                    (not (null bash-completion-message-delay)))
+               (run-at-time
+                bash-completion-message-delay nil
+                (lambda () (message "Bash completion..."))))))
+      (unwind-protect
+          (let ((result (bash-completion-dynamic-complete-nocomint
+                         (comint-line-beginning-position)
+                         (point))))
+            (if bash-completion-comint-uses-standard-completion
+                result
+              ;; pre-emacs 24.1 compatibility code
+              (let ((result (bash-completion-dynamic-complete-0)))
+                (when result
+                  (let ((stub (buffer-substring-no-properties
+                               (nth 0 result)
+                               (nth 1 result)))
+                        (completions (nth 2 result))
+                        ;; Setting comint-completion-addsuffix overrides
+                        ;; configuration for comint-dynamic-simple-complete.
+                        ;; Bash adds a space suffix automatically.
+                        (comint-completion-addsuffix nil))
+                    (with-no-warnings
+                      (comint-dynamic-simple-complete stub completions)))))))
+        ;; cleanup
+        (if message-timer
+            (cancel-timer message-timer)))))
 
 (defun bash-completion-dynamic-complete-nocomint (start pos)
   "Return completion information for bash command at an arbitrary position.
