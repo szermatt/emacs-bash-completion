@@ -308,18 +308,16 @@ When doing completion outside of a comint buffer, call
             (if bash-completion-comint-uses-standard-completion
                 result
               ;; pre-emacs 24.1 compatibility code
-              (let ((result (bash-completion-dynamic-complete-0)))
-                (when result
-                  (let ((stub (buffer-substring-no-properties
-                               (nth 0 result)
-                               (nth 1 result)))
-                        (completions (nth 2 result))
-                        ;; Setting comint-completion-addsuffix overrides
-                        ;; configuration for comint-dynamic-simple-complete.
-                        ;; Bash adds a space suffix automatically.
-                        (comint-completion-addsuffix nil))
-                    (with-no-warnings
-                      (comint-dynamic-simple-complete stub completions)))))))
+              (let ((stub (buffer-substring-no-properties
+                           (nth 0 result)
+                           (nth 1 result)))
+                    (completions (nth 2 result))
+                    ;; Setting comint-completion-addsuffix overrides
+                    ;; configuration for comint-dynamic-simple-complete.
+                    ;; Bash adds a space suffix automatically.
+                    (comint-completion-addsuffix nil))
+                (with-no-warnings
+                  (comint-dynamic-simple-complete stub completions)))))
         ;; cleanup
         (if message-timer
             (cancel-timer message-timer)))))
