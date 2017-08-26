@@ -801,7 +801,10 @@ This function looks for a directory called STR relative to the
 buffer-local variable default-directory. If it exists, it returns
 \(concat STR \"/\"). Otherwise it retruns STR."
   (if (and (null (string-match bash-completion-known-suffixes-regexp str))
-	   (file-accessible-directory-p (expand-file-name str default-directory)))
+	   (file-accessible-directory-p
+            (expand-file-name
+             (replace-regexp-in-string "\\(\\\\\\)\\(.\\)" "\\2" str)
+             default-directory)))
 	(concat str "/")
     str))
 
