@@ -442,15 +442,15 @@ garbage
   (should (equal t (bash-completion-ends-with "hello" ""))))
 
 (ert-deftest bash-completion-last-wordbreak-test ()
-  (should (equal '("a:b:c:d:" . "e")
+  (should (equal '("a:b:c:d:" "e" ?:)
 		 (bash-completion-last-wordbreak-split "a:b:c:d:e")))
-  (should (equal '("hello=" . "world")
+  (should (equal '("hello=" "world" ?=)
 		 (bash-completion-last-wordbreak-split "hello=world")))
-  (should (equal '("hello>" . "world")
+  (should (equal '("hello>" "world" ?>)
 		 (bash-completion-last-wordbreak-split "hello>world")))
-  (should (equal '(">" . "world")
+  (should (equal '(">" "world" ?>)
 		 (bash-completion-last-wordbreak-split ">world")))
-  (should (equal '("" . "hello")
+  (should (equal '("" "hello" ?\0)
 		 (bash-completion-last-wordbreak-split "hello"))))
 
 (ert-deftest bash-completion-before-last-wordbreak-test ()
@@ -475,34 +475,38 @@ garbage
 (ert-deftest bash-completion-fix-test ()
   ;; escape rest
   (should (equal "a\\ bc\\ d\\ e"
-		 (bash-completion-fix "a\\ bc d e" "a\\ b")))
+		 (bash-completion-fix "a\\ bc d e" "a\\ b" "a\\ b")))
+
+  ;; recover original escaping
+  (should (equal "a' 'bc\\ d\\ e"
+		 (bash-completion-fix "a\\ bc d e" "a\\ b" "a' 'b")))
 
   ;; do not escape final space
   (should (equal "ab "
 		 (let ((bash-completion-nospace nil))
-		   (bash-completion-fix "ab " "a"))))
+		   (bash-completion-fix "ab " "a" "a"))))
   
   ;; remove final space
   (should (equal "ab"
 		 (let ((bash-completion-nospace t))
-		   (bash-completion-fix "ab " "a"))))
+		   (bash-completion-fix "ab " "a" "a"))))
 
   ;; unexpand home and escape
   (should (equal "~/a/hello\\ world"
 		 (bash-completion-fix (expand-file-name "~/a/hello world")
-				      "~/a/he")))
+				      "~/a/he" "~/a/he")))
 
   ;; match after wordbreak and escape
   (should (equal "a:b:c:hello\\ world"
-		 (bash-completion-fix "hello world" "a:b:c:he")))
+		 (bash-completion-fix "hello world" "a:b:c:he" "a:b:c:he")))
 
   ;; just append
   (should (equal "hello\\ world"
-		 (bash-completion-fix " world" "hello")))
+		 (bash-completion-fix " world" "hello" "hello")))
 
   ;; subset of the prefix"
   (should (equal "Dexter"
-		 (bash-completion-fix "Dexter" "Dexter'"))))
+		 (bash-completion-fix "Dexter" "Dexter'" "Dexter'"))))
 
 (ert-deftest bash-completion-extract-candidates-test ()
   (should (equal 
@@ -512,7 +516,7 @@ garbage
 	    (cl-letf (((symbol-function 'bash-completion-buffer)
 		       (lambda () (current-buffer)))
 		      (bash-completion-nospace nil))
-	      (bash-completion-extract-candidates "hello" nil))))))
+	      (bash-completion-extract-candidates "hello" "hello" nil))))))
 
 (ert-deftest bash-completion-nonsep-test ()
   (should (equal "^ \t\n\r;&|'\"#"
@@ -643,7 +647,7 @@ garbage
    (should-not (null (member
 		      "help "
 		      (let ((bash-completion-nospace nil))
-			(bash-completion-comm "hel" 4 '("hel") 0 nil)))))
+			(bash-completion-comm "hel" 4 '("hel") 0 nil "hel")))))
    (bash-completion-reset)
    (should-not (bash-completion-is-running))))
 
