@@ -41,6 +41,10 @@
 ;; running in term mode.  Also, term mode is not available in
 ;; shell-command prompts.
 ;;
+;; Bash completion can also be run programatically, outside of a
+;; shell-mode command, by calling
+;; `bash-completion-dynamic-complete-nocomint'
+;;
 ;; INSTALLATION
 ;;
 ;; 1. copy bash-completion.el into a directory that's on Emacs load-path
@@ -115,24 +119,6 @@
 ;;
 ;; Full history is available on
 ;; https://github.com/szermatt/emacs-bash-completion
-;;
-;; 2015-03-20   Filipp Gunbin
-;;
-;; * Using Emacs 24.1's shell-dynamic-complete-functions
-;;
-;; 2009-11-25   Stephane Zermatten <szermatt@gmail.com>
-;;
-;; * bash-completion-require-process: set MAILCHECK to -1
-;; to disable mail check message.
-;;
-;; 2009-08-01   Stephane Zermatten <szermatt@gmail.com>
-;;
-;; * bash-completion-generate-line: add missing compgen
-;; option to complete commands (duh!).
-;;
-;; Current version:
-;; $Id$
-;;
 
 (require 'comint)
 
