@@ -414,20 +414,32 @@ garbage
 (ert-deftest bash-completion-addsuffix-test ()
   (cl-letf (((symbol-function 'file-accessible-directory-p)
 	     (lambda (a) (error "unexpected"))))
-    (should (equal "hello/" (bash-completion-addsuffix "hello/")))
+    (should (equal "hello/" (bash-completion-addsuffix nil "hello/")))
     ;; ends with space"
-    (should (equal "hello " (bash-completion-addsuffix "hello ")))
+    (should (equal "hello " (bash-completion-addsuffix nil "hello ")))
     ;; ends with separator"
-    (should (equal "hello:" (bash-completion-addsuffix "hello:"))))
+    (should (equal "hello:" (bash-completion-addsuffix nil "hello:"))))
   ;; check directory"
   (cl-letf (((symbol-function 'file-accessible-directory-p)
 	     (lambda (a) (equal a "/tmp/hello")))
 	    (default-directory "/tmp"))
-    (should (equal "hello/" (bash-completion-addsuffix "hello"))))
+    (should (equal "hello/" (bash-completion-addsuffix nil "hello"))))
+  (cl-letf (((symbol-function 'file-accessible-directory-p)
+	     (lambda (a) (equal a "/tmp/hello world")))
+	    (default-directory "/tmp"))
+    (should (equal "hello\\ world/" (bash-completion-addsuffix nil "hello\\ world"))))
+  (cl-letf (((symbol-function 'file-accessible-directory-p)
+	     (lambda (a) (equal a "/tmp/hello \"world\"")))
+	    (default-directory "/tmp"))
+    (should (equal "hello \\\"world\\\"/" (bash-completion-addsuffix ?\" "hello \\\"world\\\""))))
+  (cl-letf (((symbol-function 'file-accessible-directory-p)
+	     (lambda (a) (equal a "/tmp/d'uh")))
+	    (default-directory "/tmp"))
+    (should (equal "d'\\''uh/" (bash-completion-addsuffix ?' "d'\\''uh"))))
   (cl-letf (((symbol-function 'file-accessible-directory-p)
 	     (lambda (a) (equal a (concat (expand-file-name "y" "~/x")))))
 	    (default-directory "~/x"))
-    (should (equal "y/" (bash-completion-addsuffix "y")))))
+    (should (equal "y/" (bash-completion-addsuffix nil "y")))))
 
 (ert-deftest bash-completion-starts-with-test ()
   (should (equal nil (bash-completion-starts-with "" "hello ")))
@@ -668,5 +680,96 @@ garbage
   (skip-unless (file-executable-p bash-completion-prog))
   (should (equal "export PATH=/sbin:/bin/"
 		 (bash-completion_test-with-shell "export PATH=/sbin:/bi"))))
+
+(defmacro --with-fake-bash-completion-send (&rest body)
+  "Runs the body in an environment that fakes `bash-completion-send'.
+
+When `bash-completion-send' is called, it pops the result from
+--send-results and captures the command-line it was given into
+--captured-commands.
+
+Directories in --directories get a / appended to them. Note that
+the current directory in this environemnt is /tmp/test.
+
+The body is run with a test buffer as current buffer. Fill it with the command-line
+before calling `bash-completion-dynamic-complete-nocomint'.
+"
+  `(let ((default-directory "/tmp/test")
+         (bash-completion-alist '()))
+     (lexical-let ((--process-buffer) (--test-buffer) (--send-results) (--captured-commands (list))
+                   (--directories (list)))
+       (with-temp-buffer
+         (setq --process-buffer (current-buffer))
+         (with-temp-buffer
+           (setq --test-buffer (current-buffer))
+           (cl-letf (((symbol-function 'bash-completion-require-process) (lambda () 'process))
+                     ((symbol-function 'bash-completion-buffer) (lambda () --process-buffer))
+                     ((symbol-function 'process-buffer) (lambda (p) --process-buffer))
+                     ((symbol-function 'file-accessible-directory-p)
+                      (lambda (d) (member d --directories)))
+                     ((symbol-function 'bash-completion-send)
+                      (lambda (commandline &optional process timeout)
+                        (with-current-buffer --process-buffer
+                          (delete-region (point-min) (point-max))
+                          (insert (pop --send-results))
+                          (push commandline --captured-commands)
+                          0))))
+             (progn ,@body)))))))
+
+(ert-deftest bash-completion-simple-complete-test ()
+  (--with-fake-bash-completion-send
+   (push "hell\nhello1\nhello2\n" --send-results)
+   (insert "$ cat he")
+   (should (equal
+            (list 7 9 '("hell" "hello1" "hello2"))
+            (bash-completion-dynamic-complete-nocomint 3 (point))))
+   (should (equal "cd >/dev/null 2>&1 /tmp/test ; compgen -o default he 2>/dev/null"
+                  (pop --captured-commands)))))
+
+(ert-deftest bash-completion-complete-dir-with-spaces-test ()
+  (--with-fake-bash-completion-send
+   (push "/tmp/test/Documents" --directories)
+   (push "/tmp/test/Documents/Modes d'emplois" --directories)
+   (push "/tmp/test/Documents\n" --send-results)
+   (push "Documents\n" --send-results)
+   (insert "$ cat Doc")
+   (should (equal
+            '(7 10 ("Documents/"))
+            (bash-completion-dynamic-complete-nocomint 3 (point))))
+   (insert "uments/")
+   (push "Documents/Modes d'emplois\n" --send-results)
+   (should (equal
+            '("Documents/Modes\\ d\\'emplois/")
+            (nth 2(bash-completion-dynamic-complete-nocomint 3 (point)))))
+   (insert "Modes\\ d\\'emplois/")
+   (push "Documents/Modes d'emplois/KAR 1.pdf\nDocuments/Modes d'emplois/KAR 2.pdf\n"
+         --send-results)
+   (should (equal
+            '("Documents/Modes\\ d\\'emplois/KAR\\ 1.pdf"
+              "Documents/Modes\\ d\\'emplois/KAR\\ 2.pdf")
+            (nth 2(bash-completion-dynamic-complete-nocomint 3 (point)))))))
+
+(ert-deftest bash-completion-complete-single-quoted-dir ()
+  (--with-fake-bash-completion-send
+   (push "/tmp/test/Documents" --directories)
+   (push "/tmp/test/Documents/Modes d'emplois" --directories)
+   (push "/tmp/test/Documents\n" --send-results)
+   (push "Documents\n" --send-results)
+   (insert "$ cat 'Doc")
+   (should (equal
+            '(8 11 ("Documents/"))
+            (bash-completion-dynamic-complete-nocomint 3 (point))))
+   (insert "uments/")
+   (push "Documents/Modes d'emplois\n" --send-results)
+   (should (equal
+            '("Documents/Modes d'\\''emplois/")
+            (nth 2(bash-completion-dynamic-complete-nocomint 3 (point)))))
+   (insert "Modes d'\\''emplois/")
+   (push "Documents/Modes d'emplois/KAR 1.pdf\nDocuments/Modes d'emplois/KAR 2.pdf\n"
+         --send-results)
+   (should (equal
+            '("Documents/Modes d'\\''emplois/KAR 1.pdf"
+              "Documents/Modes d'\\''emplois/KAR 2.pdf")
+            (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point)))))))
 
 ;;; bash-completion_test.el ends here

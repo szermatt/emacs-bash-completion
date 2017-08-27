@@ -380,7 +380,7 @@ This function is not meant to be called outside of
          ;; was used for the split in unparsed-stub.
          (separator-pos-in-unparsed
           (- (length unparsed-stub)
-             (seq-position (reverse unparsed-stub) separator)))
+             (or (seq-position (reverse unparsed-stub) separator) 0)))
          (unparsed-after-wordbreak
           (substring unparsed-stub
                      separator-pos-in-unparsed
@@ -758,6 +758,7 @@ for directory name detection to work."
 	(open-quote (or open-quote (and bash-completion-open-quote)))
 	(suffix ""))
     (bash-completion-addsuffix
+     open-quote
      (let* (rebuilt
 	    (rest (cond
 		   ((bash-completion-starts-with str parsed-prefix)
@@ -821,12 +822,18 @@ Return a possibly escaped version of COMPLETION-CANDIDATE."
    (t
     completion-candidate)))
 
+(defun bash-completion-unescape (open-quote string)
+  "Unescapes a possibly QUOTE'ed STRING."
+  (if (eq ?' open-quote)
+      (replace-regexp-in-string "'\\\\''" "'" string)
+    (replace-regexp-in-string "\\(\\\\\\)\\(.\\)" "\\2" string)))
+
 (defconst bash-completion-known-suffixes-regexp
   (concat "[" (regexp-quote bash-completion-wordbreaks-str) "/ ]$")
   "Regexp matching known suffixes for `bash-completion-addsuffix'.")
 
-(defun bash-completion-addsuffix (str)
-  "Add a directory suffix to STR if it looks like a directory.
+(defun bash-completion-addsuffix (open-quote str)
+  "Add a directory suffix to OPEN-QUOTE'd STR if it looks like a directory.
 
 This function looks for a directory called STR relative to the
 buffer-local variable default-directory. If it exists, it returns
@@ -834,7 +841,7 @@ buffer-local variable default-directory. If it exists, it returns
   (if (and (null (string-match bash-completion-known-suffixes-regexp str))
 	   (file-accessible-directory-p
             (expand-file-name
-             (replace-regexp-in-string "\\(\\\\\\)\\(.\\)" "\\2" str)
+             (bash-completion-unescape open-quote str)
              default-directory)))
 	(concat str "/")
     str))
