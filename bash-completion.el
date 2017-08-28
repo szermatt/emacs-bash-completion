@@ -844,7 +844,7 @@ buffer-local variable default-directory. If it exists, it returns
              (bash-completion-unescape open-quote str)
              default-directory)))
 	(concat str "/")
-    str))
+    (concat str " ")))
 
 (defun bash-completion-before-last-wordbreak (str)
   "Return the part of STR that comes after the last wordbreak character.
