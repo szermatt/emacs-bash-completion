@@ -39,9 +39,8 @@
 
 (defmacro bash-completion_test-harness (&rest body)
   `(progn
-     (bash-completion-reset)
      (let ((test-env-dir (bash-completion_test-setup-env)))
-       (let ((bash-completion-process nil)
+       (let ((bash-completion-processes nil)
              (bash-completion-alist nil)
              (bash-completion-nospace nil)
              (bash-completion-start-files nil)
@@ -55,10 +54,7 @@
              (progn ,@body)
            (progn
              (bash-completion_test-teardown-env test-env-dir)
-             (when bash-completion-process
-               (let ((buffer (process-buffer bash-completion-process)))
-                 (kill-process bash-completion-process)
-                 (kill-buffer buffer)))))))))
+             (bash-completion-reset-all)))))))
 
 (defmacro bash-completion_test-with-shell (complete-me)
   `(bash-completion_test-harness

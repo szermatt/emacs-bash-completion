@@ -699,7 +699,7 @@ before calling `bash-completion-dynamic-complete-nocomint'.
          (setq --process-buffer (current-buffer))
          (with-temp-buffer
            (setq --test-buffer (current-buffer))
-           (cl-letf (((symbol-function 'bash-completion-require-process) (lambda () 'process))
+           (cl-letf (((symbol-function 'bash-completion-require-process) (lambda () `(process . ,bash-completion-alist)))
                      ((symbol-function 'bash-completion-buffer) (lambda () --process-buffer))
                      ((symbol-function 'process-buffer) (lambda (p) --process-buffer))
                      ((symbol-function 'file-accessible-directory-p)
