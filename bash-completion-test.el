@@ -411,36 +411,6 @@ garbage
 	   (let ((default-directory "~/x"))
 	     (bash-completion-cd-command-prefix)))))
 
-(ert-deftest bash-completion-addsuffix-test ()
-  (cl-letf (((symbol-function 'file-accessible-directory-p)
-	     (lambda (a) (error "unexpected"))))
-    (should (equal "hello/" (bash-completion-addsuffix nil "hello/")))
-    ;; ends with space"
-    (should (equal "hello " (bash-completion-addsuffix nil "hello ")))
-    ;; ends with separator"
-    (should (equal "hello:" (bash-completion-addsuffix nil "hello:"))))
-  ;; check directory"
-  (cl-letf (((symbol-function 'file-accessible-directory-p)
-	     (lambda (a) (equal a "/tmp/hello")))
-	    (default-directory "/tmp"))
-    (should (equal "hello/" (bash-completion-addsuffix nil "hello"))))
-  (cl-letf (((symbol-function 'file-accessible-directory-p)
-	     (lambda (a) (equal a "/tmp/hello world")))
-	    (default-directory "/tmp"))
-    (should (equal "hello\\ world/" (bash-completion-addsuffix nil "hello\\ world"))))
-  (cl-letf (((symbol-function 'file-accessible-directory-p)
-	     (lambda (a) (equal a "/tmp/hello \"world\"")))
-	    (default-directory "/tmp"))
-    (should (equal "hello \\\"world\\\"/" (bash-completion-addsuffix ?\" "hello \\\"world\\\""))))
-  (cl-letf (((symbol-function 'file-accessible-directory-p)
-	     (lambda (a) (equal a "/tmp/d'uh")))
-	    (default-directory "/tmp"))
-    (should (equal "d'\\''uh/" (bash-completion-addsuffix ?' "d'\\''uh"))))
-  (cl-letf (((symbol-function 'file-accessible-directory-p)
-	     (lambda (a) (equal a (concat (expand-file-name "y" "~/x")))))
-	    (default-directory "~/x"))
-    (should (equal "y/" (bash-completion-addsuffix nil "y")))))
-
 (ert-deftest bash-completion-starts-with-test ()
   (should (equal nil (bash-completion-starts-with "" "hello ")))
   (should (equal t (bash-completion-starts-with "hello world" "hello ")))
@@ -487,38 +457,62 @@ garbage
 (ert-deftest bash-completion-fix-test ()
   ;; escape rest
   (should (equal "a\\ bc\\ d\\ e"
-		 (bash-completion-fix "a\\ bc d e" "a\\ b" "a\\ b")))
+		 (bash-completion-fix "a\\ bc d e" "a\\ b" "a\\ b" nil nil)))
 
   ;; recover original escaping
   (should (equal "a' 'bc\\ d\\ e"
-		 (bash-completion-fix "a\\ bc d e" "a\\ b" "a' 'b")))
+		 (bash-completion-fix "a\\ bc d e" "a\\ b" "a' 'b" nil nil)))
 
   ;; do not escape final space
   (should (equal "ab "
 		 (let ((bash-completion-nospace nil))
-		   (bash-completion-fix "ab " "a" "a"))))
+		   (bash-completion-fix "ab " "a" "a" nil nil))))
   
   ;; remove final space
   (should (equal "ab"
 		 (let ((bash-completion-nospace t))
-		   (bash-completion-fix "ab " "a" "a"))))
+		   (bash-completion-fix "ab " "a" "a" nil nil))))
 
   ;; unexpand home and escape
   (should (equal "~/a/hello\\ world"
 		 (bash-completion-fix (expand-file-name "~/a/hello world")
-				      "~/a/he" "~/a/he")))
+				      "~/a/he" "~/a/he" nil nil)))
 
   ;; match after wordbreak and escape
   (should (equal "a:b:c:hello\\ world"
-		 (bash-completion-fix "hello world" "a:b:c:he" "a:b:c:he")))
+		 (bash-completion-fix "hello world" "a:b:c:he" "a:b:c:he" nil nil)))
 
   ;; just append
   (should (equal "hello\\ world"
-		 (bash-completion-fix " world" "hello" "hello")))
+		 (bash-completion-fix " world" "hello" "hello" nil nil)))
+
+  ;; append / for home
+  (should (equal "~/"
+                 (bash-completion-fix (expand-file-name "~")  "~" "~" nil nil)))
+  
+  (cl-letf (((symbol-function 'file-accessible-directory-p)
+             (lambda (d)
+               (message "check: %s" d)
+               (equal d "/tmp/somedir"))))
+    (let ((default-directory "/tmp/"))
+      ;; append / for directory
+      (should (equal "somedir/"
+                     (bash-completion-fix "somedir" "some" "some" nil nil)))
+      ;; append / for initial command that is a directory
+      (should (equal "somedir/"
+                     (bash-completion-fix "somedir" "some" "some" nil t)))))
+
+  ;; append a space for initial command that is not a directory
+  (should (let ((bash-completion-nospace nil))
+            (equal "somecmd " (bash-completion-fix "somecmd" "some" "some" nil t))))
+  
+  ;; ... but not if nospace is t.
+  (should (let ((bash-completion-nospace t))
+            (equal "somecmd" (bash-completion-fix "somecmd" "some" "some" nil t))))
 
   ;; subset of the prefix"
   (should (equal "Dexter"
-		 (bash-completion-fix "Dexter" "Dexter'" "Dexter'"))))
+		 (bash-completion-fix "Dexter" "Dexter'" "Dexter'" nil nil))))
 
 (ert-deftest bash-completion-extract-candidates-test ()
   (should (equal 
@@ -528,7 +522,7 @@ garbage
 	    (cl-letf (((symbol-function 'bash-completion-buffer)
 		       (lambda () (current-buffer)))
 		      (bash-completion-nospace nil))
-	      (bash-completion-extract-candidates "hello" "hello" nil))))))
+	      (bash-completion-extract-candidates "hello" "hello" nil nil))))))
 
 (ert-deftest bash-completion-nonsep-test ()
   (should (equal "^ \t\n\r;&|'\"#"
@@ -643,7 +637,8 @@ garbage
 		  (let ((comint-dynamic-complete-functions '(bash-completion-dynamic-complete)))
 		    (completion-at-point))
 		(bash-completion-dynamic-complete))
-	      (buffer-substring (comint-line-beginning-position) (point))))
+	      (buffer-substring-no-properties
+               (comint-line-beginning-position) (point))))
 	;; finally
 	(when (and shell-buffer (buffer-live-p shell-buffer))
 	  (kill-process (get-buffer-process shell-buffer))
@@ -726,6 +721,24 @@ before calling `bash-completion-dynamic-complete-nocomint'.
    (should (equal "cd >/dev/null 2>&1 /tmp/test ; compgen -o default he 2>/dev/null"
                   (pop --captured-commands)))))
 
+(ert-deftest bash-completion-trailing ()
+  (--with-fake-bash-completion-send
+   (push "without space\nwith space \nwith slash/\n" --send-results)
+   (insert "$ ls with")
+   (let ((bash-completion-nospace nil))
+     (should (equal
+              '("without\\ space" "with\\ space " "with\\ slash/")
+              (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point))))))))
+
+(ert-deftest bash-completion-trailing-nospace ()
+  (--with-fake-bash-completion-send
+   (push "without space\nwith space \nwith slash/\n" --send-results)
+   (insert "$ ls with")
+   (let ((bash-completion-nospace t))
+     (should (equal
+              '("without\\ space" "with\\ space" "with\\ slash/")
+              (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point))))))))
+
 (ert-deftest bash-completion-complete-dir-with-spaces-test ()
   (--with-fake-bash-completion-send
    (push "/tmp/test/Documents" --directories)
@@ -740,7 +753,7 @@ before calling `bash-completion-dynamic-complete-nocomint'.
    (push "Documents/Modes d'emplois\n" --send-results)
    (should (equal
             '("Documents/Modes\\ d\\'emplois/")
-            (nth 2(bash-completion-dynamic-complete-nocomint 3 (point)))))
+            (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point)))))
    (insert "Modes\\ d\\'emplois/")
    (push "Documents/Modes d'emplois/KAR 1.pdf\nDocuments/Modes d'emplois/KAR 2.pdf\n"
          --send-results)
@@ -771,5 +784,17 @@ before calling `bash-completion-dynamic-complete-nocomint'.
             '("Documents/Modes d'\\''emplois/KAR 1.pdf"
               "Documents/Modes d'\\''emplois/KAR 2.pdf")
             (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point)))))))
+
+(ert-deftest bash-completion-complete-command-with-dir ()
+  (--with-fake-bash-completion-send
+   (push "/tmp/test/bin" --directories)
+   (push "bin\nbind\n" --send-results)
+   (insert "$ b")
+   (should (equal
+            '("bin/" "bind ")
+            (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point)))))
+   (should (equal (concat "cd >/dev/null 2>&1 /tmp/test ; "
+                          "compgen -b -c -a -A function b 2>/dev/null")
+                  (pop --captured-commands)))))
 
 ;;; bash-completion_test.el ends here

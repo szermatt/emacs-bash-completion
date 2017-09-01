@@ -198,9 +198,6 @@ to remove the extra space bash adds after a completion."
 
 (defvar bash-completion-process nil
   "Bash process object.")
-(defvar bash-completion-unparsed-prefix "" "")
-(defvar bash-completion-parsed-prefix "" "")
-(defvar bash-completion-open-quote nil "")
 (defvar bash-completion-alist nil
   "Maps from command name to the 'complete' arguments.
 
@@ -392,7 +389,7 @@ This function is not meant to be called outside of
 			     (bash-completion-quote after-wordbreak)))
       (let ((completions
 	     (bash-completion-extract-candidates
-              after-wordbreak unparsed-after-wordbreak open-quote)))
+              after-wordbreak unparsed-after-wordbreak open-quote nil)))
 	(list (+ stub-start separator-pos-in-unparsed)
               pos
 	      completions)))))
@@ -701,9 +698,9 @@ The result is a list of candidates, which might be empty."
 	     (bash-completion-generate-line line pos words cword nil))))
     (when (eq 0 completion-status)
       (bash-completion-extract-candidates
-       (nth cword words) unparsed-stub open-quote))))
+       (nth cword words) unparsed-stub open-quote (eq cword 0)))))
 
-(defun bash-completion-extract-candidates (parsed-stub unparsed-stub open-quote)
+(defun bash-completion-extract-candidates (parsed-stub unparsed-stub open-quote is-command)
   "Extract the completion candidates from the process buffer for PARSED-STUB.
 
 This command takes the content of the completion process buffer,
@@ -716,17 +713,20 @@ for directory name detection to work.
 If PARSED-STUB is quoted, the quote character, ' or \", should be
 passed in OPEN-QUOTE.
 
+If IS-COMMAND is t, it is passed down to `bash-completion-suffix'
+
 Post-processing includes escaping special characters, adding a /
 to directory names, replacing STUB with UNPARSED-STUB in the
 result. See `bash-completion-fix' for more details."
-  (let ((bash-completion-parsed-prefix parsed-stub)
-        (bash-completion-unparsed-prefix unparsed-stub)
-	(bash-completion-open-quote open-quote))
-    (mapcar 'bash-completion-fix
-	    (with-current-buffer (bash-completion-buffer)
-	      (split-string (buffer-string) "\n" t)))))
+  (let ((result (list)))
+    (dolist (completion (with-current-buffer (bash-completion-buffer)
+                          (split-string (buffer-string) "\n" t)))
+      (push (bash-completion-fix
+             completion parsed-stub unparsed-stub open-quote is-command)
+            result))
+    (nreverse result)))
 
-(defun bash-completion-fix (str &optional parsed-prefix unparsed-prefix open-quote)
+(defun bash-completion-fix (str parsed-prefix unparsed-prefix open-quote is-command)
   "Fix completion candidate in STR if PREFIX is the current prefix.
 
 STR is the completion candidate to modify.
@@ -743,6 +743,9 @@ character (' or \") or nil.  If it is nil, the value of
 `bash-completion-open-quote' is used.  This allows
 calling this function from `mapcar'.
 
+If IS-COMMAND is t and `bash-completion-nospace' isn't set,
+guarantee the result return with a known suffix or space.
+
 Return a modified version of the completion candidate.
 
 Modification include:
@@ -755,42 +758,62 @@ It should be invoked with the comint buffer as the current buffer
 for directory name detection to work."
   (let ((parsed-prefix (or parsed-prefix bash-completion-parsed-prefix))
         (unparsed-prefix (or unparsed-prefix bash-completion-unparsed-prefix))
-	(open-quote (or open-quote (and bash-completion-open-quote)))
-	(suffix ""))
-    (bash-completion-addsuffix
-     open-quote
-     (let* (rebuilt
-	    (rest (cond
-		   ((bash-completion-starts-with str parsed-prefix)
-		    (substring str (length parsed-prefix)))
-		   ;; unexpand the home directory expanded by bash automatically
-		   ((and (bash-completion-starts-with parsed-prefix "~")
-		   	 (bash-completion-starts-with str (expand-file-name "~")))
-		    (substring (concat "~" (substring str (length (expand-file-name "~"))))
-		   	       (length parsed-prefix)))
-		   ((bash-completion-starts-with parsed-prefix str)
-		    ;; completion is a substring of prefix something's gone
-		    ;; wrong. Treat it as one (useless) candidate.
-                    (setq unparsed-prefix "")
-                    str)
-		   ;; completion sometimes only applies to the last word, as
-		   ;; defined by COMP_WORDBREAKS. This detects and works around
-		   ;; this feature.
-		   ((bash-completion-starts-with
-		     (setq rebuilt (concat (bash-completion-before-last-wordbreak parsed-prefix) str))
-		     parsed-prefix)
-		    (substring rebuilt (length parsed-prefix)))
-		   ;; there is no meaningful link between the prefix and
-		   ;; the string. just append the string to the prefix and
-		   ;; hope for the best.
-		   (t str))))
-       (when (bash-completion-ends-with rest " ")
-	 (setq rest (substring rest 0 -1))
-	 (unless bash-completion-nospace
-	   (setq suffix " ")))
-       (concat unparsed-prefix
-               (bash-completion-escape-candidate rest open-quote)
-               suffix)))))
+        (open-quote (or open-quote (and bash-completion-open-quote)))
+        (suffix "")
+        (rest) ; the part between the prefix and the suffix
+        (rebuilt))
+
+    ;; build rest by removing parsed-prefix from str
+    (cond
+     ((bash-completion-starts-with str parsed-prefix)
+      (setq rest (substring str (length parsed-prefix))))
+
+     ;; unexpand the home directory expanded by bash automatically
+     ((and (bash-completion-starts-with parsed-prefix "~")
+           (bash-completion-starts-with str (expand-file-name "~")))
+      (setq rest (substring (concat "~" (substring str (length (expand-file-name "~"))))
+                            (length parsed-prefix))))
+
+     ((bash-completion-starts-with parsed-prefix str)
+      ;; completion is a substring of prefix something's gone
+      ;; wrong. Treat it as one (useless) candidate.
+      (setq unparsed-prefix "")
+      (setq rest str))
+
+     ;; completion sometimes only applies to the last word, as
+     ;; defined by COMP_WORDBREAKS. This detects and works around
+     ;; this feature.
+     ((bash-completion-starts-with
+       (setq rebuilt (concat (bash-completion-before-last-wordbreak parsed-prefix) str))
+       parsed-prefix)
+      (setq rest (substring rebuilt (length parsed-prefix))))
+
+     ;; there is no meaningful link between the prefix and
+     ;; the string. just append the string to the prefix and
+     ;; hope for the best.
+     (t (setq rest str)))
+
+    ;; build suffix
+    (let ((last-char (bash-completion-last-char rest)))
+      (cond
+       ((eq ?\  last-char)
+        (setq rest (substring rest 0 -1))
+        (setq suffix (if bash-completion-nospace "" " ")))
+       ((or (memq last-char bash-completion-wordbreaks)
+            (eq ?/ last-char))
+        (setq suffix ""))
+       ((file-accessible-directory-p
+         (expand-file-name (bash-completion-unescape
+                            open-quote (concat parsed-prefix rest))
+                           default-directory))
+        (setq suffix "/"))
+       (is-command
+        (setq suffix (if bash-completion-nospace "" " ")))))
+
+    ;; put everything back together
+    (concat unparsed-prefix
+            (bash-completion-escape-candidate rest open-quote)
+            suffix)))
 
 (defun bash-completion-escape-candidate (completion-candidate open-quote)
   "Escapes COMPLETION-CANDIDATE.
@@ -827,24 +850,6 @@ Return a possibly escaped version of COMPLETION-CANDIDATE."
   (if (eq ?' open-quote)
       (replace-regexp-in-string "'\\\\''" "'" string)
     (replace-regexp-in-string "\\(\\\\\\)\\(.\\)" "\\2" string)))
-
-(defconst bash-completion-known-suffixes-regexp
-  (concat "[" (regexp-quote bash-completion-wordbreaks-str) "/ ]$")
-  "Regexp matching known suffixes for `bash-completion-addsuffix'.")
-
-(defun bash-completion-addsuffix (open-quote str)
-  "Add a directory suffix to OPEN-QUOTE'd STR if it looks like a directory.
-
-This function looks for a directory called STR relative to the
-buffer-local variable default-directory. If it exists, it returns
-\(concat STR \"/\"). Otherwise it retruns STR."
-  (if (and (null (string-match bash-completion-known-suffixes-regexp str))
-	   (file-accessible-directory-p
-            (expand-file-name
-             (bash-completion-unescape open-quote str)
-             default-directory)))
-	(concat str "/")
-    str))
 
 (defun bash-completion-before-last-wordbreak (str)
   "Return the part of STR that comes after the last wordbreak character.
@@ -891,15 +896,11 @@ Return a CONS containing (before . after)."
 	(setq end (1- end))))
       (list "" str ?\0)))
 
-(defun bash-completion-ends-with (str suffix)
-  "Return t if STR ends with SUFFIX."
-  (let ((suffix-len (length suffix))
-	(str-len (length str)))
-    (or
-     (= 0 suffix-len)
-     (and
-      (>= str-len suffix-len)
-      (string= (substring str (- suffix-len)) suffix)))))
+(defun bash-completion-last-char (str)
+  "Returns the last char of STR or nil."
+  (let ((str-len (length str)))
+    (and (>= str-len 1)
+         (aref str (1- str-len)))))
 
 (defun bash-completion-starts-with (str prefix)
   "Return t if STR starts with PREFIX."
@@ -1078,9 +1079,8 @@ candidates."
 	   (stub (nth cword words)) )
      (cond
       ((= cword 0)
-       ;; a command. let emacs expand executable, let bash
-       ;; expand builtins, aliases and functions
-       (concat "compgen -S ' ' -b -c -a -A function " stub))
+       ;; a command. let bash expand builtins, aliases and functions
+       (concat "compgen -b -c -a -A function " stub))
 
       ((not compgen-args)
        ;; no completion configured for this command
