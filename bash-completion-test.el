@@ -417,12 +417,6 @@ garbage
   (should (equal nil (bash-completion-starts-with "hello world" "hullo ")))
   (should (equal t (bash-completion-starts-with "hello" ""))))
 
-(ert-deftest bash-completion-ends-with-test ()
-  (should (equal nil (bash-completion-ends-with "" "world")))
-  (should (equal t (bash-completion-ends-with "hello world" "world")))
-  (should (equal nil (bash-completion-ends-with "hello world" "wurld")))
-  (should (equal t (bash-completion-ends-with "hello" ""))))
-
 (ert-deftest bash-completion-last-wordbreak-test ()
   (should (equal '("a:b:c:d:" "e" ?:)
 		 (bash-completion-last-wordbreak-split "a:b:c:d:e")))
@@ -490,7 +484,7 @@ garbage
   ;; append / for home
   (should (equal "~/"
                  (bash-completion-fix (expand-file-name "~")
-                                      "~" "~" nil 'default)))
+                                      "~" "~" nil 'default nil)))
 
   (cl-letf (((symbol-function 'file-accessible-directory-p)
              (lambda (d)
