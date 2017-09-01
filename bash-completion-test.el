@@ -457,39 +457,41 @@ garbage
 (ert-deftest bash-completion-fix-test ()
   ;; escape rest
   (should (equal "a\\ bc\\ d\\ e"
-		 (bash-completion-fix "a\\ bc d e" "a\\ b" "a\\ b" nil nil)))
+		 (bash-completion-fix "a\\ bc d e" "a\\ b" "a\\ b" nil nil nil)))
 
   ;; recover original escaping
   (should (equal "a' 'bc\\ d\\ e"
-		 (bash-completion-fix "a\\ bc d e" "a\\ b" "a' 'b" nil nil)))
+		 (bash-completion-fix "a\\ bc d e" "a\\ b" "a' 'b" nil nil nil)))
 
   ;; do not escape final space
   (should (equal "ab "
 		 (let ((bash-completion-nospace nil))
-		   (bash-completion-fix "ab " "a" "a" nil nil))))
+		   (bash-completion-fix "ab " "a" "a" nil nil nil))))
   
   ;; remove final space
   (should (equal "ab"
 		 (let ((bash-completion-nospace t))
-		   (bash-completion-fix "ab " "a" "a" nil nil))))
+		   (bash-completion-fix "ab " "a" "a" nil nil nil))))
 
   ;; unexpand home and escape
   (should (equal "~/a/hello\\ world"
 		 (bash-completion-fix (expand-file-name "~/a/hello world")
-				      "~/a/he" "~/a/he" nil nil)))
+				      "~/a/he" "~/a/he" nil nil nil)))
 
   ;; match after wordbreak and escape
   (should (equal "a:b:c:hello\\ world"
-		 (bash-completion-fix "hello world" "a:b:c:he" "a:b:c:he" nil nil)))
+		 (bash-completion-fix "hello world" "a:b:c:he" "a:b:c:he"
+                                      nil nil nil)))
 
   ;; just append
   (should (equal "hello\\ world"
-		 (bash-completion-fix " world" "hello" "hello" nil nil)))
+		 (bash-completion-fix " world" "hello" "hello" nil nil nil)))
 
   ;; append / for home
   (should (equal "~/"
-                 (bash-completion-fix (expand-file-name "~")  "~" "~" nil nil)))
-  
+                 (bash-completion-fix (expand-file-name "~")
+                                      "~" "~" nil 'default)))
+
   (cl-letf (((symbol-function 'file-accessible-directory-p)
              (lambda (d)
                (message "check: %s" d)
@@ -497,22 +499,41 @@ garbage
     (let ((default-directory "/tmp/"))
       ;; append / for directory
       (should (equal "somedir/"
-                     (bash-completion-fix "somedir" "some" "some" nil nil)))
+                     (bash-completion-fix "somedir" "some" "some"
+                                          nil 'default nil)))
       ;; append / for initial command that is a directory
       (should (equal "somedir/"
-                     (bash-completion-fix "somedir" "some" "some" nil t)))))
+                     (bash-completion-fix "somedir" "some" "some"
+                                          nil 'command nil)))))
 
   ;; append a space for initial command that is not a directory
   (should (let ((bash-completion-nospace nil))
-            (equal "somecmd " (bash-completion-fix "somecmd" "some" "some" nil t))))
-  
+            (equal "somecmd "
+                   (bash-completion-fix "somecmd" "some" "some"
+                                        nil 'command nil))))
+
   ;; ... but not if nospace is t.
   (should (let ((bash-completion-nospace t))
-            (equal "somecmd" (bash-completion-fix "somecmd" "some" "some" nil t))))
+            (equal "somecmd"
+                   (bash-completion-fix "somecmd" "some" "some"
+                                        nil 'command nil))))
+
+  ;; append a space for a single default completion
+  (should (let ((bash-completion-nospace nil))
+            (equal "somecmd "
+                   (bash-completion-fix "somecmd" "some" "some"
+                                        nil 'default 'single))))
+
+  ;; but only for a single completion
+  (should (let ((bash-completion-nospace nil))
+            (equal "somecmd"
+                   (bash-completion-fix "somecmd" "some" "some"
+                                        nil 'default nil))))
 
   ;; subset of the prefix"
   (should (equal "Dexter"
-		 (bash-completion-fix "Dexter" "Dexter'" "Dexter'" nil nil))))
+		 (bash-completion-fix "Dexter" "Dexter'" "Dexter'"
+                                      nil nil nil))))
 
 (ert-deftest bash-completion-extract-candidates-test ()
   (should (equal 
@@ -721,7 +742,15 @@ before calling `bash-completion-dynamic-complete-nocomint'.
    (should (equal "cd >/dev/null 2>&1 /tmp/test ; compgen -o default he 2>/dev/null"
                   (pop --captured-commands)))))
 
-(ert-deftest bash-completion-trailing ()
+(ert-deftest bash-completion-single-completion-test ()
+  (--with-fake-bash-completion-send
+   (push "hello\n" --send-results)
+   (insert "$ cat he")
+   (should (equal
+            '("hello ")
+            (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point)))))))
+
+(ert-deftest bash-completion-trailing-default-completion ()
   (--with-fake-bash-completion-send
    (push "without space\nwith space \nwith slash/\n" --send-results)
    (insert "$ ls with")
@@ -730,8 +759,28 @@ before calling `bash-completion-dynamic-complete-nocomint'.
               '("without\\ space" "with\\ space " "with\\ slash/")
               (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point))))))))
 
-(ert-deftest bash-completion-trailing-nospace ()
+(ert-deftest bash-completion-trailing-default-completion-nospace ()
   (--with-fake-bash-completion-send
+   (push "without space\nwith space \nwith slash/\n" --send-results)
+   (insert "$ ls with")
+   (let ((bash-completion-nospace t))
+     (should (equal
+              '("without\\ space" "with\\ space" "with\\ slash/")
+              (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point))))))))
+
+(ert-deftest bash-completion-trailing-custom-completion ()
+  (--with-fake-bash-completion-send
+   (setq bash-completion-alist '(("ls" "compgen" "args")))
+   (push "without space\nwith space \nwith slash/\n" --send-results)
+   (insert "$ ls with")
+   (let ((bash-completion-nospace nil))
+     (should (equal
+              '("without\\ space" "with\\ space " "with\\ slash/")
+              (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point))))))))
+
+(ert-deftest bash-completion-trailing-custom-completion-nospace ()
+  (--with-fake-bash-completion-send
+   (setq bash-completion-alist '(("ls" "compgen" "args")))
    (push "without space\nwith space \nwith slash/\n" --send-results)
    (insert "$ ls with")
    (let ((bash-completion-nospace t))
