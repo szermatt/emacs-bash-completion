@@ -321,7 +321,7 @@ garbage
   ;; no custom completion
   (should
    (equal (concat "cd >/dev/null 2>&1 " (expand-file-name "~/test")
-		  " ; compgen -o default worl 2>/dev/null")
+		  " ; compgen -o default -- worl 2>/dev/null")
 	  (let ((bash-completion-alist nil)
 		(default-directory "~/test"))
 	    (bash-completion-generate-line "hello worl" 7 '("hello" "worl") 1 nil))))
@@ -356,7 +356,7 @@ garbage
 
   ;; ignore completion function
   (should (equal 
-	   "cd >/dev/null 2>&1 /test ; compgen -o default worl 2>/dev/null"
+	   "cd >/dev/null 2>&1 /test ; compgen -o default -- worl 2>/dev/null"
 	   (let ((bash-completion-alist '((nil . ("-F" "__zorg"))))
 		 (default-directory "/test"))
 	     (bash-completion-generate-line "zorg worl" 7 '("zorg" "worl") 1 nil)))))
@@ -733,7 +733,7 @@ before calling `bash-completion-dynamic-complete-nocomint'.
    (should (equal
             (list 7 9 '("hell" "hello1" "hello2"))
             (bash-completion-dynamic-complete-nocomint 3 (point))))
-   (should (equal "cd >/dev/null 2>&1 /tmp/test ; compgen -o default he 2>/dev/null"
+   (should (equal "cd >/dev/null 2>&1 /tmp/test ; compgen -o default -- he 2>/dev/null"
                   (pop --captured-commands)))))
 
 (ert-deftest bash-completion-single-completion-test ()
@@ -837,7 +837,7 @@ before calling `bash-completion-dynamic-complete-nocomint'.
             '("bin/" "bind ")
             (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point)))))
    (should (equal (concat "cd >/dev/null 2>&1 /tmp/test ; "
-                          "compgen -b -c -a -A function b 2>/dev/null")
+                          "compgen -b -c -a -A function -- b 2>/dev/null")
                   (pop --captured-commands)))))
 
 ;;; bash-completion_test.el ends here

@@ -1092,12 +1092,12 @@ completion candidates."
       ((= cword 0)
        ;; a command. let bash expand builtins, aliases and functions
        (setq completion-type 'command)
-       (setq commandline (concat "compgen -b -c -a -A function " stub)))
+       (setq commandline (concat "compgen -b -c -a -A function -- " stub)))
 
       ((not compgen-args)
        ;; no completion configured for this command
        (setq completion-type 'default)
-       (setq commandline (bash-completion-join (list "compgen" "-o" "default" stub))))
+       (setq commandline (concat "compgen -o default -- " stub)))
 
       ((or (member "-F" compgen-args) (member "-C" compgen-args))
        ;; custom completion with a function of command
