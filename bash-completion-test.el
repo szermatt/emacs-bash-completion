@@ -745,6 +745,31 @@ before calling `bash-completion-dynamic-complete-nocomint'.
             '("hello ")
             (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point)))))))
 
+
+(ert-deftest bash-completion-single-completion-double-quotes ()
+  (--with-fake-bash-completion-send
+   (push "hello\n" --send-results)
+   (insert "$ cat \"he")
+   (should (equal
+            '("hello\" ")
+            (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point)))))))
+
+(ert-deftest bash-completion-single-completion-single-quotes ()
+  (--with-fake-bash-completion-send
+   (push "hello\n" --send-results)
+   (insert "$ cat 'he")
+   (should (equal
+            '("hello' ")
+            (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point)))))))
+
+(ert-deftest bash-completion-completion-with-double-quotes ()
+  (--with-fake-bash-completion-send
+   (push "hell\nhello\n" --send-results)
+   (insert "$ cat \"he")
+   (should (equal
+            '("hell\"" "hello\"")
+            (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point)))))))
+
 (ert-deftest bash-completion-trailing-default-completion ()
   (--with-fake-bash-completion-send
    (push "without space\nwith space \nwith slash/\n" --send-results)
@@ -840,8 +865,8 @@ before calling `bash-completion-dynamic-complete-nocomint'.
    (push "Documents/Modes d'emplois/KAR 1.pdf\nDocuments/Modes d'emplois/KAR 2.pdf\n"
          --send-results)
    (should (equal
-            '("Documents/Modes d'\\''emplois/KAR 1.pdf"
-              "Documents/Modes d'\\''emplois/KAR 2.pdf")
+            '("Documents/Modes d'\\''emplois/KAR 1.pdf'"
+              "Documents/Modes d'\\''emplois/KAR 2.pdf'")
             (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point)))))))
 
 (ert-deftest bash-completion-complete-command-with-dir ()

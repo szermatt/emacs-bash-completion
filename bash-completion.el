@@ -815,11 +815,13 @@ for directory name detection to work."
      (t (setq rest str)))
 
     ;; build suffix
-    (let ((last-char (bash-completion-last-char rest)))
+    (let ((last-char (bash-completion-last-char rest))
+          (close-quote-str (if open-quote (char-to-string open-quote) ""))
+          (final-space-str (if bash-completion-nospace "" " ")))
       (cond
        ((eq ?\  last-char)
         (setq rest (substring rest 0 -1))
-        (setq suffix (if bash-completion-nospace "" " ")))
+        (setq suffix (concat close-quote-str final-space-str)))
        ((or (memq last-char bash-completion-wordbreaks)
             (eq ?/ last-char))
         (setq suffix ""))
@@ -830,11 +832,11 @@ for directory name detection to work."
                              open-quote (concat parsed-prefix rest))
                             default-directory)))
         (setq suffix "/"))
-       ((and (not open-quote)
-             (or (eq completion-type 'command)
-                 (and (memq completion-type '(default wordbreak custom))
-                      single)))
-        (setq suffix (if bash-completion-nospace "" " ")))))
+       ((or (eq completion-type 'command)
+            (and (memq completion-type '(default wordbreak custom))
+                 single))
+        (setq suffix (concat close-quote-str final-space-str)))
+       (t (setq suffix close-quote-str))))
 
     ;; put everything back together
     (concat unparsed-prefix
