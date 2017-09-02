@@ -814,7 +814,12 @@ before calling `bash-completion-dynamic-complete-nocomint'.
    (should (equal
             '("Documents/Modes\\ d\\'emplois/KAR\\ 1.pdf"
               "Documents/Modes\\ d\\'emplois/KAR\\ 2.pdf")
-            (nth 2(bash-completion-dynamic-complete-nocomint 3 (point)))))))
+            (nth 2(bash-completion-dynamic-complete-nocomint 3 (point)))))
+   (should (equal
+            (concat
+             "cd >/dev/null 2>&1 /tmp/test ; "
+             "compgen -o default -- 'Documents/Modes d'\\''emplois/' 2>/dev/null")
+            (pop --captured-commands)))))
 
 (ert-deftest bash-completion-complete-single-quoted-dir ()
   (--with-fake-bash-completion-send
@@ -849,6 +854,17 @@ before calling `bash-completion-dynamic-complete-nocomint'.
             (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point)))))
    (should (equal (concat "cd >/dev/null 2>&1 /tmp/test ; "
                           "compgen -b -c -a -A function -- b 2>/dev/null")
+                  (pop --captured-commands)))))
+
+(ert-deftest bash-completion-complete-command-with-space ()
+  (--with-fake-bash-completion-send
+   (push "some command\n" --send-results)
+   (insert "$ some\\ c")
+   (should (equal
+            '("some\\ command ")
+            (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point)))))
+   (should (equal (concat "cd >/dev/null 2>&1 /tmp/test ; "
+                          "compgen -b -c -a -A function -- 'some c' 2>/dev/null")
                   (pop --captured-commands)))))
 
 (ert-deftest bash-completion-failed-completion ()

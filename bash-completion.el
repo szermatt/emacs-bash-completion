@@ -1101,19 +1101,19 @@ completion candidates."
           (compgen-args
            (or (cdr (assoc command-name bash-completion-alist))
                (and allowdefault (cdr (assoc nil bash-completion-alist)))))
-          (stub (nth cword words))
+          (quoted-stub (bash-completion-quote (nth cword words)))
           (completion-type)
           (commandline) )
     (cond
       ((= cword 0)
        ;; a command. let bash expand builtins, aliases and functions
        (setq completion-type 'command)
-       (setq commandline (concat "compgen -b -c -a -A function -- " stub)))
+       (setq commandline (concat "compgen -b -c -a -A function -- " quoted-stub)))
 
       ((not compgen-args)
        ;; no completion configured for this command
        (setq completion-type 'default)
-       (setq commandline (concat "compgen -o default -- " stub)))
+       (setq commandline (concat "compgen -o default -- " quoted-stub)))
 
       ((or (member "-F" compgen-args) (member "-C" compgen-args))
        ;; custom completion with a function of command
@@ -1133,11 +1133,12 @@ completion candidates."
 			  (bash-completion-join words)
 			  (bash-completion-quote function-name)))
 		 (bash-completion-join args)
-		 (bash-completion-quote stub)))))
+		 quoted-stub))))
       (t
        ;; simple custom completion
        (setq completion-type 'custom)
-       (setq commandline (format "compgen %s -- %s" (bash-completion-join compgen-args) stub))))
+       (setq commandline (format "compgen %s -- %s" (bash-completion-join compgen-args)
+                                 quoted-stub))))
     (cons completion-type
           (concat
            (bash-completion-cd-command-prefix)
