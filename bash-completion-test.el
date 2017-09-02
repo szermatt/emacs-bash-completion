@@ -487,9 +487,7 @@ garbage
                                       "~" "~" nil 'default nil)))
 
   (cl-letf (((symbol-function 'file-accessible-directory-p)
-             (lambda (d)
-               (message "check: %s" d)
-               (equal d "/tmp/somedir"))))
+             (lambda (d) (equal d "/tmp/somedir"))))
     (let ((default-directory "/tmp/"))
       ;; append / for directory
       (should (equal "somedir/"
@@ -706,7 +704,10 @@ before calling `bash-completion-dynamic-complete-nocomint'.
 "
   `(let ((default-directory "/tmp/test")
          (bash-completion-alist '()))
-     (lexical-let ((--process-buffer) (--test-buffer) (--send-results) (--captured-commands (list))
+     (lexical-let ((--process-buffer)
+                   (--test-buffer)
+                   (--send-results (list))
+                   (--captured-commands (list))
                    (--directories (list)))
        (with-temp-buffer
          (setq --process-buffer (current-buffer))
@@ -782,6 +783,16 @@ before calling `bash-completion-dynamic-complete-nocomint'.
               '("without\\ space" "with\\ space" "with\\ slash/")
               (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point))))))))
 
+(ert-deftest bash-completion-trailing-custom-flag-completion ()
+  (--with-fake-bash-completion-send
+   (setq bash-completion-alist '(("ls" "compgen" "args")))
+   (push "--color\n--color=\n" --send-results)
+   (insert "$ ls --c")
+   (let ((bash-completion-nospace nil))
+     (should (equal
+              '("--color" "--color=")
+              (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point))))))))
+
 (ert-deftest bash-completion-complete-dir-with-spaces-test ()
   (--with-fake-bash-completion-send
    (push "/tmp/test/Documents" --directories)
@@ -839,5 +850,30 @@ before calling `bash-completion-dynamic-complete-nocomint'.
    (should (equal (concat "cd >/dev/null 2>&1 /tmp/test ; "
                           "compgen -b -c -a -A function -- b 2>/dev/null")
                   (pop --captured-commands)))))
+
+(ert-deftest bash-completion-failed-completion ()
+  (--with-fake-bash-completion-send
+   (setq --send-results '("" "bad"))
+   (insert "$ ls --")
+   (should
+    (null (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point)))))))
+
+(ert-deftest bash-completion-wordbreak-completion ()
+  (--with-fake-bash-completion-send
+   (push "/tmp/test/bin" --directories)
+   (setq --send-results '("" "./binary\n./bind\n./bin\n"))
+   (insert "$ export PATH=$PATH:./b")
+   (should
+    (equal '(21 24 ("./binary" "./bind" "./bin/"))
+           (bash-completion-dynamic-complete-nocomint 3 (point))))))
+
+(ert-deftest bash-completion-single-wordbreak-completion ()
+  (--with-fake-bash-completion-send
+   (push "/tmp/test/bin" --directories)
+   (setq --send-results '("" "./world\n"))
+   (insert "$ set a=./hello:./w")
+   (should
+    (equal '(17 20 ("./world "))
+           (bash-completion-dynamic-complete-nocomint 3 (point))))))
 
 ;;; bash-completion_test.el ends here
