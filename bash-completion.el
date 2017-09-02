@@ -816,7 +816,7 @@ for directory name detection to work."
         (setq suffix "/"))
        ((and (not open-quote)
              (or (eq completion-type 'command)
-                 (and (memq completion-type '(default wordbreak))
+                 (and (memq completion-type '(default wordbreak custom))
                       single)))
         (setq suffix (if bash-completion-nospace "" " ")))))
 

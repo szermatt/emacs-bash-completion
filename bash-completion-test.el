@@ -876,4 +876,35 @@ before calling `bash-completion-dynamic-complete-nocomint'.
     (equal '(17 20 ("./world "))
            (bash-completion-dynamic-complete-nocomint 3 (point))))))
 
+(ert-deftest bash-completion-single-custom-completion ()
+  (--with-fake-bash-completion-send
+   (setq bash-completion-alist '(("ls" "compgen" "args")))
+   (push "--escape\n" --send-results)
+   (insert "$ ls --esc")
+   (let ((bash-completion-nospace nil))
+     (should (equal
+              '("--escape ")
+              (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point))))))))
+
+(ert-deftest bash-completion-single-custom-completion-with-wordbreak-end ()
+  (--with-fake-bash-completion-send
+   (setq bash-completion-alist '(("ls" "compgen" "args")))
+   (push "--color=\n" --send-results)
+   (insert "$ ls --col")
+   (let ((bash-completion-nospace nil))
+     (should (equal
+              '("--color=")
+              (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point))))))))
+
+(ert-deftest bash-completion-single-custom-completion-as-directory ()
+  (--with-fake-bash-completion-send
+   (setq bash-completion-alist '(("ls" "compgen" "args")))
+   (push "somedir/\n" --send-results)
+   (insert "$ ls some")
+   (let ((bash-completion-nospace nil))
+     (should (equal
+              '("somedir/")
+              (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point))))))))
+
+
 ;;; bash-completion_test.el ends here
