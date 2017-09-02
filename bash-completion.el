@@ -383,16 +383,26 @@ This function is not meant to be called outside of
                      separator-pos-in-unparsed
                      (length unparsed-stub))))
     (when (> (length before-wordbreak) 0)
-      (bash-completion-send (concat
-			     (bash-completion-cd-command-prefix)
-			     "compgen -o default -- "
-			     (bash-completion-quote after-wordbreak)))
-      (let ((completions
-	     (bash-completion-extract-candidates
-              after-wordbreak unparsed-after-wordbreak open-quote 'wordbreak)))
-	(list (+ stub-start separator-pos-in-unparsed)
-              pos
-	      completions)))))
+      (list (+ stub-start separator-pos-in-unparsed)
+            pos
+            (bash-completion--default-completion
+             after-wordbreak unparsed-after-wordbreak
+             open-quote 'wordbreak)))))
+
+(defun bash-completion--default-completion
+    (stub unparsed-stub open-quote completion-type)
+  "Do default completion on the given STUB.
+
+Return the extracted candidate, with STUB replaced with
+UNPARSED-STUB, taking OPEN-QUOTE into account. COMPLETION-TYPE is
+passed, eventually, to `bash-completion-fix'"
+  (when (eq 0 (bash-completion-send (concat
+                                     (bash-completion-cd-command-prefix)
+                                     "compgen -o default -- "
+                                     (bash-completion-quote stub))))
+    (bash-completion-extract-candidates
+     stub unparsed-stub open-quote
+     (or completion-type 'default))))
 	  
 ;;; ---------- Functions: parsing and tokenizing
 
@@ -684,6 +694,7 @@ The result is a list of candidates, which might be empty."
   
   (let ((process (bash-completion-require-process))
         (cmdline)
+        (candidates)
         (completion-status))
     (setq cmdline (bash-completion-generate-line line pos words cword t))
     (setq completion-status (bash-completion-send (cdr cmdline)))
@@ -696,9 +707,14 @@ The result is a list of candidates, which might be empty."
       (bash-completion-build-alist (process-buffer process))
       (setq cmdline (bash-completion-generate-line line pos words cword nil))
       (setq completion-status (bash-completion-send (cdr cmdline))))
-    (when (eq 0 completion-status)
-      (bash-completion-extract-candidates
-       (nth cword words) unparsed-stub open-quote (car cmdline)))))
+    (setq candidates
+          (when (eq 0 completion-status)
+            (bash-completion-extract-candidates
+             (nth cword words) unparsed-stub open-quote (car cmdline))))
+    (if (and (not candidates) (eq 'custom (car cmdline)))
+        (bash-completion--default-completion
+         (nth cword words) unparsed-stub open-quote 'default)
+      candidates)))
 
 (defun bash-completion-extract-candidates
     (parsed-stub unparsed-stub open-quote completion-type)

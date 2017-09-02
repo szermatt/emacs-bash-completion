@@ -906,5 +906,15 @@ before calling `bash-completion-dynamic-complete-nocomint'.
               '("somedir/")
               (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point))))))))
 
+(ert-deftest bash-completion-custom-completion-with-fallback ()
+  (--with-fake-bash-completion-send
+   (setq bash-completion-alist '(("ls" "compgen" "args")))
+   (setq --send-results '("" "foo\nfoobar\n"))
+   (insert "$ ls fo")
+   (let ((bash-completion-nospace nil))
+     (should (equal
+              '("foo" "foobar")
+              (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point))))))))
+
 
 ;;; bash-completion_test.el ends here
