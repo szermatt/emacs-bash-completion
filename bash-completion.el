@@ -373,21 +373,27 @@ This function is not meant to be called outside of
 	 (after-wordbreak (nth 1 wordbreak-split))
          (separator (nth 2 wordbreak-split))
          (unparsed-stub (buffer-substring-no-properties stub-start pos))
-         ;; separator-pos-in-unparsed finds the same separator that
-         ;; was used for the split in unparsed-stub.
-         (separator-pos-in-unparsed
-          (- (length unparsed-stub)
-             (or (seq-position (reverse unparsed-stub) separator) 0)))
+         (after-wordbreak-in-unparsed-pos
+          (1+ (or (bash-completion--find-last separator unparsed-stub) -1)))
          (unparsed-after-wordbreak
           (substring unparsed-stub
-                     separator-pos-in-unparsed
+                     after-wordbreak-in-unparsed-pos
                      (length unparsed-stub))))
     (when (> (length before-wordbreak) 0)
-      (list (+ stub-start separator-pos-in-unparsed)
+      (list (+ stub-start after-wordbreak-in-unparsed-pos)
             pos
             (bash-completion--default-completion
              after-wordbreak unparsed-after-wordbreak
              open-quote 'wordbreak)))))
+
+(defun bash-completion--find-last (elt array)
+  "Return the position of the last intance of ELT in array or nil."
+  (catch 'bash-completion-return
+    (let ((array-len (length array)))
+      (dotimes (index array-len)
+        (if (eq elt (aref array (- array-len index 1)))
+            (throw 'bash-completion-return (- array-len index 1)))))
+    nil))
 
 (defun bash-completion--default-completion
     (stub unparsed-stub open-quote completion-type)

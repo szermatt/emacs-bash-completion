@@ -361,6 +361,12 @@ garbage
 		 (default-directory "/test"))
 	     (bash-completion-generate-line "zorg worl" 7 '("zorg" "worl") 1 nil)))))
 
+(ert-deftest bash-completion--find-last-test ()
+  (should (equal nil (bash-completion--find-last ?a "xxxxx")))
+  (should (equal 3 (bash-completion--find-last ?d "abcdef")))
+  (should (equal 5 (bash-completion--find-last ?f "abcdef")))
+  (should (equal 9 (bash-completion--find-last ?d "abcdefabcdef"))))
+
 (ert-deftest bash-completion-generate-list-test ()
   ;; empty str
   (should (equal nil
