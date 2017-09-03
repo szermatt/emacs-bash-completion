@@ -856,8 +856,7 @@ OPEN-QUOTE, either nil, ' or \".
 Return a possibly escaped version of COMPLETION-CANDIDATE."
   (cond
    ((zerop (length completion-candidate)) "")
-   ((and (null open-quote)
-	 (null (string-match "^['\"]" completion-candidate)))
+   ((null open-quote)
     (replace-regexp-in-string
      "\n" "'\n'"
      (replace-regexp-in-string

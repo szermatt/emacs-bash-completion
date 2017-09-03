@@ -594,13 +594,16 @@ garbage
   (should (equal "hel\\lo, \\you"
 		 (bash-completion-escape-candidate "hel\\lo, \\you" ?\")))
 
-  ;; no quote not if double quoted
-  (should (equal "\"hello, you"
-		 (bash-completion-escape-candidate "\"hello, you" nil)))
-  
-  ;; no quote not if single quoted
-  (should (equal "'hello, you"
-		 (bash-completion-escape-candidate "'hello, you" nil))))
+  ;; starts with quotes or special char
+  (should (equal "\\\"\\\"hello" (bash-completion-escape-candidate "\"\"hello" nil)))
+  (should (equal "\\'\\'hello" (bash-completion-escape-candidate "''hello" nil)))
+  (should (equal "\\#\\#hello" (bash-completion-escape-candidate "##hello" nil)))
+  (should (equal "\\\"\\\"hello" (bash-completion-escape-candidate "\"\"hello" ?\")))
+  (should (equal "''hello" (bash-completion-escape-candidate "''hello" ?\")))
+  (should (equal "##hello" (bash-completion-escape-candidate "##hello" ?\")))
+  (should (equal "\"\"hello" (bash-completion-escape-candidate "\"\"hello" ?')))
+  (should (equal "'\\'''\\''hello" (bash-completion-escape-candidate "''hello" ?')))
+  (should (equal "##hello" (bash-completion-escape-candidate "##hello" ?'))))
 
 (ert-deftest bash-completion-quote-test ()
   ;; allowed
