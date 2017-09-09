@@ -30,7 +30,12 @@
 
 ;;; Code:
 (require 'bash-completion)
-(require 'ert)
+(require 'dired)
+
+(if (>= emacs-major-version 24)
+    (require 'ert)
+  (require 'pre24)
+  (require 'dired))
 
 (defmacro bash-completion_test-harness (&rest body)
   `(progn
@@ -99,7 +104,9 @@ for testing completion."
 (defun bash-completion_test-teardown-env (test-env-dir)
   "Deletes everything `bash-completion_test-setup-env' set up."
   (when test-env-dir
-    (delete-directory test-env-dir 'recursive)))
+    (if (>= emacs-major-version 24)
+        (delete-directory test-env-dir 'recursive)
+      (dired-delete-file test-env-dir 'always))))
 
 (ert-deftest bash-completion-integration-test ()
   (skip-unless (file-executable-p bash-completion-prog))

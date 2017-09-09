@@ -31,7 +31,9 @@
 ;;; Code:
 (require 'bash-completion)
 (require 'cl)
-(require 'ert)
+(if (>= emacs-major-version 24)
+    (require 'ert)
+  (require 'pre24))
 
 (defmacro bash-completion-test-with-buffer (content &rest body)
   "Create a temporary buffer with CONTENT and execute BODY.
