@@ -194,6 +194,11 @@ to remove the extra space bash adds after a completion."
   :type '(boolean)
   :group 'bash-completion)
 
+(defvar bash-completion-start-files
+  '("~/.emacs_bash.sh" "~/.emacs.d/init_bash.sh")
+  "Shell files that, if they exist, will be sourced at the
+beginning of a bash completion subprocess.")
+
 ;;; ---------- Internal variables and constants
 
 (defvar bash-completion-process nil
@@ -984,14 +989,10 @@ is set to t."
                             ,bash-completion-prog)
                           bash-completion-args)))
 	    (set-process-query-on-exit-flag process nil)
-	    (let* ((shell-name (file-name-nondirectory bash-completion-prog))
-		   (startfile1 (concat "~/.emacs_" shell-name ".sh"))
-		   (startfile2 (concat "~/.emacs.d/init_" shell-name ".sh")))
-	      (cond
-	       ((file-exists-p startfile1)
-		(process-send-string process (concat ". " startfile1 "\n")))
-	       ((file-exists-p startfile2)
-		(process-send-string process (concat ". " startfile2 "\n")))))
+	    (let ((shell-name (file-name-nondirectory bash-completion-prog)))
+              (dolist (start-file bash-completion-start-files)
+                ((file-exists-p startfile1)
+                 (process-send-string process (concat ". " startfile1 "\n")))))
 	    (bash-completion-send "PROMPT_COMMAND='';PS1='\t$?\v'" process bash-completion-initial-timeout)
 	    (bash-completion-send (concat "function __bash_complete_wrapper {"
 					  " eval $__BASH_COMPLETE_WRAPPER;"
