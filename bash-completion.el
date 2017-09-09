@@ -991,8 +991,8 @@ is set to t."
 	    (set-process-query-on-exit-flag process nil)
 	    (let ((shell-name (file-name-nondirectory bash-completion-prog)))
               (dolist (start-file bash-completion-start-files)
-                ((file-exists-p startfile1)
-                 (process-send-string process (concat ". " startfile1 "\n")))))
+                (when (file-exists-p start-file)
+                  (process-send-string process (concat ". " start-file "\n")))))
 	    (bash-completion-send "PROMPT_COMMAND='';PS1='\t$?\v'" process bash-completion-initial-timeout)
 	    (bash-completion-send (concat "function __bash_complete_wrapper {"
 					  " eval $__BASH_COMPLETE_WRAPPER;"
