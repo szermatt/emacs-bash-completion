@@ -1,4 +1,4 @@
-;;; bash-completion_test.el --- Tests bash-completion.el
+;;; bash-completion-test.el --- Tests bash-completion.el
 
 ;; Copyright (C) 2009 Stephane Zermatten
 
@@ -22,43 +22,26 @@
 ;;; Commentary:
 ;;
 ;; This file defines unit and integrations ERT tests for
-;; `bash-completion'.
+;; `bash-completion' that don't rely on a bash process.
 ;;
 
 ;;; History:
 ;;
 
 ;;; Code:
-(require 'ert)
-(require 'sz-testutils)
 (require 'bash-completion)
+(require 'cl)
+(require 'ert)
 
-(defun bash-completion-test-send (buffer-content)
-  "Run `bash-completion-send' on BUFFER-CONTENT.
-Return (const return-value new-buffer-content)"
-  (let ((process 'process))
-    (cl-letf (((symbol-function 'process-buffer)
-	       (lambda (process)
-		 (unless (eq process 'process)
-		   (error "unexpected: %s" process))
-		 (current-buffer)))
-	      ((symbol-function 'process-send-string)
-	       (lambda (process command)
-		 (unless (eq process 'process)
-		   (error "unexpected process: %s" process))
-		 (unless (equal "cmd\n" command)
-		   (error "unexpected command: %s" command))))
-	      ((symbol-function 'accept-process-output)
-	       (lambda (process timeout)
-		 (unless (eq process 'process)
-		   (error "unexpected process: %s" process))
-		 (unless (= timeout 3.14)
-		   (error "unexpected timeout: %s" timeout))
-		 (insert buffer-content)
-		 t)))
-      (sz-testutils-with-buffer-ret-and-content
-       ""
-       (bash-completion-send "cmd" 'process 3.14)))))
+(defmacro bash-completion-test-with-buffer (content &rest body)
+  "Create a temporary buffer with CONTENT and execute BODY.
+
+The return value is the one returned by BODY."
+  `(with-temp-buffer
+     (insert ,content)
+     (goto-char (point-min))
+     (progn ,@body)))
+
 
 ;; ---------- unit tests
 (ert-deftest bash-completion-join-test ()
@@ -71,91 +54,91 @@ Return (const return-value new-buffer-content)"
 
 (ert-deftest bash-completion-tokenize-test ()
   (should (equal '("a" "hello" "world" "b" "c")
-		 (sz-testutils-with-buffer
-		  '("a hello world b c")
+		 (bash-completion-test-with-buffer
+		  "a hello world b c"
 		  (bash-completion-strings-from-tokens
 		   (bash-completion-tokenize 1 (line-end-position))))))
 
   ;; extra spaces
   (should (equal '("a" "hello" "world" "b" "c")
-  		 (sz-testutils-with-buffer
-  		  '("  a  hello \n world \t b \r c  ")
+  		 (bash-completion-test-with-buffer
+  		  "  a  hello \n world \t b \r c  "
   		  (bash-completion-strings-from-tokens
   		   (bash-completion-tokenize 1 (line-end-position 2))))))
 
   ;; escaped spaces
   (should (equal '("a" "hello world" "b" "c")
-  		 (sz-testutils-with-buffer
-  		  '("a hello\\ world b c")
+  		 (bash-completion-test-with-buffer
+  		  "a hello\\ world b c"
   		  (bash-completion-strings-from-tokens
   		   (bash-completion-tokenize 1 (line-end-position))))))
 
   ;; escaped #
   (should (equal '("a" "hello" "#world#" "b")
-  		 (sz-testutils-with-buffer
-  		  '("a hello \\#world\\# b")
+  		 (bash-completion-test-with-buffer
+  		  "a hello \\#world\\# b"
   		  (bash-completion-strings-from-tokens
   		   (bash-completion-tokenize 1 (line-end-position))))))
 
   ;; double quotes
   (should (equal '("a" "hello world" "b" "c")
-  		 (sz-testutils-with-buffer
-  		  '("a \"hello world\" b c")
+  		 (bash-completion-test-with-buffer
+  		  "a \"hello world\" b c"
   		  (bash-completion-strings-from-tokens
   		   (bash-completion-tokenize 1 (line-end-position))))))
 
   ;; escaped double quotes
   (should (equal '("a" "-\"hello world\"-" "b" "c")
-  		 (sz-testutils-with-buffer
-  		  '("a \"-\\\"hello world\\\"-\" b c")
+  		 (bash-completion-test-with-buffer
+  		  "a \"-\\\"hello world\\\"-\" b c"
   		  (bash-completion-strings-from-tokens
   		   (bash-completion-tokenize 1 (line-end-position))))))
 
   ;; single quotes
   (should (equal '("a" "hello world" "b" "c")
-  		 (sz-testutils-with-buffer
-  		  '("a \"hello world\" b c")
+  		 (bash-completion-test-with-buffer
+  		  "a \"hello world\" b c"
   		  (bash-completion-strings-from-tokens
   		   (bash-completion-tokenize 1 (line-end-position))))))
   
   ;; escaped single quotes
   (should (equal '("a" "-'hello world'-" "b" "c")
-		 (sz-testutils-with-buffer
-		  '("a '-\\'hello world\\'-' b c")
+		 (bash-completion-test-with-buffer
+		  "a '-\\'hello world\\'-' b c"
 		  (bash-completion-strings-from-tokens
 		   (bash-completion-tokenize 1 (line-end-position))))))
 
   ;; complex quote mix
   (should (equal '("a" "hello world bc" "d")
-		 (sz-testutils-with-buffer
-		  '("a hel\"lo w\"o'rld b'c d")
+		 (bash-completion-test-with-buffer
+		  "a hel\"lo w\"o'rld b'c d"
 		  (bash-completion-strings-from-tokens
 		   (bash-completion-tokenize 1 (line-end-position))))))
 
   ;; unescaped semicolon
   (should (equal '("to" "infinity" ";" "and beyond")
-  		 (sz-testutils-with-buffer
+  		 (bash-completion-test-with-buffer
   		  "to infinity;and\\ beyond"
   		  (bash-completion-strings-from-tokens
   		   (bash-completion-tokenize 1 (line-end-position))))))
 
   ;; unescaped &&"
   (should (equal '("to" "infinity" "&&" "and beyond")
-		 (sz-testutils-with-buffer
+		 (bash-completion-test-with-buffer
 		  "to infinity&&and\\ beyond"
 		  (bash-completion-strings-from-tokens
 		   (bash-completion-tokenize 1 (line-end-position))))))
 
   ;;unescaped ||"
   (should (equal '("to" "infinity" "||" "and beyond")
-		 (sz-testutils-with-buffer
+		 (bash-completion-test-with-buffer
 		  "to infinity||and\\ beyond"
 		  (bash-completion-strings-from-tokens
 		   (bash-completion-tokenize 1 (line-end-position))))))
 
   ;; quoted ;&|"
   (should (equal '("to" "infinity;&|and" "beyond")
-		 (sz-testutils-with-buffer
+		 (bash-completion-test-with-buffer
   		  "to \"infinity;&|and\" beyond"
   		  (bash-completion-strings-from-tokens
   		   (bash-completion-tokenize 1 (line-end-position)))))))
@@ -168,7 +151,7 @@ Return (const return-value new-buffer-content)"
 	     (cword . 2)
 	     (words . ("a" "hello" "world"))
 	     (stub-start . 9))
-	   (sz-testutils-with-buffer
+	   (bash-completion-test-with-buffer
 	    "a hello world"
 	    (bash-completion-process-tokens
 	     (bash-completion-tokenize (point-min) (point-max)) 14 nil))))
@@ -180,7 +163,7 @@ Return (const return-value new-buffer-content)"
 	     (cword . 0)
 	     (words . (""))
 	     (stub-start . 2))
-	   (sz-testutils-with-buffer
+	   (bash-completion-test-with-buffer
 	    " "
 	    (bash-completion-process-tokens
 	     (bash-completion-tokenize (point-min) (point-max)) 2 nil))))
@@ -192,7 +175,7 @@ Return (const return-value new-buffer-content)"
 	     (cword . 2)
 	     (words . ("a" "hello" ""))
 	     (stub-start . 9))
-	   (sz-testutils-with-buffer
+	   (bash-completion-test-with-buffer
 	    "a hello "
 	    (bash-completion-process-tokens
 	     (bash-completion-tokenize (point-min) (point-max)) 9 nil))))
@@ -204,7 +187,7 @@ Return (const return-value new-buffer-content)"
 	     (cword . 1)
 	     (words . ("make" "-"))
 	     (stub-start . 27))
-	   (sz-testutils-with-buffer
+	   (bash-completion-test-with-buffer
 	    "cd /var/tmp ; ZORG=t make -"
 	    (bash-completion-process-tokens
 	     (bash-completion-tokenize (point-min) (point-max)) 28 nil))))
@@ -216,7 +199,7 @@ Return (const return-value new-buffer-content)"
 	     (cword . 1)
 	     (words . ("sort" "-"))
 	     (stub-start . 20))
-	   (sz-testutils-with-buffer
+	   (bash-completion-test-with-buffer
 	    "ls /var/tmp | sort -"
 	    (bash-completion-process-tokens
 	     (bash-completion-tokenize (point-min) (point-max)) 21 nil))))
@@ -228,7 +211,7 @@ Return (const return-value new-buffer-content)"
 	     (cword . 7)
 	     (words . ("find" "-name" "*.txt" "-exec" "echo" "{}" ";" "-"))
 	     (stub-start . 38))
-	   (sz-testutils-with-buffer
+	   (bash-completion-test-with-buffer
 	    "find -name '*.txt' -exec echo {} ';' -"
 	    (bash-completion-process-tokens
 	     (bash-completion-tokenize (point-min) (point-max)) 39 nil))))
@@ -240,7 +223,7 @@ Return (const return-value new-buffer-content)"
 	     (cword . 0)
 	     (words . ("ZORG=t"))
 	     (stub-start . 19))
-	   (sz-testutils-with-buffer
+	   (bash-completion-test-with-buffer
 	    "cd /var/tmp ; A=f ZORG=t"
 	    (bash-completion-process-tokens
 	     (bash-completion-tokenize (point-min) (point-max)) 25 nil))))
@@ -252,7 +235,7 @@ Return (const return-value new-buffer-content)"
 	     (cword . 1)
 	     (words . ("cd" "/vcr/shows/Dexter's"))
 	     (stub-start . 4))
-	   (sz-testutils-with-buffer
+	   (bash-completion-test-with-buffer
 	    "cd /vcr/shows/Dexter\\'s"
 	    (bash-completion-process-tokens
 	     (bash-completion-tokenize (point-min) (point-max)) 24 nil)))))
@@ -292,7 +275,7 @@ Return (const return-value new-buffer-content)"
 	     ("cv" "-F" "_cdargs_aliases")
 	     ("cb" "-F" "_cdargs_aliases")
 	     (nil "-F" "_completion_loader"))
-	   (sz-testutils-with-buffer
+	   (bash-completion-test-with-buffer
 	    "
 complete -F _cdargs_aliases cdb
 complete -F complete_projects project
@@ -317,46 +300,72 @@ garbage
   (should (equal "'hell'\\''o'"
 		 (bash-completion-quote "hell'o"))))
 
-(ert-deftest bash-completion-generate-list-test ()
+(ert-deftest bash-completion-generate-line-test ()
   ;; no custom completion
   (should
-   (equal (concat "cd >/dev/null 2>&1 " (expand-file-name "~/test")
-		  " ; compgen -o default -- worl 2>/dev/null")
+   (equal (cons 'default
+                (concat "cd >/dev/null 2>&1 " (expand-file-name "~/test")
+                        " ; compgen -o default -- worl 2>/dev/null"))
 	  (let ((bash-completion-alist nil)
 		(default-directory "~/test"))
 	    (bash-completion-generate-line "hello worl" 7 '("hello" "worl") 1 nil))))
 
   ;; custom completion no function or command
-  (should (equal 
-	   "cd >/dev/null 2>&1 /test ; compgen -A -G '*.txt' -- worl 2>/dev/null"
+  (should (equal
+           (cons 'custom
+                 "cd >/dev/null 2>&1 /test ; compgen -A -G '*.txt' -- worl 2>/dev/null")
 	   (let ((bash-completion-alist '(("zorg" . ("-A" "-G" "*.txt"))))
 		 (default-directory "/test"))
 	     (bash-completion-generate-line "zorg worl" 7 '("zorg" "worl") 1 nil))))
 
   ;; custom completion function
-  (should (equal 
-	   "cd >/dev/null 2>&1 /test ; __BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; COMP_POINT=7; COMP_CWORD=1; COMP_WORDS=( zorg worl ); __zorg \"${COMP_WORDS[@]}\"' compgen -F __bash_complete_wrapper -- worl 2>/dev/null"
+  (should (equal
+           (cons 'custom
+                 (concat
+                  "cd >/dev/null 2>&1 /test ; "
+                  "__BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; "
+                  "COMP_POINT=7; COMP_CWORD=1; "
+                  "COMP_WORDS=( zorg worl ); "
+                  "__zorg \"${COMP_WORDS[@]}\"' "
+                  "compgen -F __bash_complete_wrapper -- worl 2>/dev/null"))
 	   (let ((bash-completion-alist '(("zorg" . ("-F" "__zorg"))))
 		 (default-directory "/test"))
 	     (bash-completion-generate-line "zorg worl" 7 '("zorg" "worl") 1 nil))))
 
   ;; custom completion command
-  (should (equal 
-	   "cd >/dev/null 2>&1 /test ; __BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; COMP_POINT=7; COMP_CWORD=1; COMP_WORDS=( zorg worl ); __zorg \"${COMP_WORDS[@]}\"' compgen -F __bash_complete_wrapper -- worl 2>/dev/null"
+  (should (equal
+           (cons 'custom
+                 (concat
+                  "cd >/dev/null 2>&1 /test ; "
+                  "__BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; "
+                  "COMP_POINT=7; "
+                  "COMP_CWORD=1; "
+                  "COMP_WORDS=( zorg worl ); "
+                  "__zorg \"${COMP_WORDS[@]}\"' "
+                  "compgen -F __bash_complete_wrapper -- worl 2>/dev/null"))
 	   (let ((bash-completion-alist '(("zorg" . ("-C" "__zorg"))))
 		 (default-directory "/test"))
 	     (bash-completion-generate-line "zorg worl" 7 '("zorg" "worl") 1 nil))))
 
   ;; default completion function
-  (should (equal 
-	   "cd >/dev/null 2>&1 /test ; __BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; COMP_POINT=7; COMP_CWORD=1; COMP_WORDS=( zorg worl ); __zorg \"${COMP_WORDS[@]}\"' compgen -F __bash_complete_wrapper -- worl 2>/dev/null"
+  (should (equal
+           (cons 'custom
+                 (concat
+                  "cd >/dev/null 2>&1 /test ; "
+                  "__BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; "
+                  "COMP_POINT=7; "
+                  "COMP_CWORD=1; "
+                  "COMP_WORDS=( zorg worl ); "
+                  "__zorg \"${COMP_WORDS[@]}\"' "
+                  "compgen -F __bash_complete_wrapper -- worl 2>/dev/null"))
 	   (let ((bash-completion-alist '((nil . ("-F" "__zorg"))))
 		 (default-directory "/test"))
 	     (bash-completion-generate-line "zorg worl" 7 '("zorg" "worl") 1 t))))
 
   ;; ignore completion function
-  (should (equal 
-	   "cd >/dev/null 2>&1 /test ; compgen -o default -- worl 2>/dev/null"
+  (should (equal
+           (cons 'default
+                 "cd >/dev/null 2>&1 /test ; compgen -o default -- worl 2>/dev/null")
 	   (let ((bash-completion-alist '((nil . ("-F" "__zorg"))))
 		 (default-directory "/test"))
 	     (bash-completion-generate-line "zorg worl" 7 '("zorg" "worl") 1 nil)))))
@@ -367,7 +376,7 @@ garbage
   (should (equal 5 (bash-completion--find-last ?f "abcdef")))
   (should (equal 9 (bash-completion--find-last ?d "abcdefabcdef"))))
 
-(ert-deftest bash-completion-generate-list-test ()
+(ert-deftest bash-completion-starts-with-test ()
   ;; empty str
   (should (equal nil
 		 (bash-completion-starts-with "" "prefix")))
@@ -383,6 +392,35 @@ garbage
   ;; same
   (should (equal t
 		 (bash-completion-starts-with "blah-" "blah-"))))
+
+(defun bash-completion-test-send (buffer-content)
+  "Run `bash-completion-send' on BUFFER-CONTENT.
+Return (const return-value new-buffer-content)"
+  (let ((process 'process))
+    (cl-letf (((symbol-function 'process-buffer)
+               (lambda (process)
+                 (unless (eq process 'process)
+                   (error "unexpected: %s" process))
+                 (current-buffer)))
+              ((symbol-function 'process-send-string)
+               (lambda (process command)
+                 (unless (eq process 'process)
+                   (error "unexpected process: %s" process))
+                 (unless (equal "cmd\n" command)
+                   (error "unexpected command: %s" command))))
+              ((symbol-function 'accept-process-output)
+               (lambda (process timeout)
+                 (unless (eq process 'process)
+                   (error "unexpected process: %s" process))
+                 (unless (= timeout 3.14)
+                   (error "unexpected timeout: %s" timeout))
+                 (insert buffer-content)
+                 t)))
+      (bash-completion-test-with-buffer
+       ""
+       (cons
+        (bash-completion-send "cmd" 'process 3.14)
+        (buffer-string))))))
 
 (ert-deftest bash-completion-send-test ()
   (should (equal 
@@ -534,14 +572,15 @@ garbage
                                       nil nil nil))))
 
 (ert-deftest bash-completion-extract-candidates-test ()
-  (should (equal 
-	   '("hello\\ world" "hello ")
-	   (sz-testutils-with-buffer
-	    "hello world\nhello \n\n"
-	    (cl-letf (((symbol-function 'bash-completion-buffer)
-		       (lambda () (current-buffer)))
-		      (bash-completion-nospace nil))
-	      (bash-completion-extract-candidates "hello" "hello" nil nil))))))
+  (let ((bash-completion-nospace nil))
+    (should
+     (equal
+      '("hello\\ world" "hello ")
+      (bash-completion-test-with-buffer
+       "hello world\nhello \n\n"
+       (cl-letf (((symbol-function 'bash-completion-buffer)
+                  (lambda () (current-buffer))))
+         (bash-completion-extract-candidates "hello" "hello" nil nil)))))))
 
 (ert-deftest bash-completion-nonsep-test ()
   (should (equal "^ \t\n\r;&|'\"#"
@@ -625,78 +664,6 @@ garbage
 (ert-deftest bash-completion-join-test ()
   (should (equal "ls -l /a/b '/a/b c' '/a/b'\\''c' '$help/d'"
 		 (bash-completion-join '("ls" "-l" "/a/b" "/a/b c" "/a/b'c" "$help/d")))))
-
-
-;; ---------- integration tests
-
-(defmacro bash-completion_test-harness (&rest body)
-  `(let ((bash-completion-process nil) (bash-completion-alist nil))
-     (unwind-protect
-	 (progn ,@body)
-       ;; tearDown
-       (condition-case err
-	   (when bash-completion-process
-	     (let ((buffer (process-buffer bash-completion-process)))
-	       (kill-process bash-completion-process)
-	       (sit-for 0.2)
-	       (kill-buffer buffer)))
-	 (error (message "error in bash-completion_test tearDown: %s" err))))))
-
-(defmacro bash-completion_test-with-shell (complete-me)
-  `(bash-completion_test-harness
-    (let ((explicit-shell-file-name bash-completion-prog)
-	  shell-buffer)
-      (unwind-protect
-	  (progn
-	    (setq shell-buffer (shell (generate-new-buffer-name
-				       "*bash-completion_test-with-shell*")))
-	    ;; accept process output until there's nothing left
-	    (while (accept-process-output nil 0.6))
-	    ;; do a completion and return the result
-	    (with-current-buffer shell-buffer
-	      (insert ,complete-me)
-	      (if bash-completion-comint-uses-standard-completion
-		  (let ((comint-dynamic-complete-functions '(bash-completion-dynamic-complete)))
-		    (completion-at-point))
-		(bash-completion-dynamic-complete))
-	      (buffer-substring-no-properties
-               (comint-line-beginning-position) (point))))
-	;; finally
-	(when (and shell-buffer (buffer-live-p shell-buffer))
-	  (kill-process (get-buffer-process shell-buffer))
-	  (sit-for 0.2)
-	  (kill-buffer shell-buffer))))))
-
-(ert-deftest bash-completion-interaction-test ()
-  (skip-unless (file-executable-p bash-completion-prog))
-  (bash-completion_test-harness
-   (should-not (bash-completion-is-running))
-   (should (buffer-live-p (bash-completion-buffer)))
-   (should (bash-completion-is-running))
-   (should-not (null (member
-		      "help "
-		      (let ((bash-completion-nospace nil))
-			(bash-completion-comm "hel" 4 '("hel") 0 nil "hel")))))
-   (bash-completion-reset)
-   (should-not (bash-completion-is-running))))
-
-(ert-deftest bash-completion-setenv-test ()
-  (skip-unless (file-executable-p bash-completion-prog))
-  (bash-completion_test-harness
-   (bash-completion-send "echo $EMACS_BASH_COMPLETE")
-   (with-current-buffer (bash-completion-buffer)
-     (should (equal "t\n" (buffer-string))))))
-
-(ert-deftest bash-completion-one-completion-test ()
-  (skip-unless (file-executable-p bash-completion-prog))
-  (should (equal "__bash_complete_wrapper "
-		 (let ((bash-completion-nospace nil))
-		   (bash-completion_test-with-shell "__bash_complete_")))))
-
-(ert-deftest bash-completion-wordbreak-completion-test ()
-  (skip-unless (file-executable-p bash-completion-prog))
-  (should (equal "export PATH=/sbin:/bin/"
-		 (bash-completion_test-with-shell "export PATH=/sbin:/bi"))))
 
 (defmacro --with-fake-bash-completion-send (&rest body)
   "Runs the body in an environment that fakes `bash-completion-send'.
