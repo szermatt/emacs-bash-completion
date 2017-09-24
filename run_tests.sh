@@ -1,11 +1,20 @@
 #!/bin/sh
 #
-# Runs test using the emacs binary specified by ${EMACSCMD}, which
-# defaults to emacs, and the bash binary specified by ${BASHCMD},
-# which defaults to bash.
+# Compiles and runs test using the emacs binary specified by
+# ${EMACSCMD}, which defaults to emacs, and the bash binary specified
+# by ${BASHCMD}, which defaults to bash.
 #
 rootdir="$(dirname "$0")"
 testdir="${rootdir}/test"
+
+"${EMACSCMD:-emacs}" \
+     -Q \
+     -batch \
+     -eval "(setq byte-compile-error-on-warn t)" \
+     -L "${rootdir}" \
+     -f batch-byte-compile \
+     "${rootdir}/bash-completion.el" \
+    || exit 1 
 exec "${EMACSCMD:-emacs}" \
     -Q \
     -batch \

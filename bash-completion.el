@@ -172,7 +172,9 @@ on the minibuffer to make it clear what's happening. Set to nil
 to never display any such message. 0 to always display it.
 
 Only relevant when using bash completion in a shell, through
-`bash-completion-dynamic-complete'.")
+`bash-completion-dynamic-complete'."
+  :type '(float)
+  :group 'bash-completion)
 
 (defcustom bash-completion-initial-timeout 30
   "Timeout value to apply when talking to bash for the first time.
