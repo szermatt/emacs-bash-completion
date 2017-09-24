@@ -1238,7 +1238,8 @@ Call `bash-completion-dynamic' or `bash-completion-nocomint'."
           result)))
 (make-obsolete
  'bash-completion-dynamic-complete-0
- "call bash-completion-dynamic or bash-completion-dynamic-nocomint")
+ "call bash-completion-dynamic or bash-completion-dynamic-nocomint"
+ "2.1")
 
 (defun bash-completion-dynamic-try-wordbreak-complete (stub stub-start pos open-quote)
   "Obsolete function, kept for backward compatibility.
@@ -1252,7 +1253,8 @@ be called from outside bash-completion.
     (cons (buffer-substring-no-properties (car result) pos) result)))
 (make-obsolete
  'bash-completion-dynamic-try-wordbreak-complete
- 'bash-completion--try-wordbreak-complete)
+ 'bash-completion--try-wordbreak-complete
+ "2.1")
 
 (provide 'bash-completion)
 ;;; bash-completion.el ends here
