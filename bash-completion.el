@@ -837,7 +837,7 @@ for directory name detection to work."
             (eq ?/ last-char))
         (setq suffix ""))
        ((and
-         (memq completion-type '(command default wordbreak))
+         (memq completion-type '(command default wordbreak custom))
          (file-accessible-directory-p
           (expand-file-name (bash-completion-unescape
                              open-quote (concat parsed-prefix rest))

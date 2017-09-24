@@ -915,10 +915,23 @@ before calling `bash-completion-dynamic-complete-nocomint'.
               '("--color=")
               (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point))))))))
 
-(ert-deftest bash-completion-single-custom-completion-as-directory ()
+(ert-deftest bash-completion-single-custom-completion-as-directory-explicit ()
   (--with-fake-bash-completion-send
    (setq bash-completion-alist '(("ls" "compgen" "args")))
    (push "somedir/\n" --send-results)
+   (insert "$ ls some")
+   (let ((bash-completion-nospace nil))
+     (should (equal
+              '("somedir/")
+              (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point))))))))
+
+(ert-deftest bash-completion-single-custom-completion-as-directory-implicit ()
+  (--with-fake-bash-completion-send
+   (setq bash-completion-alist '(("ls" "compgen" "args")))
+   ;; note that adding a / after a completion is not always the right thing
+   ;; to do. See github issue #19.
+   (push "/tmp/test/somedir" --directories)
+   (push "somedir\n" --send-results)
    (insert "$ ls some")
    (let ((bash-completion-nospace nil))
      (should (equal
