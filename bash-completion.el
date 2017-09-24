@@ -373,7 +373,7 @@ passed to the parameter OPEN-QUOTE.
 
 This function is not meant to be called outside of
 `bash-completion-dynamic-complete'."
-  (let* ((wordbreak-split (bash-completion-last-wordbreak-split stub))
+  (let* ((wordbreak-split (bash-completion-last-wordbreak-split parsed-stub))
          (before-wordbreak (nth 0 wordbreak-split))
 	 (after-wordbreak (nth 1 wordbreak-split))
          (separator (nth 2 wordbreak-split))
