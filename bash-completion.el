@@ -416,7 +416,7 @@ passed, eventually, to `bash-completion-fix'"
     (bash-completion-extract-candidates
      stub unparsed-stub open-quote
      (or completion-type 'default))))
-	  
+
 ;;; ---------- Functions: parsing and tokenizing
 
 (defun bash-completion-join (words)
@@ -704,7 +704,7 @@ returned set of candidates start with UNPARSED-STUB.
 The result is a list of candidates, which might be empty."
   ;; start process now, to make sure bash-completion-alist is
   ;; set before we run bash-completion-generate-line
-  
+
   (let ((process (bash-completion-require-process))
         (cmdline)
         (candidates)
@@ -715,15 +715,16 @@ The result is a list of candidates, which might be empty."
       ;; Special 'retry-completion' exit status, typically returned by
       ;; functions bound by complete -D. Presumably, the function has
       ;; just setup completion for the current command and is asking
-      ;; us to retry once with the new configuration. 
+      ;; us to retry once with the new configuration.
       (bash-completion-send "complete -p" process)
       (bash-completion-build-alist (process-buffer process))
       (setq cmdline (bash-completion-generate-line line pos words cword nil))
       (setq completion-status (bash-completion-send (cdr cmdline))))
     (setq candidates
-          (when (eq 0 completion-status)
-            (bash-completion-extract-candidates
-             (nth cword words) unparsed-stub open-quote (car cmdline))))
+          (delete-dups
+           (when (eq 0 completion-status)
+             (bash-completion-extract-candidates
+              (nth cword words) unparsed-stub open-quote (car cmdline)))))
     (if (and (not candidates) (eq 'custom (car cmdline)))
         (bash-completion--default-completion
          (nth cword words) unparsed-stub open-quote 'default)
@@ -775,7 +776,7 @@ PARSED-PREFIX is replaced with UNPARSED-PREFIX in set fixed set
 of candidates.
 
 OPEN-QUOTE should be the quote that's still open in prefix.  A
-character (' or \") or nil.  
+character (' or \") or nil.
 
 COMPLETION-TYPE describes the type of completion that was
 executed: 'default, 'custom, 'command or 'wordbreak. It is used
@@ -1074,7 +1075,7 @@ Lines that do not start with the word complete are skipped.
 Return `bash-completion-alist'."
   (when (string= "complete" (car words))
     (if (member "-D" (cdr words))
-	;; default completion 
+	;; default completion
 	(push (cons nil (delete "-D" (cdr words))) bash-completion-alist)
       ;; normal completion
       (let* ((reverse-wordsrest (nreverse (cdr words)))
@@ -1095,7 +1096,7 @@ LINE is the command-line to complete.
 POS is the position of the cursor on LINE
 WORDS is the content of LINE split by words and unescaped
 CWORD is the word 0-based index of the word to complete in WORDS
-ALLOWDEFAULT controls whether to fallback on a possible -D completion 
+ALLOWDEFAULT controls whether to fallback on a possible -D completion
 
 If the compgen argument set specifies a custom function or command, the
 arguments will be passed to this function or command as:
