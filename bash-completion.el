@@ -759,7 +759,7 @@ result. See `bash-completion-fix' for more details."
         (push (bash-completion-fix
                completion parsed-stub unparsed-stub open-quote completion-type nil)
               result))
-      (nreverse result))))
+      (delete-dups (nreverse result)))))
 
 (defun bash-completion-fix
     (str parsed-prefix unparsed-prefix open-quote completion-type single)

@@ -582,7 +582,15 @@ Return (const return-value new-buffer-content)"
        "hello world\nhello \n\n"
        (cl-letf (((symbol-function 'bash-completion-buffer)
                   (lambda () (current-buffer))))
-         (bash-completion-extract-candidates "hello" "hello" nil nil)))))))
+         (bash-completion-extract-candidates "hello" "hello" nil nil)))))
+    (should
+     (equal
+      '("hello" "hellish" "hellow")
+      (bash-completion-test-with-buffer
+       "hello\nhellish\nhello\nhellow\n"
+       (cl-letf (((symbol-function 'bash-completion-buffer)
+                  (lambda () (current-buffer))))
+         (bash-completion-extract-candidates "hell" "hell" nil nil)))))))
 
 (ert-deftest bash-completion-nonsep-test ()
   (should (equal "^ \t\n\r;&|'\"#"
