@@ -196,6 +196,12 @@ to remove the extra space bash adds after a completion."
   :type '(boolean)
   :group 'bash-completion)
 
+(defcustom bash-completion-default-completion t
+  "Use Readline’s default filename completion if a compspec
+  generates no matches."
+  :type 'boolean
+  :group 'bash-completion)
+
 (defvar bash-completion-start-files
   '("~/.emacs_bash.sh" "~/.emacs.d/init_bash.sh")
   "Shell files that, if they exist, will be sourced at the
@@ -724,7 +730,7 @@ The result is a list of candidates, which might be empty."
           (when (eq 0 completion-status)
             (bash-completion-extract-candidates
              (nth cword words) unparsed-stub open-quote (car cmdline))))
-    (if (and (not candidates) (eq 'custom (car cmdline)))
+    (if (and bash-completion-default-completion (not candidates) (eq 'custom (car cmdline)))
         (bash-completion--default-completion
          (nth cword words) unparsed-stub open-quote 'default)
       candidates)))
