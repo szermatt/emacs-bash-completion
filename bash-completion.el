@@ -243,6 +243,15 @@ to be included into a completion output.")
 standard completion facilities.  Completion functions will change
 their behaviour according to this constant.")
 
+(eval-when-compile
+  (unless (or (and (= emacs-major-version 24) (>= emacs-minor-version 1))
+              (>= emacs-major-version 25))
+    (error
+     (concat
+      "Emacs version 24.1 or later is required to run emacs-bash-completion.\n"
+      "Download emacs-bash-completion version 2.1 to run on older Emacs "
+      "versions, from 22 to 24."))))
+
 ;;; ---------- Inline functions
 
 (defsubst bash-completion-tokenize-get-range (token)
