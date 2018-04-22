@@ -47,6 +47,9 @@
                     "--rcfile" (expand-file-name "bashrc" test-env-dir)))
              (kill-buffer-query-functions '())
              (default-directory test-env-dir))
+         ;; Give Emacs time to process any input or process state
+         ;; change from bash-completion-reset.
+         (while (accept-process-output nil 0.1))
          (unwind-protect
              (progn ,@body)
            (progn
@@ -58,8 +61,7 @@
 
 (defmacro bash-completion_test-with-shell (complete-me)
   `(bash-completion_test-harness
-    (let ((explicit-shell-file-name bash-completion-prog)
-	  shell-buffer)
+    (let ((shell-buffer))
       (unwind-protect
 	  (progn
 	    (setq shell-buffer (shell (generate-new-buffer-name
@@ -103,35 +105,35 @@ for testing completion."
       (dired-delete-file test-env-dir 'always))))
 
 (ert-deftest bash-completion-integration-test ()
-  (skip-unless (file-executable-p bash-completion-prog))
-  (bash-completion_test-harness
-   (should-not (bash-completion-is-running))
-   (should (buffer-live-p (bash-completion-buffer)))
-   (should (bash-completion-is-running))
-   (should-not (null (member
-		      "help "
-		      (let ((bash-completion-nospace nil))
-			(bash-completion-comm "hel" 4 '("hel") 0 nil "hel")))))
-   (bash-completion-reset)
-   (should-not (bash-completion-is-running))))
+  (if (file-executable-p bash-completion-prog)
+      (bash-completion_test-harness
+       (should-not (bash-completion-is-running))
+       (should (buffer-live-p (bash-completion-buffer)))
+       (should (bash-completion-is-running))
+       (should-not (null (member
+                          "help "
+                          (let ((bash-completion-nospace nil))
+                            (bash-completion-comm "hel" 4 '("hel") 0 nil "hel")))))
+       (bash-completion-reset)
+       (should-not (bash-completion-is-running)))))
 
 (ert-deftest bash-completion-integration-setenv-test ()
-  (skip-unless (file-executable-p bash-completion-prog))
-  (bash-completion_test-harness
-   (bash-completion-send "echo $EMACS_BASH_COMPLETE")
-   (with-current-buffer (bash-completion-buffer)
-     (should (equal "t\n" (buffer-string))))))
+  (if (file-executable-p bash-completion-prog)
+      (bash-completion_test-harness
+       (bash-completion-send "echo $EMACS_BASH_COMPLETE")
+       (with-current-buffer (bash-completion-buffer)
+         (should (equal "t\n" (buffer-string)))))))
 
 (ert-deftest bash-completion-integration-one-completion-test ()
-  (skip-unless (file-executable-p bash-completion-prog))
-  (should (equal "somefunction "
-                 (bash-completion_test-with-shell "somef"))))
+  (if (file-executable-p bash-completion-prog)
+      (should (equal "somefunction "
+                     (bash-completion_test-with-shell "somef")))))
 
 (ert-deftest bash-completion-integration-wordbreak-completion-test ()
-  (skip-unless (file-executable-p bash-completion-prog))
-  (should (equal "export SOMEPATH=some/directory:some/other/"
-		 (bash-completion_test-with-shell
-                  "export SOMEPATH=some/directory:some/oth"))))
+  (if (file-executable-p bash-completion-prog)
+      (should (equal "export SOMEPATH=some/directory:some/other/"
+                     (bash-completion_test-with-shell
+                      "export SOMEPATH=some/directory:some/oth")))))
 
 
 ;;; bash-completion-integration-test.el ends here
