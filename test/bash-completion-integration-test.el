@@ -31,11 +31,7 @@
 ;;; Code:
 (require 'bash-completion)
 (require 'dired)
-
-(if (>= emacs-major-version 24)
-    (require 'ert)
-  (require 'pre24)
-  (require 'dired))
+(require 'ert)
 
 (defmacro bash-completion_test-harness (&rest body)
   `(progn
@@ -73,10 +69,8 @@
 	    ;; do a completion and return the result
 	    (with-current-buffer shell-buffer
 	      (insert ,complete-me)
-	      (if bash-completion-comint-uses-standard-completion
-		  (let ((comint-dynamic-complete-functions '(bash-completion-dynamic-complete)))
-		    (completion-at-point))
-		(bash-completion-dynamic-complete))
+              (let ((comint-dynamic-complete-functions '(bash-completion-dynamic-complete)))
+                (completion-at-point))
 	      (buffer-substring-no-properties
                (comint-line-beginning-position) (point))))
 	;; finally

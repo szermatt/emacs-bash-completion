@@ -236,13 +236,6 @@ function returns status code 124, meaning that the completion
 should be retried. This should be a string that's unlikely
 to be included into a completion output.")
 
-(defconst bash-completion-comint-uses-standard-completion
-  (or (and (= emacs-major-version 24) (>= emacs-minor-version 1))
-      (>= emacs-major-version 25))
-  "In emacs 24.1, comint and derived modes started to use
-standard completion facilities.  Completion functions will change
-their behaviour according to this constant.")
-
 (eval-when-compile
   (unless (or (and (= emacs-major-version 24) (>= emacs-minor-version 1))
               (>= emacs-major-version 25))
@@ -317,22 +310,9 @@ When doing completion outside of a comint buffer, call
                 bash-completion-message-delay nil
                 (lambda () (message "Bash completion..."))))))
       (unwind-protect
-          (let ((result (bash-completion-dynamic-complete-nocomint
-                         (comint-line-beginning-position)
-                         (point))))
-            (if bash-completion-comint-uses-standard-completion
-                result
-              ;; pre-emacs 24.1 compatibility code
-              (let ((stub (buffer-substring-no-properties
-                           (nth 0 result)
-                           (nth 1 result)))
-                    (completions (nth 2 result))
-                    ;; Setting comint-completion-addsuffix overrides
-                    ;; configuration for comint-dynamic-simple-complete.
-                    ;; Bash adds a space suffix automatically.
-                    (comint-completion-addsuffix nil))
-                (with-no-warnings
-                  (comint-dynamic-simple-complete stub completions)))))
+          (bash-completion-dynamic-complete-nocomint
+           (comint-line-beginning-position)
+           (point))
         ;; cleanup
         (if message-timer
             (cancel-timer message-timer)))))
