@@ -1236,36 +1236,5 @@ Return the status code of the command, as a number."
 	;; 	  (point-min) (point-max)))
 	status-code))))
 
-;; Backward compatibility
-
-(defun bash-completion-dynamic-complete-0 ()
-  "Obsolete function, kept for backward compatibility.
-
-Call `bash-completion-dynamic' or `bash-completion-nocomint'."
-  (let ((result (bash-completion-dynamic-complete-nocomint
-                 (comint-line-beginning-position)
-                 (point))))
-    (cons (buffer-substring-no-properties (nth 0 result) (nth 1 result))
-          result)))
-(make-obsolete
- 'bash-completion-dynamic-complete-0
- "call bash-completion-dynamic or bash-completion-dynamic-nocomint"
- "2.1")
-
-(defun bash-completion-dynamic-try-wordbreak-complete (stub stub-start pos open-quote)
-  "Obsolete function, kept for backward compatibility.
-
-`bash-completion-dynamic-try-wordbreak-complete' became
-`bash-completion--try-wordbreak-complete' and its return value
-changed. This shouldn't be a problem, since the function isn't meant to
-be called from outside bash-completion.
-"
-  (let ((result (bash-completion--try-wordbreak-complete stub stub-start pos open-quote)))
-    (cons (buffer-substring-no-properties (car result) pos) result)))
-(make-obsolete
- 'bash-completion-dynamic-try-wordbreak-complete
- 'bash-completion--try-wordbreak-complete
- "2.1")
-
 (provide 'bash-completion)
 ;;; bash-completion.el ends here
