@@ -1,4 +1,4 @@
-;;; bash-completion.el --- BASH completion for the shell buffer
+;;; bash-completion.el --- BASH completion for the shell buffer -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2009 Stephane Zermatten
 
@@ -202,6 +202,19 @@ to remove the extra space bash adds after a completion."
   :type 'boolean
   :group 'bash-completion)
 
+(defcustom bash-completion-enable-caching nil
+  "If non-nil, enable caching in `bash-completion-dynamic-complete-nocomint'.
+
+When caching is enabled,
+`bash-completion-dynamic-complete-nocomint' returns a function
+instead of the list of all possible completions. Enabling caching
+improves performance because less calls will be made to
+`bash-completion-comm' which is an expensive function but it has
+one downside: wordbreak completion will not be attempted when a
+compspec returns no matches."
+  :type 'boolean
+  :group 'bash-completion)
+
 (defvar bash-completion-start-files
   '("~/.emacs_bash.sh" "~/.emacs.d/init_bash.sh")
   "Shell files that, if they exist, will be sourced at the
@@ -209,8 +222,11 @@ beginning of a bash completion subprocess.")
 
 ;;; ---------- Internal variables and constants
 
-(defvar bash-completion-process nil
-  "Bash process object.")
+(defvar bash-completion-processes nil
+  "Bash processes alist.
+
+Mapping between remote paths as returned by `file-remote-p' and
+Bash processes")
 (defvar bash-completion-alist nil
   "Maps from command name to the 'complete' arguments.
 
@@ -323,6 +339,7 @@ When doing completion outside of a comint buffer, call
         (if message-timer
             (cancel-timer message-timer)))))
 
+;;;###autoload
 (defun bash-completion-dynamic-complete-nocomint (comp-start comp-pos)
   "Return completion information for bash command at an arbitrary position.
 
@@ -336,7 +353,8 @@ It is meant to be called directly from any completion engine.
 Returns (list stub-start stub-end completions) with
  - stub-start, the position at which the completed region starts
  - stub-end, the position at which the completed region ends
- - completions, a possibly empty list of completion candidates"
+ - completions, a possibly empty list of completion candidates or a function if
+   `bash-completion-enable-caching' is non-nil"
   (when bash-completion-enabled
     (let* ((tokens (bash-completion-tokenize comp-start comp-pos))
 	   (open-quote (bash-completion-tokenize-open-quote tokens))
@@ -346,15 +364,22 @@ Returns (list stub-start stub-end completions) with
 	   (cword (cdr (assq 'cword parsed)))
 	   (words (cdr (assq 'words parsed)))
 	   (stub-start (cdr (assq 'stub-start parsed)))
-	   (stub (nth cword words))
-           (unparsed-stub (buffer-substring-no-properties stub-start comp-pos))
-	   (completions (bash-completion-comm line point words cword open-quote
-                                              unparsed-stub)))
-      (if completions
-	  (list stub-start comp-pos completions)
-	;; fallback to default (file) completion after a wordbreak
-	(bash-completion--try-wordbreak-complete
-	 stub stub-start comp-pos open-quote)))))
+           (stub (nth cword words))
+           (unparsed-stub (buffer-substring-no-properties stub-start comp-pos)))
+      (if bash-completion-enable-caching
+          (list
+           stub-start
+           comp-pos
+           (completion-table-with-cache
+            (lambda (_)
+              (bash-completion-comm line point words cword open-quote
+                                    unparsed-stub))))
+        (let ((completions (bash-completion-comm line point words cword open-quote
+                                                 unparsed-stub)))
+          (if completions
+              (list stub-start comp-pos completions)
+            (bash-completion--try-wordbreak-complete
+             stub stub-start comp-pos open-quote)))))))
 
 (defun bash-completion--try-wordbreak-complete
     (parsed-stub stub-start pos open-quote)
@@ -411,7 +436,7 @@ passed, eventually, to `bash-completion-fix'"
     (bash-completion-extract-candidates
      stub unparsed-stub open-quote
      (or completion-type 'default))))
-	  
+
 ;;; ---------- Functions: parsing and tokenizing
 
 (defun bash-completion-join (words)
@@ -700,12 +725,14 @@ The result is a list of candidates, which might be empty."
   ;; start process now, to make sure bash-completion-alist is
   ;; set before we run bash-completion-generate-line
   
-  (let ((process (bash-completion-require-process))
-        (cmdline)
-        (candidates)
-        (completion-status))
+  (let* ((entry (bash-completion-require-process))
+         (process (car entry))
+         (bash-completion-alist (cdr entry))
+         (cmdline)
+         (candidates)
+         (completion-status))
     (setq cmdline (bash-completion-generate-line line pos words cword t))
-    (setq completion-status (bash-completion-send (cdr cmdline)))
+    (setq completion-status (bash-completion-send (cdr cmdline) process))
     (when (eq 124 completion-status)
       ;; Special 'retry-completion' exit status, typically returned by
       ;; functions bound by complete -D. Presumably, the function has
@@ -713,8 +740,9 @@ The result is a list of candidates, which might be empty."
       ;; us to retry once with the new configuration. 
       (bash-completion-send "complete -p" process)
       (bash-completion-build-alist (process-buffer process))
+      (setcdr entry bash-completion-alist)
       (setq cmdline (bash-completion-generate-line line pos words cword nil))
-      (setq completion-status (bash-completion-send (cdr cmdline))))
+      (setq completion-status (bash-completion-send (cdr cmdline) process)))
     (setq candidates
           (when (eq 0 completion-status)
             (bash-completion-extract-candidates
@@ -799,8 +827,8 @@ for directory name detection to work."
 
      ;; unexpand the home directory expanded by bash automatically
      ((and (bash-completion-starts-with parsed-prefix "~")
-           (bash-completion-starts-with str (expand-file-name "~")))
-      (setq rest (substring (concat "~" (substring str (length (expand-file-name "~"))))
+           (bash-completion-starts-with str (bash-completion--expand-file-name "~" t)))
+      (setq rest (substring (concat "~" (substring str (length (bash-completion--expand-file-name "~" t))))
                             (length parsed-prefix))))
 
      ((bash-completion-starts-with parsed-prefix str)
@@ -836,9 +864,8 @@ for directory name detection to work."
        ((and
          (memq completion-type '(command default wordbreak custom))
          (file-accessible-directory-p
-          (expand-file-name (bash-completion-unescape
-                             open-quote (concat parsed-prefix rest))
-                            default-directory)))
+          (bash-completion--expand-file-name (bash-completion-unescape
+                                              open-quote (concat parsed-prefix rest)))))
         (setq suffix "/"))
        ((or (eq completion-type 'command)
             (and (memq completion-type '(default wordbreak custom))
@@ -970,71 +997,87 @@ and ~/.emacs.d/init_$(basename `bash-completion-prog').sh)
 To allow scripts to tell the difference between shells launched
 by bash-completion, the environment variable EMACS_BASH_COMPLETE
 is set to t."
-  (if (bash-completion-is-running)
-      bash-completion-process
-    ;; start process
-    (let ((process) (oldterm (getenv "TERM")))
-      (unwind-protect
-	  (progn
-	    (setenv "EMACS_BASH_COMPLETE" "t")
-	    (setenv "TERM" "dumb")
-	    (setq process
-		  (apply 'start-process
-                         (append
-                          `("*bash-completion*"
-                            ,(generate-new-buffer-name " bash-completion")
-                            ,bash-completion-prog)
-                          bash-completion-args)))
-	    (set-process-query-on-exit-flag process nil)
-	    (let ((shell-name (file-name-nondirectory bash-completion-prog)))
+  (let ((remote (file-remote-p default-directory)))
+    (if (bash-completion-is-running)
+        (cdr (assoc remote bash-completion-processes))
+      ;; start process
+      (let ((process) (oldterm (getenv "TERM")) (cleanup t))
+        (unwind-protect
+            (progn
+              (setenv "EMACS_BASH_COMPLETE" "t")
+              (setenv "TERM" "dumb")
+              (let* ((start-proc-fun (if remote #'start-file-process #'start-process))
+                     (buffer-name (generate-new-buffer-name " bash-completion"))
+                     (args `("*bash-completion*"
+                             ,buffer-name
+                             ,bash-completion-prog
+                             ,@bash-completion-args)))
+                (when remote
+                  ;; See http://lists.gnu.org/archive/html/tramp-devel/2016-05/msg00004.html
+                  (get-buffer-create buffer-name))
+                (let ((non-essential (if remote nil non-essential)))
+                  ;; Set `non-essential' to nil when spawning a remote
+                  ;; shell to ensure that Tramp will try to open a
+                  ;; connection to the remote host. Otherwise the
+                  ;; process will be launched on the localhost. This
+                  ;; is need because some completion framework (e.g
+                  ;; company) set `non-essential' to a non-nil value
+                  ;; when the completion has not been requested by the
+                  ;; user
+                  (setq process (apply start-proc-fun args))))
+              (set-process-query-on-exit-flag process nil)
               (dolist (start-file bash-completion-start-files)
-                (when (file-exists-p start-file)
-                  (process-send-string process (concat ". " start-file "\n")))))
-	    (bash-completion-send "PROMPT_COMMAND='';PS1='\t$?\v'" process bash-completion-initial-timeout)
-	    (bash-completion-send (concat "function __bash_complete_wrapper {"
-					  " eval $__BASH_COMPLETE_WRAPPER;"
-					  " n=$?; if [[ $n = 124 ]]; then"
-					  "  echo -n \""
-					  bash-completion-wrapped-status
-					  "\"; return 1; "
-					  " fi; }") process)
-	    ;; attempt to turn off unexpected status messages from bash
-	    ;; if the current version of bash does not support these options,
-	    ;; the commands will fail silently and be ignored.
-	    (bash-completion-send "shopt -u checkjobs" process)
-	    (bash-completion-send "shopt -u mailwarn" process)
-	    (bash-completion-send "export MAILCHECK=-1" process)
-	    (bash-completion-send "export -n MAIL" process)
-	    (bash-completion-send "export -n MAILPATH" process)
-	    (bash-completion-send "unset HISTFILE" process)
-	    ;; some bash completion functions use quote_readline to double-quote
-	    ;; strings - which compgen understands but only in some environment.
-	    ;; disable this dreadful business to get a saner way of handling
-	    ;; spaces. Noticed in bash_completion v1.872.
-	    (bash-completion-send "function quote_readline { echo \"$1\"; }" process)
-	    (bash-completion-send "complete -p" process)
-	    (bash-completion-build-alist (process-buffer process))
-	    (setq bash-completion-process process)
-	    (setq process nil)
-	    bash-completion-process)
-	;; finally
-	(progn
-	  (setenv "EMACS_BASH_COMPLETE" nil)
-	  (setenv "TERM" oldterm)
-	  (when process
-	    (condition-case err
-		(bash-completion-kill process)
-	      (error nil))))))))
+                (when (file-exists-p (bash-completion--expand-file-name start-file))
+                  (process-send-string process (concat ". " start-file "\n"))))
+              (bash-completion-send "PROMPT_COMMAND='';PS1='\t$?\v'" process bash-completion-initial-timeout)
+              (bash-completion-send (concat "function __bash_complete_wrapper {"
+                                            " eval $__BASH_COMPLETE_WRAPPER;"
+                                            " n=$?; if [[ $n = 124 ]]; then"
+                                            "  echo -n \""
+                                            bash-completion-wrapped-status
+                                            "\"; return 1; "
+                                            " fi; }") process)
+              ;; attempt to turn off unexpected status messages from bash
+              ;; if the current version of bash does not support these options,
+              ;; the commands will fail silently and be ignored.
+              (bash-completion-send "shopt -u checkjobs" process)
+              (bash-completion-send "shopt -u mailwarn" process)
+              (bash-completion-send "export MAILCHECK=-1" process)
+              (bash-completion-send "export -n MAIL" process)
+              (bash-completion-send "export -n MAILPATH" process)
+              (bash-completion-send "unset HISTFILE" process)
+              ;; some bash completion functions use quote_readline to double-quote
+              ;; strings - which compgen understands but only in some environment.
+              ;; disable this dreadful business to get a saner way of handling
+              ;; spaces. Noticed in bash_completion v1.872.
+              (bash-completion-send "function quote_readline { echo \"$1\"; }" process)
+              (bash-completion-send "complete -p" process)
+              (bash-completion-build-alist (process-buffer process))
+              (let ((entry (cons process bash-completion-alist)))
+                (push (cons remote entry)
+                      bash-completion-processes)
+                (setq cleanup nil)
+                entry))
+          ;; finally
+          (progn
+            (setenv "EMACS_BASH_COMPLETE" nil)
+            (setenv "TERM" oldterm)
+            (when cleanup
+              (condition-case nil
+                  (bash-completion-kill process)
+                (error nil)))))))))
 
 (defun bash-completion-cd-command-prefix ()
   "Build a command-line that CD to default-directory.
 
 Return a bash command-line for going to default-directory or \"\"."
-  (if default-directory
-      (concat "cd >/dev/null 2>&1 "
-	      (bash-completion-quote (expand-file-name default-directory))
-	      " ; ")
-    ""))
+  (let ((dir (or (file-remote-p (or default-directory "") 'localname)
+                 default-directory)))
+    (if dir
+        (concat "cd >/dev/null 2>&1 "
+                (bash-completion-quote (bash-completion--expand-file-name dir t))
+                " ; ")
+      "")))
 
 (defun bash-completion-build-alist (buffer)
   "Build `bash-completion-alist' with the content of BUFFER.
@@ -1154,15 +1197,28 @@ completion candidates."
 (defun bash-completion-reset ()
   "Force the next completion command to start with a fresh BASH process.
 
-This function kills any existing BASH completion process.  This way, the
-next time BASH completion is requested, a new process will be created with
-the latest configuration.
+This function kills any existing BASH completion process. This
+way, the next time BASH completion is requested, a new process
+will be created with the latest configuration. The BASH
+completion process that will be killed depends on the
+default-directory of the buffer where the command is executed.
 
 Call this method if you have updated your .bashrc or any bash init scripts
 and would like bash completion in Emacs to take these changes into account."
   (interactive)
-  (bash-completion-kill bash-completion-process)
-  (setq bash-completion-process nil))
+  (let* ((remote (and default-directory (file-remote-p default-directory)))
+         (entry (assoc remote bash-completion-processes))
+         (proc (cadr entry)))
+    (when proc
+      (bash-completion-kill proc)
+      (setq bash-completion-processes (delq entry bash-completion-processes)))))
+
+(defun bash-completion-reset-all ()
+  (interactive)
+  (mapcar (lambda (entry)
+            (let ((default-directory (car entry)))
+              (bash-completion-reset)))
+          bash-completion-processes))
 
 (defun bash-completion-kill (process)
   "Kill PROCESS and its buffer."
@@ -1175,11 +1231,17 @@ and would like bash completion in Emacs to take these changes into account."
 
 (defun bash-completion-buffer ()
   "Return the buffer of the BASH process, create the BASH process if necessary."
-  (process-buffer (bash-completion-require-process)))
+  (process-buffer (car (bash-completion-require-process))))
 
 (defun bash-completion-is-running ()
   "Check whether the bash completion process is running."
-  (and bash-completion-process (eq 'run (process-status bash-completion-process))))
+  (let* ((entry (assoc (file-remote-p default-directory)
+                       bash-completion-processes))
+         (proc (cadr entry))
+         (running (and proc (eq 'run (process-status proc)))))
+    (unless (and entry running)
+      (setq bash-completion-processes (delq entry bash-completion-processes)))
+    running))
 
 (defun bash-completion-send (commandline &optional process timeout)
   "Send a command to the bash completion process.
@@ -1197,7 +1259,7 @@ of the command in the bash completion process buffer.
 
 Return the status code of the command, as a number."
   ;; (message commandline)
-  (let ((process (or process (bash-completion-require-process)))
+  (let ((process (or process (car (bash-completion-require-process))))
 	(timeout (or timeout bash-completion-process-timeout)))
     (with-current-buffer (process-buffer process)
       (erase-buffer)
@@ -1221,6 +1283,17 @@ Return the status code of the command, as a number."
 	;; 	 (buffer-substring-no-properties
 	;; 	  (point-min) (point-max)))
 	status-code))))
+
+(defun bash-completion--expand-file-name (name &optional local-part-only)
+  (let* ((remote (file-remote-p default-directory))
+         (expanded (if (and remote
+                            (not (file-remote-p name))
+                            (file-name-absolute-p name))
+                       (expand-file-name (concat remote name))
+                     (expand-file-name name))))
+    (if (and remote local-part-only)
+        (file-remote-p expanded 'localname)
+      expanded)))
 
 (provide 'bash-completion)
 ;;; bash-completion.el ends here
