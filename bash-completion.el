@@ -202,8 +202,9 @@ to remove the extra space bash adds after a completion."
   :type 'boolean
   :group 'bash-completion)
 
-(defcustom bash-completion-enable-caching nil
-  "If non-nil, enable caching in `bash-completion-dynamic-complete-nocomint'.
+(if (fboundp 'completion-table-with-cache)
+    (defcustom bash-completion-enable-caching nil
+      "If non-nil, enable caching in `bash-completion-dynamic-complete-nocomint'.
 
 When caching is enabled,
 `bash-completion-dynamic-complete-nocomint' returns a function
@@ -212,8 +213,13 @@ improves performance because less calls will be made to
 `bash-completion-comm' which is an expensive function but it has
 one downside: wordbreak completion will not be attempted when a
 compspec returns no matches."
-  :type 'boolean
-  :group 'bash-completion)
+        :type 'boolean
+        :group 'bash-completion)
+  (defconst bash-completion-enable-caching nil))
+
+(defalias 'bash-completion--completion-table-with-cache
+  (if (fboundp 'completion-table-with-cache)
+      'completion-table-with-cache 'completion-table-dynamic))
 
 (defvar bash-completion-start-files
   '("~/.emacs_bash.sh" "~/.emacs.d/init_bash.sh")
@@ -370,7 +376,7 @@ Returns (list stub-start stub-end completions) with
           (list
            stub-start
            comp-pos
-           (completion-table-with-cache
+           (bash-completion--completion-table-with-cache
             (lambda (_)
               (bash-completion-comm line point words cword open-quote
                                     unparsed-stub))))
