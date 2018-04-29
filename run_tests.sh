@@ -6,8 +6,9 @@
 #
 rootdir="$(dirname "$0")"
 testdir="${rootdir}/test"
-
-"${EMACSCMD:-emacs}" \
+emacscmd="${EMACSCMD:-emacs}"
+echo "Testing against ${emacscmd}:"
+"${emacscmd}" \
      -Q \
      -batch \
      -eval "(setq byte-compile-error-on-warn t)" \
@@ -15,7 +16,7 @@ testdir="${rootdir}/test"
      -f batch-byte-compile \
      "${rootdir}/bash-completion.el" \
     || exit 1 
-exec "${EMACSCMD:-emacs}" \
+exec "${emacscmd}" \
     -Q \
     -batch \
     -eval "(setq bash-completion-prog \"${BASHCMD:-$(which bash)}\")" \
