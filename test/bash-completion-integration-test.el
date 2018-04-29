@@ -101,6 +101,14 @@ for testing completion."
       (dired-delete-file test-env-dir 'always))))
 
 (ert-deftest bash-completion-integration-test ()
+  (let ((bash-completion-enable-caching nil))
+    (bash-completion_test-integration)))
+
+(ert-deftest bash-completion-integration-test-with-caching ()
+  (let ((bash-completion-enable-caching t))
+    (bash-completion_test-integration)))
+
+(defun bash-completion_test-integration ()
   (if (file-executable-p bash-completion-prog)
       (bash-completion_test-harness
        (should-not (bash-completion-is-running))
@@ -114,6 +122,14 @@ for testing completion."
        (should-not (bash-completion-is-running)))))
 
 (ert-deftest bash-completion-integration-setenv-test ()
+  (let ((bash-completion-enable-caching nil))
+    (bash-completion_test-integration-setenv-test)))
+
+(ert-deftest bash-completion-integration-setenv-test-with-caching ()
+  (let ((bash-completion-enable-caching t))
+    (bash-completion_test-integration-setenv-test)))
+
+(defun bash-completion_test-integration-setenv-test ()
   (if (file-executable-p bash-completion-prog)
       (bash-completion_test-harness
        (bash-completion-send "echo $EMACS_BASH_COMPLETE")
@@ -121,11 +137,27 @@ for testing completion."
          (should (equal "t\n" (buffer-string)))))))
 
 (ert-deftest bash-completion-integration-one-completion-test ()
+  (let ((bash-completion-enable-caching nil))
+    (bash-completion_test-integration-one-completion-test)))
+
+(ert-deftest bash-completion-integration-one-completion-test-with-caching ()
+  (let ((bash-completion-enable-caching t))
+    (bash-completion_test-integration-one-completion-test)))
+
+(defun bash-completion_test-integration-one-completion-test ()
   (if (file-executable-p bash-completion-prog)
       (should (equal "somefunction "
                      (bash-completion_test-with-shell "somef")))))
 
 (ert-deftest bash-completion-integration-wordbreak-completion-test ()
+  (let ((bash-completion-enable-caching nil))
+    (bash-completion_test-integration-wordbreak-completion-test)))
+
+(ert-deftest bash-completion-integration-wordbreak-completion-test-with-caching ()
+  (let ((bash-completion-enable-caching t))
+    (bash-completion_test-integration-wordbreak-completion-test)))
+
+(defun bash-completion_test-integration-wordbreak-completion-test ()
   (if (file-executable-p bash-completion-prog)
       (should (equal "export SOMEPATH=some/directory:some/other/"
                      (bash-completion_test-with-shell

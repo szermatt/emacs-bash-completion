@@ -210,9 +210,10 @@ When caching is enabled,
 `bash-completion-dynamic-complete-nocomint' returns a function
 instead of the list of all possible completions. Enabling caching
 improves performance because less calls will be made to
-`bash-completion-comm' which is an expensive function but it has
-one downside: wordbreak completion will not be attempted when a
-compspec returns no matches."
+`bash-completion-comm' which is an expensive function.
+
+Wordbreak completions behaves slightly differently when this operation is
+enabled."
         :type 'boolean
         :group 'bash-completion)
   (defconst bash-completion-enable-caching nil))
@@ -378,23 +379,35 @@ Returns (list stub-start stub-end completions) with
            comp-pos
            (bash-completion--completion-table-with-cache
             (lambda (_)
-              (bash-completion-comm line point words cword open-quote
-                                    unparsed-stub))))
-        (let ((completions (bash-completion-comm line point words cword open-quote
-                                                 unparsed-stub)))
+              (or (bash-completion-comm line point words cword open-quote
+                                        unparsed-stub)
+                  (pcase-let ((`(,wordbreak-start _ ,wordbreak-collection)
+                               (bash-completion--try-wordbreak-complete
+                                stub unparsed-stub stub-start comp-pos
+                                open-quote)))
+                    (if wordbreak-collection
+                        ;; prepend the part of unparsed-stub before
+                        ;; the wordbreak.
+                        (let ((before-wordbreak
+                               (substring unparsed-stub 0
+                                          (- wordbreak-start stub-start))))
+                          (mapcar (lambda (c) (concat before-wordbreak c))
+                                  wordbreak-collection))))))))
+        (let ((completions (bash-completion-comm line point words cword
+                                                 open-quote unparsed-stub)))
           (if completions
               (list stub-start comp-pos completions)
             (bash-completion--try-wordbreak-complete
-             stub stub-start comp-pos open-quote)))))))
+             stub unparsed-stub stub-start comp-pos open-quote)))))))
 
 (defun bash-completion--try-wordbreak-complete
-    (parsed-stub stub-start pos open-quote)
+    (parsed-stub unparsed-stub stub-start pos open-quote)
   "Try wordbreak completion on PARSED-STUB if the complete completion failed.
 
 Split PARSED-STUB using the wordbreak list and apply compgen
 default completion on the last part. Return non-nil if a match
-was found. The original version of the stub can be found on the
-buffer, between STUB-START and POS.
+was found. The original version of the stub is UNPARSED-STUB. It
+can be found on the buffer, between STUB-START and POS.
 
 If PARSED-STUB is quoted, the quote character, ' or \", should be
 passed to the parameter OPEN-QUOTE.
@@ -405,7 +418,6 @@ This function is not meant to be called outside of
          (before-wordbreak (nth 0 wordbreak-split))
 	 (after-wordbreak (nth 1 wordbreak-split))
          (separator (nth 2 wordbreak-split))
-         (unparsed-stub (buffer-substring-no-properties stub-start pos))
          (after-wordbreak-in-unparsed-pos
           (1+ (or (bash-completion--find-last separator unparsed-stub) -1)))
          (unparsed-after-wordbreak
