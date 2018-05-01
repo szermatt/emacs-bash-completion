@@ -285,10 +285,17 @@ to be included into a completion output.")
   cword
   stub-start
   unparsed-stub
-  open-quote)
+  open-quote
+  compgen-args)
 
 (defsubst bash-completion--stub (comp)
   (nth (bash-completion--cword comp) (bash-completion--words comp)))
+
+(defun bash-completion--type (comp)
+  (cond
+   ((zerop (bash-completion--cword comp)) 'command)
+   ((bash-completion--compgen-args comp) 'custom)
+   (t 'default)))
 
 ;;; ---------- Inline functions
 
@@ -750,11 +757,10 @@ The result is a list of candidates, which might be empty."
   (let* ((entry (bash-completion-require-process))
          (process (car entry))
          (bash-completion-alist (cdr entry))
-         (cmdline)
          (candidates)
          (completion-status))
-    (setq cmdline (bash-completion-generate-line comp t))
-    (setq completion-status (bash-completion-send (cdr cmdline) process))
+    (bash-completion--customize comp bash-completion-alist t)
+    (setq completion-status (bash-completion-send (bash-completion-generate-line comp) process))
     (when (eq 124 completion-status)
       ;; Special 'retry-completion' exit status, typically returned by
       ;; functions bound by complete -D. Presumably, the function has
@@ -763,16 +769,18 @@ The result is a list of candidates, which might be empty."
       (bash-completion-send "complete -p" process)
       (bash-completion-build-alist (process-buffer process))
       (setcdr entry bash-completion-alist)
-      (setq cmdline (bash-completion-generate-line comp nil))
-      (setq completion-status (bash-completion-send (cdr cmdline) process)))
+      (bash-completion--customize comp bash-completion-alist nil)
+      (setq completion-status (bash-completion-send (bash-completion-generate-line comp) process)))
     (setq candidates
           (when (eq 0 completion-status)
             (bash-completion-extract-candidates
              (bash-completion--stub comp)
              (bash-completion--unparsed-stub comp)
              (bash-completion--open-quote comp)
-             (car cmdline))))
-    (if (and bash-completion-default-completion (not candidates) (eq 'custom (car cmdline)))
+             (bash-completion--type comp))))
+    (if (and bash-completion-default-completion
+             (not candidates)
+             (eq 'custom (bash-completion--type comp)))
         (bash-completion--default-completion
          (bash-completion--stub comp)
          (bash-completion--unparsed-stub comp)
@@ -1149,15 +1157,20 @@ Return `bash-completion-alist'."
 	  (push (cons command options) bash-completion-alist)))))
   bash-completion-alist)
 
-(defun bash-completion-generate-line (comp allowdefault)
-  "Generate a command-line that calls compgen.
+(defun bash-completion--customize (comp alist allowdefault)
+  (unless (eq 'command (bash-completion--type comp))
+    (let ((command-name (file-name-nondirectory (car (bash-completion--words comp)))))
+      (setf (bash-completion--compgen-args comp)
+            (or (cdr (assoc command-name alist))
+                (and allowdefault (cdr (assoc nil alist))))))))
 
-This function looks into `bash-completion-alist' for a matching compgen
-argument set. If it finds one, it executes it. Otherwise, it executes the
-default bash completion (compgen -o default)
 
-COMP is a struct returned by `bash-completion--parse'
-ALLOWDEFAULT controls whether to fallback on a possible -D completion 
+(defun bash-completion-generate-line (comp)
+  "Generate a command-line that calls compgen for COMP.
+
+COMP is a struct returned by `bash-completion--parse'. It is
+normally configured using `bash-completion--customize' before
+calling this command.
 
 If the compgen argument set specifies a custom function or command, the
 arguments will be passed to this function or command as:
@@ -1169,53 +1182,43 @@ arguments will be passed to this function or command as:
 Return a cons containing the completion type (command default or
 custom) and a bash command-line that calls compgen to get the
 completion candidates."
-  (let* ( (command-name (file-name-nondirectory (car (bash-completion--words comp))))
-          (compgen-args
-           (or (cdr (assoc command-name bash-completion-alist))
-               (and allowdefault (cdr (assoc nil bash-completion-alist)))))
-          (quoted-stub (bash-completion-quote (bash-completion--stub comp)))
-          (completion-type)
-          (commandline) )
-    (cond
-      ((= (bash-completion--cword comp) 0)
-       ;; a command. let bash expand builtins, aliases and functions
-       (setq completion-type 'command)
-       (setq commandline (concat "compgen -b -c -a -A function -- " quoted-stub)))
+  (let ((quoted-stub (bash-completion-quote (bash-completion--stub comp)))
+        (completion-type (bash-completion--type comp))
+        (compgen-args (bash-completion--compgen-args comp)))
+    (concat
+     (bash-completion-cd-command-prefix)
+     (cond
+      ((eq 'command completion-type)
+       (concat "compgen -b -c -a -A function -- " quoted-stub))
 
-      ((not compgen-args)
-       ;; no completion configured for this command
-       (setq completion-type 'default)
-       (setq commandline (concat "compgen -o default -- " quoted-stub)))
+      ((eq 'default completion-type)
+       (concat "compgen -o default -- " quoted-stub))
 
-      ((or (member "-F" compgen-args) (member "-C" compgen-args))
+      ((and (eq 'custom completion-type) (or (member "-F" compgen-args)
+                                             (member "-C" compgen-args)))
        ;; custom completion with a function of command
        (let* ((args (copy-tree compgen-args))
-	      (function (or (member "-F" args) (member "-C" args)))
-	      (function-name (car (cdr function))) )
-	 (setcar function "-F")
-	 (setcar (cdr function) "__bash_complete_wrapper")
-         (setq completion-type 'custom)
-	 (setq commandline
-               (format "__BASH_COMPLETE_WRAPPER=%s compgen %s -- %s"
-		 (bash-completion-quote
-		  (format "COMP_LINE=%s; COMP_POINT=%s; COMP_CWORD=%s; COMP_WORDS=( %s ); %s \"${COMP_WORDS[@]}\""
-			  (bash-completion-quote (bash-completion--line comp))
-			  (bash-completion--point comp)
-			  (bash-completion--cword comp)
-			  (bash-completion-join (bash-completion--words comp))
-			  (bash-completion-quote function-name)))
-		 (bash-completion-join args)
-		 quoted-stub))))
-      (t
+              (function (or (member "-F" args) (member "-C" args)))
+              (function-name (car (cdr function))) )
+         (setcar function "-F")
+         (setcar (cdr function) "__bash_complete_wrapper")
+         (format "__BASH_COMPLETE_WRAPPER=%s compgen %s -- %s"
+                 (bash-completion-quote
+                  (format "COMP_LINE=%s; COMP_POINT=%s; COMP_CWORD=%s; COMP_WORDS=( %s ); %s \"${COMP_WORDS[@]}\""
+                          (bash-completion-quote (bash-completion--line comp))
+                          (bash-completion--point comp)
+                          (bash-completion--cword comp)
+                          (bash-completion-join (bash-completion--words comp))
+                          (bash-completion-quote function-name)))
+                 (bash-completion-join args)
+                 quoted-stub)))
+      ((eq 'custom completion-type)
        ;; simple custom completion
-       (setq completion-type 'custom)
-       (setq commandline (format "compgen %s -- %s" (bash-completion-join compgen-args)
-                                 quoted-stub))))
-    (cons completion-type
-          (concat
-           (bash-completion-cd-command-prefix)
-           commandline
-           " 2>/dev/null"))))
+       (format "compgen %s -- %s"
+               (bash-completion-join compgen-args)
+               quoted-stub))
+      (t (error "Unsupported completion type: %s" completion-type)))
+     " 2>/dev/null")))
 
 ;;;###autoload
 (defun bash-completion-reset ()
