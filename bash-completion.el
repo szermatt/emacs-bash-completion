@@ -401,6 +401,7 @@ Returns (list stub-start stub-end completions) with
            comp-pos
            (bash-completion--completion-table-with-cache
             (lambda (_)
+              (bash-completion--customize comp)
               (or (bash-completion-comm comp)
                   (pcase-let ((`(,wordbreak-start _ ,wordbreak-collection)
                                (bash-completion--try-wordbreak-complete
@@ -414,6 +415,7 @@ Returns (list stub-start stub-end completions) with
                                           (- wordbreak-start stub-start))))
                           (mapcar (lambda (c) (concat before-wordbreak c))
                                   wordbreak-collection))))))))
+        (bash-completion--customize comp)
         (let ((completions (bash-completion-comm comp)))
           (if completions
               (list stub-start comp-pos completions)
@@ -756,20 +758,19 @@ The result is a list of candidates, which might be empty."
   
   (let* ((entry (bash-completion-require-process))
          (process (car entry))
-         (bash-completion-alist (cdr entry))
          (candidates)
          (completion-status))
-    (bash-completion--customize comp bash-completion-alist t)
     (setq completion-status (bash-completion-send (bash-completion-generate-line comp) process))
     (when (eq 124 completion-status)
       ;; Special 'retry-completion' exit status, typically returned by
       ;; functions bound by complete -D. Presumably, the function has
       ;; just setup completion for the current command and is asking
-      ;; us to retry once with the new configuration. 
-      (bash-completion-send "complete -p" process)
-      (bash-completion-build-alist (process-buffer process))
-      (setcdr entry bash-completion-alist)
-      (bash-completion--customize comp bash-completion-alist nil)
+      ;; us to retry once with the new configuration.
+      (let ((bash-completion-alist nil))
+        (bash-completion-send "complete -p" process)
+        (bash-completion-build-alist (process-buffer process))
+        (setcdr entry bash-completion-alist))
+      (bash-completion--customize comp 'nodefault)
       (setq completion-status (bash-completion-send (bash-completion-generate-line comp) process)))
     (setq candidates
           (when (eq 0 completion-status)
@@ -1157,12 +1158,13 @@ Return `bash-completion-alist'."
 	  (push (cons command options) bash-completion-alist)))))
   bash-completion-alist)
 
-(defun bash-completion--customize (comp alist allowdefault)
+(defun bash-completion--customize (comp &optional nodefault)
   (unless (eq 'command (bash-completion--type comp))
-    (let ((command-name (file-name-nondirectory (car (bash-completion--words comp)))))
-      (setf (bash-completion--compgen-args comp)
-            (or (cdr (assoc command-name alist))
-                (and allowdefault (cdr (assoc nil alist))))))))
+    (let ((bash-completion-alist (cdr (bash-completion-require-process))))
+      (let ((command-name (file-name-nondirectory (car (bash-completion--words comp)))))
+        (setf (bash-completion--compgen-args comp)
+              (or (cdr (assoc command-name bash-completion-alist))
+                  (and (not nodefault) (cdr (assoc nil bash-completion-alist)))))))))
 
 
 (defun bash-completion-generate-line (comp)
