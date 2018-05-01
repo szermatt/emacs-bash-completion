@@ -498,22 +498,14 @@ Return an association list with the current symbol as keys:
  words - line split into words, unescaped (list of strings)
  stub-start - start position of the thing we are completing
  open-quote - quote open at stub-start: nil, ?' or ?\""
-  (bash-completion-parse-line-postprocess
-   (bash-completion-parse-current-command (bash-completion-tokenize comp-start comp-pos)) comp-pos))
-
-(defun bash-completion-parse-line-postprocess (tokens comp-pos)
-  "Extract from TOKENS the data needed by compgen functions.
-
-This function takes a list of TOKENS created by
-`bash-completion-tokenize' for the current buffer and generate
-the data needed by compgen functions given the cursor position
-COMP-POS and the quote character OPEN-QUOTE, if any."
-  (let* ((first-token (car tokens))
-	 (last-token (car (last tokens)))
-         (open-quote (bash-completion-tokenize-open-quote tokens))
+  (let* ((all-tokens (bash-completion-tokenize comp-start comp-pos))
+         (line-tokens (bash-completion-parse-current-command  all-tokens))
+         (first-token (car line-tokens))
+	 (last-token (car (last line-tokens)))
+         (open-quote (bash-completion-tokenize-open-quote line-tokens))
 	 (start (or (car (bash-completion-tokenize-get-range first-token)) comp-pos))
 	 (end (or (cdr (bash-completion-tokenize-get-range last-token)) comp-pos))
-	 (words (bash-completion-strings-from-tokens tokens))
+	 (words (bash-completion-strings-from-tokens line-tokens))
 	 (stub-empty (or (> comp-pos end) (= start end)))
 	 (stub-start
 	  (if stub-empty
