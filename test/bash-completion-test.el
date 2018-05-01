@@ -146,18 +146,18 @@ The return value is the one returned by BODY."
   		  (bash-completion-strings-from-tokens
   		   (bash-completion-tokenize 1 (line-end-position)))))))
 
-(ert-deftest bash-completion-process-tokens-test ()
+(ert-deftest bash-completion--parse-test ()
   ;; cursor at end of word
   (should (equal
 	   '((line . "a hello world")
 	     (point . 13)
 	     (cword . 2)
 	     (words . ("a" "hello" "world"))
-	     (stub-start . 9))
+	     (stub-start . 9)
+             (open-quote))
 	   (bash-completion-test-with-buffer
 	    "a hello world"
-	    (bash-completion-process-tokens
-	     (bash-completion-tokenize (point-min) (point-max)) 14 nil))))
+	    (bash-completion--parse (point-min) 14))))
 
   ;; just one space, cursor after it
   (should (equal
@@ -165,11 +165,11 @@ The return value is the one returned by BODY."
 	     (point . 0)
 	     (cword . 0)
 	     (words . (""))
-	     (stub-start . 2))
+	     (stub-start . 2)
+             (open-quote))
 	   (bash-completion-test-with-buffer
 	    " "
-	    (bash-completion-process-tokens
-	     (bash-completion-tokenize (point-min) (point-max)) 2 nil))))
+	    (bash-completion--parse (point-min) 2))))
 
   ;; some words separated by spaces, cursor after the last space
   (should (equal
@@ -177,11 +177,11 @@ The return value is the one returned by BODY."
 	     (point . 8)
 	     (cword . 2)
 	     (words . ("a" "hello" ""))
-	     (stub-start . 9))
+	     (stub-start . 9)
+             (open-quote))
 	   (bash-completion-test-with-buffer
 	    "a hello "
-	    (bash-completion-process-tokens
-	     (bash-completion-tokenize (point-min) (point-max)) 9 nil))))
+	    (bash-completion--parse (point-min) 9))))
   
   ;; complex multi-command line
   (should (equal 
@@ -189,11 +189,11 @@ The return value is the one returned by BODY."
 	     (point . 6)
 	     (cword . 1)
 	     (words . ("make" "-"))
-	     (stub-start . 27))
+	     (stub-start . 27)
+             (open-quote))
 	   (bash-completion-test-with-buffer
 	    "cd /var/tmp ; ZORG=t make -"
-	    (bash-completion-process-tokens
-	     (bash-completion-tokenize (point-min) (point-max)) 28 nil))))
+	    (bash-completion--parse (point-min) 28))))
 
   ;; pipe
   (should (equal 
@@ -201,11 +201,11 @@ The return value is the one returned by BODY."
 	     (point . 6)
 	     (cword . 1)
 	     (words . ("sort" "-"))
-	     (stub-start . 20))
+	     (stub-start . 20)
+             (open-quote))
 	   (bash-completion-test-with-buffer
 	    "ls /var/tmp | sort -"
-	    (bash-completion-process-tokens
-	     (bash-completion-tokenize (point-min) (point-max)) 21 nil))))
+	    (bash-completion--parse (point-min) 21))))
 
   ;; escaped semicolon
   (should (equal 
@@ -213,11 +213,11 @@ The return value is the one returned by BODY."
 	     (point . 38)
 	     (cword . 7)
 	     (words . ("find" "-name" "*.txt" "-exec" "echo" "{}" ";" "-"))
-	     (stub-start . 38))
+	     (stub-start . 38)
+             (open-quote))
 	   (bash-completion-test-with-buffer
 	    "find -name '*.txt' -exec echo {} ';' -"
-	    (bash-completion-process-tokens
-	     (bash-completion-tokenize (point-min) (point-max)) 39 nil))))
+	    (bash-completion--parse (point-min) 39))))
 
   ;; at var assignment
   (should (equal 
@@ -225,11 +225,11 @@ The return value is the one returned by BODY."
 	     (point . 6)
 	     (cword . 0)
 	     (words . ("ZORG=t"))
-	     (stub-start . 19))
+	     (stub-start . 19)
+             (open-quote))
 	   (bash-completion-test-with-buffer
 	    "cd /var/tmp ; A=f ZORG=t"
-	    (bash-completion-process-tokens
-	     (bash-completion-tokenize (point-min) (point-max)) 25 nil))))
+	    (bash-completion--parse (point-min) 25))))
 
   ;; with escaped quote
   (should (equal 
@@ -237,11 +237,35 @@ The return value is the one returned by BODY."
 	     (point . 23)
 	     (cword . 1)
 	     (words . ("cd" "/vcr/shows/Dexter's"))
-	     (stub-start . 4))
+	     (stub-start . 4)
+             (open-quote))
 	   (bash-completion-test-with-buffer
 	    "cd /vcr/shows/Dexter\\'s"
-	    (bash-completion-process-tokens
-	     (bash-completion-tokenize (point-min) (point-max)) 24 nil)))))
+	    (bash-completion--parse (point-min) 24))))
+
+  ;; with double quote
+  (should (equal 
+	   '((line . "cd /vcr/shows/\"Dexter's")
+	     (point . 23)
+	     (cword . 1)
+	     (words . ("cd" "/vcr/shows/Dexter's"))
+	     (stub-start . 5) ; possible bug: shouldn't it be 4?
+             (open-quote . ?\"))
+	   (bash-completion-test-with-buffer
+	    "cd /vcr/shows/\"Dexter's"
+	    (bash-completion--parse (point-min) 25))))
+
+  ;; with single quote
+  (should (equal 
+	   '((line . "cd /vcr/shows/'Dexter'\''s")
+	     (point . 23)
+	     (cword . 1)
+	     (words . ("cd" "/vcr/shows/Dexter's"))
+	     (stub-start . 4)
+             (open-quote . ?'))
+	   (bash-completion-test-with-buffer
+	    "cd /vcr/shows/'Dexter'\''s"
+	    (bash-completion--parse (point-min) 29)))))
 
 (ert-deftest bash-completion-add-to-alist-test ()
   ;; garbage

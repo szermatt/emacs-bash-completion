@@ -363,13 +363,12 @@ Returns (list stub-start stub-end completions) with
  - completions, a possibly empty list of completion candidates or a function if
    `bash-completion-enable-caching' is non-nil"
   (when bash-completion-enabled
-    (let* ((tokens (bash-completion-tokenize comp-start comp-pos))
-	   (open-quote (bash-completion-tokenize-open-quote tokens))
-	   (parsed (bash-completion-process-tokens tokens comp-pos open-quote))
+    (let* ((parsed (bash-completion--parse comp-start comp-pos))
 	   (line (cdr (assq 'line parsed)))
 	   (point (cdr (assq 'point parsed)))
 	   (cword (cdr (assq 'cword parsed)))
 	   (words (cdr (assq 'words parsed)))
+           (open-quote (cdr (assq 'open-quote parsed)))
 	   (stub-start (cdr (assq 'stub-start parsed)))
            (stub (nth cword words))
            (unparsed-stub (buffer-substring-no-properties stub-start comp-pos)))
@@ -482,7 +481,7 @@ functions adds single quotes around it and return the result."
 	    (replace-regexp-in-string "'" "'\\''" word nil t)
 	    "'")))
 
-(defun bash-completion-process-tokens (tokens pos open-quote)
+(defun bash-completion--parse (comp-start comp-pos)
   "Process a command line split into TOKENS that end at POS.
 
 If stub is quoted, the quote character should be passed as
@@ -497,35 +496,38 @@ Return an association list with the current symbol as keys:
  point - 0-based position of the cursor in line (number)
  cword - 0-based index of the word to be completed in words (number)
  words - line split into words, unescaped (list of strings)
- stub-start - start position of the thing we are completing"
+ stub-start - start position of the thing we are completing
+ open-quote - quote open at stub-start: nil, ?' or ?\""
   (bash-completion-parse-line-postprocess
-   (bash-completion-parse-current-command tokens) pos open-quote))
+   (bash-completion-parse-current-command (bash-completion-tokenize comp-start comp-pos)) comp-pos))
 
-(defun bash-completion-parse-line-postprocess (tokens pos open-quote)
+(defun bash-completion-parse-line-postprocess (tokens comp-pos)
   "Extract from TOKENS the data needed by compgen functions.
 
 This function takes a list of TOKENS created by
 `bash-completion-tokenize' for the current buffer and generate
 the data needed by compgen functions given the cursor position
-POS and the quote character OPEN-QUOTE, if any."
+COMP-POS and the quote character OPEN-QUOTE, if any."
   (let* ((first-token (car tokens))
 	 (last-token (car (last tokens)))
-	 (start (or (car (bash-completion-tokenize-get-range first-token)) pos))
-	 (end (or (cdr (bash-completion-tokenize-get-range last-token)) pos))
+         (open-quote (bash-completion-tokenize-open-quote tokens))
+	 (start (or (car (bash-completion-tokenize-get-range first-token)) comp-pos))
+	 (end (or (cdr (bash-completion-tokenize-get-range last-token)) comp-pos))
 	 (words (bash-completion-strings-from-tokens tokens))
-	 (stub-empty (or (> pos end) (= start end)))
+	 (stub-empty (or (> comp-pos end) (= start end)))
 	 (stub-start
 	  (if stub-empty
-	      pos
+	      comp-pos
 	    (+ (car (bash-completion-tokenize-get-range last-token))
 	       (if open-quote 1 0)))))
     (when stub-empty (setq words (append words '(""))))
     (list
-     (cons 'line (buffer-substring-no-properties start pos))
-     (cons 'point (- pos start))
+     (cons 'line (buffer-substring-no-properties start comp-pos))
+     (cons 'point (- comp-pos start))
      (cons 'cword (- (length words) 1))
      (cons 'words words)
-     (cons 'stub-start stub-start))))
+     (cons 'stub-start stub-start)
+     (cons 'open-quote open-quote))))
 
 (defun bash-completion-parse-current-command (tokens)
   "Extract from TOKENS the tokens forming the current command.
