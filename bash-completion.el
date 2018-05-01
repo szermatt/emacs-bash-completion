@@ -394,8 +394,7 @@ Returns (list stub-start stub-end completions) with
            comp-pos
            (bash-completion--completion-table-with-cache
             (lambda (_)
-              (or (bash-completion-comm line point words cword open-quote
-                                        unparsed-stub)
+              (or (bash-completion-comm comp)
                   (pcase-let ((`(,wordbreak-start _ ,wordbreak-collection)
                                (bash-completion--try-wordbreak-complete
                                 stub unparsed-stub stub-start comp-pos
@@ -408,8 +407,7 @@ Returns (list stub-start stub-end completions) with
                                           (- wordbreak-start stub-start))))
                           (mapcar (lambda (c) (concat before-wordbreak c))
                                   wordbreak-collection))))))))
-        (let ((completions (bash-completion-comm line point words cword
-                                                 open-quote unparsed-stub)))
+        (let ((completions (bash-completion-comm comp)))
           (if completions
               (list stub-start comp-pos completions)
             (bash-completion--try-wordbreak-complete
@@ -737,19 +735,14 @@ QUOTE should be nil, ?' or ?\"."
 
 ;;; ---------- Functions: getting candidates from bash
 
-(defun bash-completion-comm (line pos words cword open-quote unparsed-stub)
-  "Set LINE, POS, WORDS and CWORD, call compgen, return the result.
+(defun bash-completion-comm (comp)
+  "Call compgen on COMP return the result.
+
+COMP should be a struct returned by `bash-completion--parse'
 
 This function starts a separate bash process if necessary, sets
 up the completion environment (COMP_LINE, COMP_POINT, COMP_WORDS,
 COMP_CWORD) and calls compgen.
-
-OPEN-QUOTE should be the quote, a character, that's still open in
-the last word or nil.
-
-UNPARSED-STUB is a raw, unparsed version of COMP_WORDS[CWORD] as
-it appears in the original buffer. Returned candidates The
-returned set of candidates start with UNPARSED-STUB.
 
 The result is a list of candidates, which might be empty."
   ;; start process now, to make sure bash-completion-alist is
@@ -761,7 +754,7 @@ The result is a list of candidates, which might be empty."
          (cmdline)
          (candidates)
          (completion-status))
-    (setq cmdline (bash-completion-generate-line line pos words cword t))
+    (setq cmdline (bash-completion-generate-line comp t))
     (setq completion-status (bash-completion-send (cdr cmdline) process))
     (when (eq 124 completion-status)
       ;; Special 'retry-completion' exit status, typically returned by
@@ -771,15 +764,21 @@ The result is a list of candidates, which might be empty."
       (bash-completion-send "complete -p" process)
       (bash-completion-build-alist (process-buffer process))
       (setcdr entry bash-completion-alist)
-      (setq cmdline (bash-completion-generate-line line pos words cword nil))
+      (setq cmdline (bash-completion-generate-line comp nil))
       (setq completion-status (bash-completion-send (cdr cmdline) process)))
     (setq candidates
           (when (eq 0 completion-status)
             (bash-completion-extract-candidates
-             (nth cword words) unparsed-stub open-quote (car cmdline))))
+             (bash-completion--stub comp)
+             (bash-completion--unparsed-stub comp)
+             (bash-completion--open-quote comp)
+             (car cmdline))))
     (if (and bash-completion-default-completion (not candidates) (eq 'custom (car cmdline)))
         (bash-completion--default-completion
-         (nth cword words) unparsed-stub open-quote 'default)
+         (bash-completion--stub comp)
+         (bash-completion--unparsed-stub comp)
+         (bash-completion--open-quote comp)
+         'default)
       candidates)))
 
 (defun bash-completion-extract-candidates
@@ -1152,38 +1151,35 @@ Return `bash-completion-alist'."
 	  (push (cons command options) bash-completion-alist)))))
   bash-completion-alist)
 
-(defun bash-completion-generate-line (line pos words cword allowdefault)
+(defun bash-completion-generate-line (comp allowdefault)
   "Generate a command-line that calls compgen.
 
 This function looks into `bash-completion-alist' for a matching compgen
 argument set. If it finds one, it executes it. Otherwise, it executes the
 default bash completion (compgen -o default)
 
-LINE is the command-line to complete.
-POS is the position of the cursor on LINE
-WORDS is the content of LINE split by words and unescaped
-CWORD is the word 0-based index of the word to complete in WORDS
+COMP is a struct returned by `bash-completion--parse'
 ALLOWDEFAULT controls whether to fallback on a possible -D completion 
 
 If the compgen argument set specifies a custom function or command, the
 arguments will be passed to this function or command as:
- COMP_LINE, taken from LINE
- COMP_POINT, taken from POS
- COMP_WORDS, taken from WORDS (a bash array)
- COMP_CWORD, taken for CWORD
+ COMP_LINE, taken from (bash-completion--line COMP)
+ COMP_POINT, taken from (bash-completion--point COMP)
+ COMP_WORDS, taken from (bash-completion--words COMP) (a bash array)
+ COMP_CWORD, taken for (bash-completion--cword COMP)
 
 Return a cons containing the completion type (command default or
 custom) and a bash command-line that calls compgen to get the
 completion candidates."
-  (let* ( (command-name (file-name-nondirectory (car words)))
+  (let* ( (command-name (file-name-nondirectory (car (bash-completion--words comp))))
           (compgen-args
            (or (cdr (assoc command-name bash-completion-alist))
                (and allowdefault (cdr (assoc nil bash-completion-alist)))))
-          (quoted-stub (bash-completion-quote (nth cword words)))
+          (quoted-stub (bash-completion-quote (bash-completion--stub comp)))
           (completion-type)
           (commandline) )
     (cond
-      ((= cword 0)
+      ((= (bash-completion--cword comp) 0)
        ;; a command. let bash expand builtins, aliases and functions
        (setq completion-type 'command)
        (setq commandline (concat "compgen -b -c -a -A function -- " quoted-stub)))
@@ -1205,10 +1201,10 @@ completion candidates."
                (format "__BASH_COMPLETE_WRAPPER=%s compgen %s -- %s"
 		 (bash-completion-quote
 		  (format "COMP_LINE=%s; COMP_POINT=%s; COMP_CWORD=%s; COMP_WORDS=( %s ); %s \"${COMP_WORDS[@]}\""
-			  (bash-completion-quote line)
-			  pos
-			  cword
-			  (bash-completion-join words)
+			  (bash-completion-quote (bash-completion--line comp))
+			  (bash-completion--point comp)
+			  (bash-completion--cword comp)
+			  (bash-completion-join (bash-completion--words comp))
 			  (bash-completion-quote function-name)))
 		 (bash-completion-join args)
 		 quoted-stub))))

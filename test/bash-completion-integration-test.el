@@ -117,7 +117,13 @@ for testing completion."
        (should-not (null (member
                           "help "
                           (let ((bash-completion-nospace nil))
-                            (bash-completion-comm "hel" 4 '("hel") 0 nil "hel")))))
+                            (bash-completion-comm
+                             (bash-completion--make
+                              :line "hel"
+                              :point 4
+                              :words '("hel")
+                              :cword 0
+                              :unparsed-stub "hel"))))))
        (bash-completion-reset)
        (should-not (bash-completion-is-running)))))
 
