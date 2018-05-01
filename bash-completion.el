@@ -442,7 +442,7 @@ This function is not meant to be called outside of
             pos
             (bash-completion--default-completion
              after-wordbreak unparsed-after-wordbreak
-             open-quote 'wordbreak)))))
+             open-quote)))))
 
 (defun bash-completion--find-last (elt array)
   "Return the position of the last intance of ELT in array or nil."
@@ -454,19 +454,18 @@ This function is not meant to be called outside of
     nil))
 
 (defun bash-completion--default-completion
-    (stub unparsed-stub open-quote completion-type)
+    (stub unparsed-stub open-quote)
   "Do default completion on the given STUB.
 
 Return the extracted candidate, with STUB replaced with
-UNPARSED-STUB, taking OPEN-QUOTE into account. COMPLETION-TYPE is
-passed, eventually, to `bash-completion-fix'"
+UNPARSED-STUB, taking OPEN-QUOTE into account."
   (when (eq 0 (bash-completion-send (concat
                                      (bash-completion-cd-command-prefix)
                                      "compgen -o default -- "
                                      (bash-completion-quote stub))))
     (bash-completion-extract-candidates
      stub unparsed-stub open-quote
-     (or completion-type 'default))))
+     'default)))
 
 ;;; ---------- Functions: parsing and tokenizing
 
@@ -777,8 +776,7 @@ The result is a list of candidates, which might be empty."
         (bash-completion--default-completion
          (bash-completion--stub comp)
          (bash-completion--unparsed-stub comp)
-         (bash-completion--open-quote comp)
-         'default)
+         (bash-completion--open-quote comp))
       candidates)))
 
 (defun bash-completion-extract-candidates
@@ -830,7 +828,7 @@ OPEN-QUOTE should be the quote that's still open in prefix.  A
 character (' or \") or nil.  
 
 COMPLETION-TYPE describes the type of completion that was
-executed: 'default, 'custom, 'command or 'wordbreak. It is used
+executed: 'default, 'custom or 'command. It is used
 to choose whether to add a space and detect directories.
 
 If SINGLE is non-nil, this is the single completion candidate.
@@ -891,13 +889,13 @@ for directory name detection to work."
             (eq ?/ last-char))
         (setq suffix ""))
        ((and
-         (memq completion-type '(command default wordbreak custom))
+         (memq completion-type '(command default custom))
          (file-accessible-directory-p
           (bash-completion--expand-file-name (bash-completion-unescape
                                               open-quote (concat parsed-prefix rest)))))
         (setq suffix "/"))
        ((or (eq completion-type 'command)
-            (and (memq completion-type '(default wordbreak custom))
+            (and (memq completion-type '(default custom))
                  single))
         (setq suffix (concat close-quote-str final-space-str)))
        (t (setq suffix close-quote-str))))
