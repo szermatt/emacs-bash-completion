@@ -414,10 +414,6 @@ Returns (list stub-start stub-end completions) with
    `bash-completion-enable-caching' is non-nil"
   (when bash-completion-enabled
     (let* ((comp (bash-completion--parse comp-start comp-pos))
-	   (line (bash-completion--line comp))
-	   (point (bash-completion--point comp))
-	   (cword (bash-completion--cword comp))
-	   (words (bash-completion--words comp))
            (open-quote (bash-completion--open-quote comp))
 	   (stub-start (bash-completion--stub-start comp))
            (stub (bash-completion--stub comp))
