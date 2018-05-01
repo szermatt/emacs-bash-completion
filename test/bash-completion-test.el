@@ -149,133 +149,135 @@ The return value is the one returned by BODY."
 (ert-deftest bash-completion--parse-test ()
   ;; cursor at end of word
   (should (equal
-	   '((line . "a hello world")
-	     (point . 13)
-	     (cword . 2)
-	     (words . ("a" "hello" "world"))
-	     (stub-start . 9)
-             (unparsed-stub . "world")
-             (open-quote))
+           (bash-completion--make
+	     :line "a hello world"
+	     :point 13
+	     :cword 2
+	     :words '("a" "hello" "world")
+	     :stub-start 9
+             :unparsed-stub "world")
 	   (bash-completion-test-with-buffer
 	    "a hello world"
 	    (bash-completion--parse (point-min) 14))))
 
   ;; just one space, cursor after it
   (should (equal
-	   '((line . "")
-	     (point . 0)
-	     (cword . 0)
-	     (words . (""))
-	     (stub-start . 2)
-             (unparsed-stub . "")
-             (open-quote))
-	   (bash-completion-test-with-buffer
-	    " "
-	    (bash-completion--parse (point-min) 2))))
+           (bash-completion--make
+            :line ""
+            :point 0
+            :cword 0
+            :words '("")
+            :stub-start 2
+            :unparsed-stub "")
+           (bash-completion-test-with-buffer
+            " "
+            (bash-completion--parse (point-min) 2))))
 
   ;; some words separated by spaces, cursor after the last space
   (should (equal
-	   '((line . "a hello ")
-	     (point . 8)
-	     (cword . 2)
-	     (words . ("a" "hello" ""))
-	     (stub-start . 9)
-             (unparsed-stub . "")
-             (open-quote))
-	   (bash-completion-test-with-buffer
-	    "a hello "
-	    (bash-completion--parse (point-min) 9))))
-  
+           (bash-completion--make
+            :line "a hello "
+            :point 8
+            :cword 2
+            :words '("a" "hello" "")
+            :stub-start 9
+            :unparsed-stub "")
+           (bash-completion-test-with-buffer
+            "a hello "
+            (bash-completion--parse (point-min) 9))))
+
   ;; complex multi-command line
-  (should (equal 
-	   '((line . "make -")
-	     (point . 6)
-	     (cword . 1)
-	     (words . ("make" "-"))
-	     (stub-start . 27)
-             (unparsed-stub . "-")
-             (open-quote))
-	   (bash-completion-test-with-buffer
-	    "cd /var/tmp ; ZORG=t make -"
-	    (bash-completion--parse (point-min) 28))))
+  (should (equal
+           (bash-completion--make
+            :line "make -"
+            :point 6
+            :cword 1
+            :words '("make" "-")
+            :stub-start 27
+            :unparsed-stub "-")
+           (bash-completion-test-with-buffer
+            "cd /var/tmp ; ZORG=t make -"
+            (bash-completion--parse (point-min) 28))))
 
   ;; pipe
-  (should (equal 
-	   '((line . "sort -")
-	     (point . 6)
-	     (cword . 1)
-	     (words . ("sort" "-"))
-	     (stub-start . 20)
-             (unparsed-stub . "-")
-             (open-quote))
-	   (bash-completion-test-with-buffer
-	    "ls /var/tmp | sort -"
-	    (bash-completion--parse (point-min) 21))))
+  (should (equal
+           (bash-completion--make
+            :line "sort -"
+            :point 6
+            :cword 1
+            :words '("sort" "-")
+            :stub-start 20
+            :unparsed-stub "-")
+           (bash-completion-test-with-buffer
+            "ls /var/tmp | sort -"
+            (bash-completion--parse (point-min) 21))))
 
   ;; escaped semicolon
-  (should (equal 
-	   '((line . "find -name '*.txt' -exec echo {} ';' -")
-	     (point . 38)
-	     (cword . 7)
-	     (words . ("find" "-name" "*.txt" "-exec" "echo" "{}" ";" "-"))
-	     (stub-start . 38)
-             (unparsed-stub . "-")
-             (open-quote))
-	   (bash-completion-test-with-buffer
-	    "find -name '*.txt' -exec echo {} ';' -"
-	    (bash-completion--parse (point-min) 39))))
+  (should (equal
+           (bash-completion--make
+            :line "find -name '*.txt' -exec echo {} ';' -"
+            :point 38
+            :cword 7
+            :words '("find" "-name" "*.txt" "-exec" "echo" "{}" ";" "-")
+            :stub-start 38
+            :unparsed-stub "-")
+           (bash-completion-test-with-buffer
+            "find -name '*.txt' -exec echo {} ';' -"
+            (bash-completion--parse (point-min) 39))))
 
   ;; at var assignment
-  (should (equal 
-	   '((line . "ZORG=t")
-	     (point . 6)
-	     (cword . 0)
-	     (words . ("ZORG=t"))
-	     (stub-start . 19)
-             (unparsed-stub . "ZORG=t")
-             (open-quote))
-	   (bash-completion-test-with-buffer
-	    "cd /var/tmp ; A=f ZORG=t"
-	    (bash-completion--parse (point-min) 25))))
+  (should (equal
+           (bash-completion--make
+            :line "ZORG=t"
+            :point 6
+            :cword 0
+            :words '("ZORG=t")
+            :stub-start 19
+            :unparsed-stub "ZORG=t")
+           (bash-completion-test-with-buffer
+            "cd /var/tmp ; A=f ZORG=t"
+            (bash-completion--parse (point-min) 25))))
 
   ;; with escaped quote
-  (should (equal 
-	   '((line . "cd /vcr/shows/Dexter\\'s")
-	     (point . 23)
-	     (cword . 1)
-	     (words . ("cd" "/vcr/shows/Dexter's"))
-	     (stub-start . 4)
-             (unparsed-stub . "/vcr/shows/Dexter\\'s")
-             (open-quote))
-	   (bash-completion-test-with-buffer
-	    "cd /vcr/shows/Dexter\\'s"
-	    (bash-completion--parse (point-min) 24))))
+  (should (equal
+           (bash-completion--make
+            :line "cd /vcr/shows/Dexter\\'s"
+            :point 23
+            :cword 1
+            :words '("cd" "/vcr/shows/Dexter's")
+            :stub-start 4
+            :unparsed-stub "/vcr/shows/Dexter\\'s")
+           (bash-completion-test-with-buffer
+            "cd /vcr/shows/Dexter\\'s"
+            (bash-completion--parse (point-min) 24))))
 
   ;; with double quote
-  (should (equal 
-	   '((line . "cd /vcr/shows/\"Dexter's")
-	     (point . 23)
-	     (cword . 1)
-	     (words . ("cd" "/vcr/shows/Dexter's"))
-	     (stub-start . 5) ; possible bug: shouldn't it be 4?
-             (unparsed-stub . "/vcr/shows/\"Dexter's")
-             (open-quote . ?\"))
-	   (bash-completion-test-with-buffer
-	    "cd /vcr/shows/\"Dexter's"
-	    (bash-completion--parse (point-min) 25))))
+  (should (equal
+           (bash-completion--make
+            :line "cd /vcr/shows/\"Dexter's"
+            :point 23
+            :cword 1
+            :words '("cd" "/vcr/shows/Dexter's")
+            :stub-start 5 ; possible bug: shouldn't it be 4?
+            :unparsed-stub "/vcr/shows/\"Dexter's"
+            :open-quote ?\")
+           (bash-completion-test-with-buffer
+            "cd /vcr/shows/\"Dexter's"
+            (bash-completion--parse (point-min) 25))))
 
   ;; with single quote
-  (should (equal 
-	   '((line . "cd /vcr/shows/'Dexter'\''s")
-	     (point . 23)
-	     (cword . 1)
-	     (words . ("cd" "/vcr/shows/Dexter's"))
-	     (stub-start . 4)
-             (unparsed-stub . "/vcr/shows/'Dexter'\''s")
-             (open-quote . ?'))
-	   (bash-completion-test-with-buffer
-	    "cd /vcr/shows/'Dexter'\''s"
-	    (bash-completion--parse (point-min) 29)))))
+  (should (equal
+           (bash-completion--make
+            :line "cd /vcr/shows/'Dexter'\''s"
+            :point 23
+            :cword 1
+            :words '("cd" "/vcr/shows/Dexter's")
+            :stub-start 4
+            :unparsed-stub "/vcr/shows/'Dexter'\''s"
+            :open-quote ?')
+           (bash-completion-test-with-buffer
+            "cd /vcr/shows/'Dexter'\''s"
+            (bash-completion--parse (point-min) 29)))))
 
 (ert-deftest bash-completion-add-to-alist-test ()
   ;; garbage

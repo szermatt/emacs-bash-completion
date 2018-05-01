@@ -274,6 +274,22 @@ to be included into a completion output.")
       "Download emacs-bash-completion version 2.1 to run on older Emacs "
       "versions, from 22 to 24."))))
 
+;;; ---------- Struct
+
+(cl-defstruct (bash-completion-
+               (:constructor bash-completion--make)
+               (:copier nil))
+  line
+  point
+  words
+  cword
+  stub-start
+  unparsed-stub
+  open-quote)
+
+(defsubst bash-completion--stub (comp)
+  (nth (bash-completion--cword comp) (bash-completion--words comp)))
+
 ;;; ---------- Inline functions
 
 (defsubst bash-completion-tokenize-get-range (token)
@@ -363,15 +379,15 @@ Returns (list stub-start stub-end completions) with
  - completions, a possibly empty list of completion candidates or a function if
    `bash-completion-enable-caching' is non-nil"
   (when bash-completion-enabled
-    (let* ((parsed (bash-completion--parse comp-start comp-pos))
-	   (line (cdr (assq 'line parsed)))
-	   (point (cdr (assq 'point parsed)))
-	   (cword (cdr (assq 'cword parsed)))
-	   (words (cdr (assq 'words parsed)))
-           (open-quote (cdr (assq 'open-quote parsed)))
-	   (stub-start (cdr (assq 'stub-start parsed)))
-           (stub (nth cword words))
-           (unparsed-stub (cdr (assq 'unparsed-stub parsed))))
+    (let* ((comp (bash-completion--parse comp-start comp-pos))
+	   (line (bash-completion--line comp))
+	   (point (bash-completion--point comp))
+	   (cword (bash-completion--cword comp))
+	   (words (bash-completion--words comp))
+           (open-quote (bash-completion--open-quote comp))
+	   (stub-start (bash-completion--stub-start comp))
+           (stub (bash-completion--stub comp))
+           (unparsed-stub (bash-completion--unparsed-stub comp)))
       (if bash-completion-enable-caching
           (list
            stub-start
@@ -514,14 +530,14 @@ Return an association list with the current symbol as keys:
 	    (+ (car (bash-completion-tokenize-get-range last-token))
 	       (if open-quote 1 0)))))
     (when stub-empty (setq words (append words '(""))))
-    (list
-     (cons 'line (buffer-substring-no-properties start comp-pos))
-     (cons 'point (- comp-pos start))
-     (cons 'cword (- (length words) 1))
-     (cons 'words words)
-     (cons 'stub-start stub-start)
-     (cons 'unparsed-stub (buffer-substring-no-properties stub-start comp-pos))
-     (cons 'open-quote open-quote))))
+    (bash-completion--make
+     :line (buffer-substring-no-properties start comp-pos)
+     :point (- comp-pos start)
+     :cword (- (length words) 1)
+     :words words
+     :stub-start stub-start
+     :unparsed-stub (buffer-substring-no-properties stub-start comp-pos)
+     :open-quote open-quote)))
 
 (defun bash-completion-parse-current-command (tokens)
   "Extract from TOKENS the tokens forming the current command.
