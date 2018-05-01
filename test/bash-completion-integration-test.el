@@ -34,11 +34,13 @@
 (require 'ert)
 
 (defmacro bash-completion_test-harness (&rest body)
-  `(progn
+  `(if (file-executable-p bash-completion-prog)
      (let ((test-env-dir (bash-completion_test-setup-env)))
        (let ((bash-completion-processes nil)
              (bash-completion-alist nil)
              (bash-completion-nospace nil)
+             (bash-completion-default 'as-configured)
+             (bash-completion-enable-caching nil)
              (bash-completion-start-files nil)
              (bash-completion-args
               (list "--noediting"
@@ -55,7 +57,7 @@
              (bash-completion_test-teardown-env test-env-dir)
              (bash-completion-reset-all)))))))
 
-(defmacro bash-completion_test-with-shell (complete-me)
+(defmacro bash-completion_test-with-shell-harness (&rest body)
   `(bash-completion_test-harness
     (let ((shell-buffer))
       (unwind-protect
@@ -66,15 +68,21 @@
 	    (while (accept-process-output nil 0.6))
 	    ;; do a completion and return the result
 	    (with-current-buffer shell-buffer
-	      (insert ,complete-me)
               (let ((comint-dynamic-complete-functions '(bash-completion-dynamic-complete)))
-                (completion-at-point))
-	      (buffer-substring-no-properties
-               (comint-line-beginning-position) (point))))
-	;; finally
-	(when (and shell-buffer (buffer-live-p shell-buffer))
-	  (kill-process (get-buffer-process shell-buffer))
-	  (kill-buffer shell-buffer))))))
+                (progn ,@body))))
+        (progn ;; finally
+          (when (and shell-buffer (buffer-live-p shell-buffer))
+            (kill-process (get-buffer-process shell-buffer)))
+          (when shell-buffer 
+            (kill-buffer shell-buffer)))))))
+
+(defun bash-completion_test-complete (complete-me)
+  (goto-char (point-max))
+  (comint-delete-input)
+  (insert complete-me)
+  (completion-at-point)
+  (buffer-substring-no-properties
+   (comint-line-beginning-position) (point)))
 
 (defun bash-completion_test-setup-env ()
   "Sets up a directory that contains a bashrc file other files
@@ -88,7 +96,13 @@ for testing completion."
         test-env-dir
       (with-temp-file (expand-file-name "bashrc" test-env-dir)
         (insert (format "cd '%s'\n" test-env-dir))
-        (insert "function somefunction { echo ok; }\n"))
+        (insert "function somefunction { echo ok; }\n")
+        (insert "function someotherfunction { echo ok; }\n")
+        (insert "function _dummy_complete {\n")
+        (insert "  if [[ ${COMP_WORDS[COMP_CWORD]} == du ]]; then COMPREPLY=(dummy); fi\n")
+        (insert "}\n")
+        (insert "complete -F _dummy_complete -o filenames somefunction\n")
+        (insert "complete -F _dummy_complete -o default -o filenames someotherfunction\n"))
       (let ((default-directory test-env-dir))
         (make-directory "some/directory" 'parents)
         (make-directory "some/other/directory" 'parents)))))
@@ -101,67 +115,54 @@ for testing completion."
       (dired-delete-file test-env-dir 'always))))
 
 (ert-deftest bash-completion-integration-test ()
-  (let ((bash-completion-enable-caching nil))
-    (bash-completion_test-integration)))
-
-(ert-deftest bash-completion-integration-test-with-caching ()
-  (let ((bash-completion-enable-caching t))
-    (bash-completion_test-integration)))
-
-(defun bash-completion_test-integration ()
-  (if (file-executable-p bash-completion-prog)
-      (bash-completion_test-harness
-       (should-not (bash-completion-is-running))
-       (should (buffer-live-p (bash-completion-buffer)))
-       (should (bash-completion-is-running))
-       (should-not (null (member
-                          "help "
-                          (let ((bash-completion-nospace nil))
-                            (bash-completion-comm "hel" 4 '("hel") 0 nil "hel")))))
-       (bash-completion-reset)
-       (should-not (bash-completion-is-running)))))
+  (bash-completion_test-harness
+   (should-not (bash-completion-is-running))
+   (should (buffer-live-p (bash-completion-buffer)))
+   (should (bash-completion-is-running))
+   (should-not (null (member
+                      "help "
+                      (let ((bash-completion-nospace nil))
+                        (bash-completion-comm
+                         (bash-completion--make
+                          :line "hel"
+                          :point 4
+                          :words '("hel")
+                          :cword 0
+                          :unparsed-stub "hel"))))))
+   (bash-completion-reset)
+   (should-not (bash-completion-is-running))))
 
 (ert-deftest bash-completion-integration-setenv-test ()
-  (let ((bash-completion-enable-caching nil))
-    (bash-completion_test-integration-setenv-test)))
+  (bash-completion_test-harness
+   (bash-completion-send "echo $EMACS_BASH_COMPLETE")
+   (with-current-buffer (bash-completion-buffer)
+     (should (equal "t\n" (buffer-string))))))
 
-(ert-deftest bash-completion-integration-setenv-test-with-caching ()
-  (let ((bash-completion-enable-caching t))
-    (bash-completion_test-integration-setenv-test)))
+(ert-deftest bash-completion-integration-completion-test ()
+  (bash-completion_test-with-shell-harness
+   (bash-completion-integration-test-complete)))
 
-(defun bash-completion_test-integration-setenv-test ()
-  (if (file-executable-p bash-completion-prog)
-      (bash-completion_test-harness
-       (bash-completion-send "echo $EMACS_BASH_COMPLETE")
-       (with-current-buffer (bash-completion-buffer)
-         (should (equal "t\n" (buffer-string)))))))
+(ert-deftest bash-completion-integration-completion-test-with-caching ()
+  (bash-completion_test-with-shell-harness
+   (setq bash-completion-enable-caching t)
+   (bash-completion-integration-test-complete)))
 
-(ert-deftest bash-completion-integration-one-completion-test ()
-  (let ((bash-completion-enable-caching nil))
-    (bash-completion_test-integration-one-completion-test)))
-
-(ert-deftest bash-completion-integration-one-completion-test-with-caching ()
-  (let ((bash-completion-enable-caching t))
-    (bash-completion_test-integration-one-completion-test)))
-
-(defun bash-completion_test-integration-one-completion-test ()
-  (if (file-executable-p bash-completion-prog)
-      (should (equal "somefunction "
-                     (bash-completion_test-with-shell "somef")))))
-
-(ert-deftest bash-completion-integration-wordbreak-completion-test ()
-  (let ((bash-completion-enable-caching nil))
-    (bash-completion_test-integration-wordbreak-completion-test)))
-
-(ert-deftest bash-completion-integration-wordbreak-completion-test-with-caching ()
-  (let ((bash-completion-enable-caching t))
-    (bash-completion_test-integration-wordbreak-completion-test)))
-
-(defun bash-completion_test-integration-wordbreak-completion-test ()
-  (if (file-executable-p bash-completion-prog)
-      (should (equal "export SOMEPATH=some/directory:some/other/"
-                     (bash-completion_test-with-shell
-                      "export SOMEPATH=some/directory:some/oth")))))
-
+(defun bash-completion-integration-test-complete ()
+   ;; complete command
+   (should (equal "somefunction "
+                  (bash-completion_test-complete "somef")))
+   ;; custom completion
+   (should (equal "somefunction dummy "
+                  (bash-completion_test-complete "somefunction du")))
+   ;; failed completion, no -o default
+   (should (equal "somefunction so"
+                  (bash-completion_test-complete "somefunction so")))
+   ;; failed completion, with -o default
+   (should (equal "someotherfunction some/"
+                  (bash-completion_test-complete "someotherfunction so")))
+   ;; wordbreak completion
+   (should (equal "export SOMEPATH=some/directory:some/other/"
+                  (bash-completion_test-complete
+                   "export SOMEPATH=some/directory:some/oth"))))
 
 ;;; bash-completion-integration-test.el ends here

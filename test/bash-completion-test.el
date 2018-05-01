@@ -146,102 +146,138 @@ The return value is the one returned by BODY."
   		  (bash-completion-strings-from-tokens
   		   (bash-completion-tokenize 1 (line-end-position)))))))
 
-(ert-deftest bash-completion-process-tokens-test ()
+(ert-deftest bash-completion--parse-test ()
   ;; cursor at end of word
   (should (equal
-	   '((line . "a hello world")
-	     (point . 13)
-	     (cword . 2)
-	     (words . ("a" "hello" "world"))
-	     (stub-start . 9))
+           (bash-completion--make
+	     :line "a hello world"
+	     :point 13
+	     :cword 2
+	     :words '("a" "hello" "world")
+	     :stub-start 9
+             :unparsed-stub "world")
 	   (bash-completion-test-with-buffer
 	    "a hello world"
-	    (bash-completion-process-tokens
-	     (bash-completion-tokenize (point-min) (point-max)) 14 nil))))
+	    (bash-completion--parse (point-min) 14))))
 
   ;; just one space, cursor after it
   (should (equal
-	   '((line . "")
-	     (point . 0)
-	     (cword . 0)
-	     (words . (""))
-	     (stub-start . 2))
-	   (bash-completion-test-with-buffer
-	    " "
-	    (bash-completion-process-tokens
-	     (bash-completion-tokenize (point-min) (point-max)) 2 nil))))
+           (bash-completion--make
+            :line ""
+            :point 0
+            :cword 0
+            :words '("")
+            :stub-start 2
+            :unparsed-stub "")
+           (bash-completion-test-with-buffer
+            " "
+            (bash-completion--parse (point-min) 2))))
 
   ;; some words separated by spaces, cursor after the last space
   (should (equal
-	   '((line . "a hello ")
-	     (point . 8)
-	     (cword . 2)
-	     (words . ("a" "hello" ""))
-	     (stub-start . 9))
-	   (bash-completion-test-with-buffer
-	    "a hello "
-	    (bash-completion-process-tokens
-	     (bash-completion-tokenize (point-min) (point-max)) 9 nil))))
-  
+           (bash-completion--make
+            :line "a hello "
+            :point 8
+            :cword 2
+            :words '("a" "hello" "")
+            :stub-start 9
+            :unparsed-stub "")
+           (bash-completion-test-with-buffer
+            "a hello "
+            (bash-completion--parse (point-min) 9))))
+
   ;; complex multi-command line
-  (should (equal 
-	   '((line . "make -")
-	     (point . 6)
-	     (cword . 1)
-	     (words . ("make" "-"))
-	     (stub-start . 27))
-	   (bash-completion-test-with-buffer
-	    "cd /var/tmp ; ZORG=t make -"
-	    (bash-completion-process-tokens
-	     (bash-completion-tokenize (point-min) (point-max)) 28 nil))))
+  (should (equal
+           (bash-completion--make
+            :line "make -"
+            :point 6
+            :cword 1
+            :words '("make" "-")
+            :stub-start 27
+            :unparsed-stub "-")
+           (bash-completion-test-with-buffer
+            "cd /var/tmp ; ZORG=t make -"
+            (bash-completion--parse (point-min) 28))))
 
   ;; pipe
-  (should (equal 
-	   '((line . "sort -")
-	     (point . 6)
-	     (cword . 1)
-	     (words . ("sort" "-"))
-	     (stub-start . 20))
-	   (bash-completion-test-with-buffer
-	    "ls /var/tmp | sort -"
-	    (bash-completion-process-tokens
-	     (bash-completion-tokenize (point-min) (point-max)) 21 nil))))
+  (should (equal
+           (bash-completion--make
+            :line "sort -"
+            :point 6
+            :cword 1
+            :words '("sort" "-")
+            :stub-start 20
+            :unparsed-stub "-")
+           (bash-completion-test-with-buffer
+            "ls /var/tmp | sort -"
+            (bash-completion--parse (point-min) 21))))
 
   ;; escaped semicolon
-  (should (equal 
-	   '((line . "find -name '*.txt' -exec echo {} ';' -")
-	     (point . 38)
-	     (cword . 7)
-	     (words . ("find" "-name" "*.txt" "-exec" "echo" "{}" ";" "-"))
-	     (stub-start . 38))
-	   (bash-completion-test-with-buffer
-	    "find -name '*.txt' -exec echo {} ';' -"
-	    (bash-completion-process-tokens
-	     (bash-completion-tokenize (point-min) (point-max)) 39 nil))))
+  (should (equal
+           (bash-completion--make
+            :line "find -name '*.txt' -exec echo {} ';' -"
+            :point 38
+            :cword 7
+            :words '("find" "-name" "*.txt" "-exec" "echo" "{}" ";" "-")
+            :stub-start 38
+            :unparsed-stub "-")
+           (bash-completion-test-with-buffer
+            "find -name '*.txt' -exec echo {} ';' -"
+            (bash-completion--parse (point-min) 39))))
 
   ;; at var assignment
-  (should (equal 
-	   '((line . "ZORG=t")
-	     (point . 6)
-	     (cword . 0)
-	     (words . ("ZORG=t"))
-	     (stub-start . 19))
-	   (bash-completion-test-with-buffer
-	    "cd /var/tmp ; A=f ZORG=t"
-	    (bash-completion-process-tokens
-	     (bash-completion-tokenize (point-min) (point-max)) 25 nil))))
+  (should (equal
+           (bash-completion--make
+            :line "ZORG=t"
+            :point 6
+            :cword 0
+            :words '("ZORG=t")
+            :stub-start 19
+            :unparsed-stub "ZORG=t")
+           (bash-completion-test-with-buffer
+            "cd /var/tmp ; A=f ZORG=t"
+            (bash-completion--parse (point-min) 25))))
 
   ;; with escaped quote
-  (should (equal 
-	   '((line . "cd /vcr/shows/Dexter\\'s")
-	     (point . 23)
-	     (cword . 1)
-	     (words . ("cd" "/vcr/shows/Dexter's"))
-	     (stub-start . 4))
-	   (bash-completion-test-with-buffer
-	    "cd /vcr/shows/Dexter\\'s"
-	    (bash-completion-process-tokens
-	     (bash-completion-tokenize (point-min) (point-max)) 24 nil)))))
+  (should (equal
+           (bash-completion--make
+            :line "cd /vcr/shows/Dexter\\'s"
+            :point 23
+            :cword 1
+            :words '("cd" "/vcr/shows/Dexter's")
+            :stub-start 4
+            :unparsed-stub "/vcr/shows/Dexter\\'s")
+           (bash-completion-test-with-buffer
+            "cd /vcr/shows/Dexter\\'s"
+            (bash-completion--parse (point-min) 24))))
+
+  ;; with double quote
+  (should (equal
+           (bash-completion--make
+            :line "cd \"/vcr/shows/Dexter's"
+            :point 23
+            :cword 1
+            :words '("cd" "/vcr/shows/Dexter's")
+            :stub-start 5
+            :unparsed-stub "/vcr/shows/Dexter's"
+            :open-quote ?\")
+           (bash-completion-test-with-buffer
+            "cd \"/vcr/shows/Dexter's"
+            (bash-completion--parse (point-min) 24))))
+
+  ;; with single quote
+  (should (equal
+           (bash-completion--make
+            :line "cd '/vcr/shows/Dexter'\\''s"
+            :point 26
+            :cword 1
+            :words '("cd" "/vcr/shows/Dexter's")
+            :stub-start 5
+            :unparsed-stub "/vcr/shows/Dexter'\\''s"
+            :open-quote ?')
+           (bash-completion-test-with-buffer
+            "cd '/vcr/shows/Dexter'\\''s"
+            (bash-completion--parse (point-min) 27)))))
 
 (ert-deftest bash-completion-add-to-alist-test ()
   ;; garbage
@@ -306,72 +342,82 @@ garbage
 (ert-deftest bash-completion-generate-line-test ()
   ;; no custom completion
   (should
-   (equal (cons 'default
-                (concat "cd >/dev/null 2>&1 " (expand-file-name "~/test")
-                        " ; compgen -o default -- worl 2>/dev/null"))
+   (equal (concat "cd >/dev/null 2>&1 " (expand-file-name "~/test")
+                  " ; compgen -o default -- worl 2>/dev/null")
 	  (let ((bash-completion-alist nil)
 		(default-directory "~/test"))
-	    (bash-completion-generate-line "hello worl" 7 '("hello" "worl") 1 nil))))
+	    (bash-completion-generate-line
+             (bash-completion--make
+              :line "hello worl"
+              :point 7
+              :words '("hello" "worl")
+              :cword 1)))))
 
   ;; custom completion no function or command
   (should (equal
-           (cons 'custom
-                 "cd >/dev/null 2>&1 /test ; compgen -A -G '*.txt' -- worl 2>/dev/null")
-	   (let ((bash-completion-alist '(("zorg" . ("-A" "-G" "*.txt"))))
-		 (default-directory "/test"))
-	     (bash-completion-generate-line "zorg worl" 7 '("zorg" "worl") 1 nil))))
+           "cd >/dev/null 2>&1 /test ; compgen -A -G '*.txt' -- worl 2>/dev/null"
+           (let ((default-directory "/test"))
+             (bash-completion-generate-line
+              (bash-completion--make
+               :line "zorg worl"
+               :point 7
+               :words '("zorg" "worl")
+               :cword 1
+               :compgen-args '("-A" "-G" "*.txt"))))))
 
   ;; custom completion function
   (should (equal
-           (cons 'custom
-                 (concat
-                  "cd >/dev/null 2>&1 /test ; "
-                  "__BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; "
-                  "COMP_POINT=7; COMP_CWORD=1; "
-                  "COMP_WORDS=( zorg worl ); "
-                  "__zorg \"${COMP_WORDS[@]}\"' "
-                  "compgen -F __bash_complete_wrapper -- worl 2>/dev/null"))
-	   (let ((bash-completion-alist '(("zorg" . ("-F" "__zorg"))))
-		 (default-directory "/test"))
-	     (bash-completion-generate-line "zorg worl" 7 '("zorg" "worl") 1 nil))))
+           (concat
+            "cd >/dev/null 2>&1 /test ; "
+            "__BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; "
+            "COMP_POINT=7; COMP_CWORD=1; "
+            "COMP_WORDS=( zorg worl ); "
+            "__zorg \"${COMP_WORDS[@]}\"' "
+            "compgen -F __bash_complete_wrapper -- worl 2>/dev/null")
+           (let ((default-directory "/test"))
+             (bash-completion-generate-line
+              (bash-completion--make
+               :line "zorg worl"
+               :point 7
+               :words '("zorg" "worl")
+               :cword 1
+               :compgen-args '("-F" "__zorg"))))))
 
   ;; custom completion command
   (should (equal
-           (cons 'custom
-                 (concat
-                  "cd >/dev/null 2>&1 /test ; "
-                  "__BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; "
-                  "COMP_POINT=7; "
-                  "COMP_CWORD=1; "
-                  "COMP_WORDS=( zorg worl ); "
-                  "__zorg \"${COMP_WORDS[@]}\"' "
-                  "compgen -F __bash_complete_wrapper -- worl 2>/dev/null"))
-	   (let ((bash-completion-alist '(("zorg" . ("-C" "__zorg"))))
-		 (default-directory "/test"))
-	     (bash-completion-generate-line "zorg worl" 7 '("zorg" "worl") 1 nil))))
+           (concat
+            "cd >/dev/null 2>&1 /test ; "
+            "__BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; "
+            "COMP_POINT=7; "
+            "COMP_CWORD=1; "
+            "COMP_WORDS=( zorg worl ); "
+            "__zorg \"${COMP_WORDS[@]}\"' "
+            "compgen -F __bash_complete_wrapper -- worl 2>/dev/null")
+           (let ((default-directory "/test"))
+             (bash-completion-generate-line
+              (bash-completion--make
+               :line "zorg worl"
+               :point 7
+               :words '("zorg" "worl")
+               :cword 1
+               :compgen-args '("-C" "__zorg")))))))
 
-  ;; default completion function
-  (should (equal
-           (cons 'custom
-                 (concat
-                  "cd >/dev/null 2>&1 /test ; "
-                  "__BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; "
-                  "COMP_POINT=7; "
-                  "COMP_CWORD=1; "
-                  "COMP_WORDS=( zorg worl ); "
-                  "__zorg \"${COMP_WORDS[@]}\"' "
-                  "compgen -F __bash_complete_wrapper -- worl 2>/dev/null"))
-	   (let ((bash-completion-alist '((nil . ("-F" "__zorg"))))
-		 (default-directory "/test"))
-	     (bash-completion-generate-line "zorg worl" 7 '("zorg" "worl") 1 t))))
+(ert-deftest bash-completion-customize-test ()
+  (cl-letf (((symbol-function 'bash-completion-require-process)
+             (lambda () '(nil
+                          (nil "-F" "__default")
+                          ("zorg" "-F" "__zorg")))))
+    (let ((comp (bash-completion--make :cword 1)))
+      (setf (bash-completion--words comp) '("zorg" "world"))
+      (bash-completion--customize comp)
+      (should (equal '("-F" "__zorg") (bash-completion--compgen-args comp)))
 
-  ;; ignore completion function
-  (should (equal
-           (cons 'default
-                 "cd >/dev/null 2>&1 /test ; compgen -o default -- worl 2>/dev/null")
-	   (let ((bash-completion-alist '((nil . ("-F" "__zorg"))))
-		 (default-directory "/test"))
-	     (bash-completion-generate-line "zorg worl" 7 '("zorg" "worl") 1 nil)))))
+      (setf (bash-completion--words comp) '("notzorg" "world"))
+      (bash-completion--customize comp)
+      (should (equal '("-F" "__default") (bash-completion--compgen-args comp)))
+
+      (bash-completion--customize comp 'nodefault)
+      (should (null (bash-completion--compgen-args comp))))))
 
 (ert-deftest bash-completion--find-last-test ()
   (should (equal nil (bash-completion--find-last ?a "xxxxx")))
@@ -506,13 +552,11 @@ Return (const return-value new-buffer-content)"
 
   ;; do not escape final space
   (should (equal "ab "
-		 (let ((bash-completion-nospace nil))
-		   (bash-completion-fix "ab " "a" "a" nil nil nil))))
+		   (bash-completion-fix "ab " "a" "a" nil nil nil)))
   
-  ;; remove final space
+  ;; remove final space with option nospace
   (should (equal "ab"
-		 (let ((bash-completion-nospace t))
-		   (bash-completion-fix "ab " "a" "a" nil nil nil))))
+                 (bash-completion-fix "ab " "a" "a" nil '(nospace) nil)))
 
   ;; unexpand home and escape
   (should (equal "~/a/hello\\ world"
@@ -528,10 +572,13 @@ Return (const return-value new-buffer-content)"
   (should (equal "hello\\ world"
 		 (bash-completion-fix " world" "hello" "hello" nil nil nil)))
 
-  ;; append / for home
+  ;; append / for home, with option filenames
   (should (equal "~/"
                  (bash-completion-fix (expand-file-name "~")
-                                      "~" "~" nil 'default nil)))
+                                      "~" "~" nil '(filenames) nil)))
+  (should (equal "~"
+                 (bash-completion-fix (expand-file-name "~")
+                                      "~" "~" nil nil nil)))
 
   (cl-letf (((symbol-function 'file-accessible-directory-p)
              (lambda (d) (equal d "/tmp/somedir"))))
@@ -539,35 +586,31 @@ Return (const return-value new-buffer-content)"
       ;; append / for directory
       (should (equal "somedir/"
                      (bash-completion-fix "somedir" "some" "some"
-                                          nil 'default nil)))
-      ;; append / for initial command that is a directory
-      (should (equal "somedir/"
-                     (bash-completion-fix "somedir" "some" "some"
-                                          nil 'command nil)))))
+                                          nil '(filenames) nil)))))
 
   ;; append a space for initial command that is not a directory
   (should (let ((bash-completion-nospace nil))
             (equal "somecmd "
                    (bash-completion-fix "somecmd" "some" "some"
-                                        nil 'command nil))))
+                                        nil nil 'single))))
 
-  ;; ... but not if nospace is t.
+  ;; ... but not if nospace option is set
   (should (let ((bash-completion-nospace t))
             (equal "somecmd"
                    (bash-completion-fix "somecmd" "some" "some"
-                                        nil 'command nil))))
+                                        nil '(nospace) nil))))
 
-  ;; append a space for a single default completion
+  ;; append a space for a single completion
   (should (let ((bash-completion-nospace nil))
             (equal "somecmd "
                    (bash-completion-fix "somecmd" "some" "some"
-                                        nil 'default 'single))))
+                                        nil nil 'single))))
 
   ;; but only for a single completion
   (should (let ((bash-completion-nospace nil))
             (equal "somecmd"
                    (bash-completion-fix "somecmd" "some" "some"
-                                        nil 'default nil))))
+                                        nil nil nil))))
 
   ;; subset of the prefix"
   (should (equal "Dexter"
@@ -862,7 +905,7 @@ before calling `bash-completion-dynamic-complete-nocomint'.
    (push "bin\nbind\n" --send-results)
    (insert "$ b")
    (should (equal
-            '("bin/" "bind ")
+            '("bin/" "bind")
             (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point)))))
    (should (equal (concat "cd >/dev/null 2>&1 /tmp/test ; "
                           "compgen -b -c -a -A function -- b 2>/dev/null")
@@ -934,9 +977,9 @@ before calling `bash-completion-dynamic-complete-nocomint'.
               '("somedir/")
               (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point))))))))
 
-(ert-deftest bash-completion-single-custom-completion-as-directory-implicit ()
+(ert-deftest bash-completion-single-custom-completion-as-directory-with-option ()
   (--with-fake-bash-completion-send
-   (setq bash-completion-alist '(("ls" "compgen" "args")))
+   (setq bash-completion-alist '(("ls" "compgen" "args" "-o" "filenames")))
    ;; note that adding a / after a completion is not always the right thing
    ;; to do. See github issue #19.
    (push "/tmp/test/somedir" --directories)
@@ -949,7 +992,7 @@ before calling `bash-completion-dynamic-complete-nocomint'.
 
 (ert-deftest bash-completion-custom-completion-with-fallback ()
   (--with-fake-bash-completion-send
-   (setq bash-completion-alist '(("ls" "compgen" "args")))
+   (setq bash-completion-alist '(("ls" "compgen" "args" "-o" "default")))
    (setq --send-results '("" "foo\nfoobar\n"))
    (insert "$ ls fo")
    (let ((bash-completion-nospace nil))
@@ -957,5 +1000,40 @@ before calling `bash-completion-dynamic-complete-nocomint'.
               '("foo" "foobar")
               (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point))))))))
 
+(ert-deftest bash-completion--extract-compgen-options-test ()
+  (should (equal '("filenames" "default")
+                 (bash-completion--extract-compgen-options
+                  '("-a" "-o" "default" "-F" "fun" "-o" "filenames"))))
+  (should (equal '()
+                 (bash-completion--extract-compgen-options
+                  '("-a" "-F" "fun"))))
+  (should (equal '()
+                 (bash-completion--extract-compgen-options
+                  '("-a" "-F" "fun" "-o")))))
+
+(ert-deftest bash-completion--parse-options ()
+  (let ((bash-completion-default 'as-configured)
+        (bash-completion-nospace 'as-configured)
+        (bash-completion-filenames 'as-configured))
+    (should (equal nil (bash-completion--parse-options nil)))
+    (should (equal '(filenames nospace default)
+                   (bash-completion--parse-options
+                    '("filenames" "nospace" "default"))))
+    (should (equal '(filenames)
+                   (bash-completion--parse-options
+                    '("filenames"))))
+    (should (equal '(default)
+                   (bash-completion--parse-options
+                    '("bashdefault"))))
+    (setq bash-completion-default nil)
+    (setq bash-completion-nospace nil)
+    (setq bash-completion-filenames nil)
+    (should (equal '() (bash-completion--parse-options
+                        '("filenames" "nospace" "default"))))
+    (setq bash-completion-default t)
+    (setq bash-completion-nospace t)
+    (setq bash-completion-filenames t)
+    (should (equal '(filenames nospace default)
+                   (bash-completion--parse-options nil)))))
 
 ;;; bash-completion_test.el ends here
