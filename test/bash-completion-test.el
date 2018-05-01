@@ -995,7 +995,7 @@ before calling `bash-completion-dynamic-complete-nocomint'.
 
 (ert-deftest bash-completion-custom-completion-with-fallback ()
   (--with-fake-bash-completion-send
-   (setq bash-completion-alist '(("ls" "compgen" "args")))
+   (setq bash-completion-alist '(("ls" "compgen" "args" "-o" "default")))
    (setq --send-results '("" "foo\nfoobar\n"))
    (insert "$ ls fo")
    (let ((bash-completion-nospace nil))
