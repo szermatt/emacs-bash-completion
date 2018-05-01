@@ -371,7 +371,7 @@ Returns (list stub-start stub-end completions) with
            (open-quote (cdr (assq 'open-quote parsed)))
 	   (stub-start (cdr (assq 'stub-start parsed)))
            (stub (nth cword words))
-           (unparsed-stub (buffer-substring-no-properties stub-start comp-pos)))
+           (unparsed-stub (cdr (assq 'unparsed-stub parsed))))
       (if bash-completion-enable-caching
           (list
            stub-start
@@ -497,7 +497,8 @@ Return an association list with the current symbol as keys:
  cword - 0-based index of the word to be completed in words (number)
  words - line split into words, unescaped (list of strings)
  stub-start - start position of the thing we are completing
- open-quote - quote open at stub-start: nil, ?' or ?\""
+ unparsed-stub - unparsed version of (nth cword words)
+ open-quote - quote open at stub end: nil, ?' or ?\""
   (let* ((all-tokens (bash-completion-tokenize comp-start comp-pos))
          (line-tokens (bash-completion-parse-current-command  all-tokens))
          (first-token (car line-tokens))
@@ -519,6 +520,7 @@ Return an association list with the current symbol as keys:
      (cons 'cword (- (length words) 1))
      (cons 'words words)
      (cons 'stub-start stub-start)
+     (cons 'unparsed-stub (buffer-substring-no-properties stub-start comp-pos))
      (cons 'open-quote open-quote))))
 
 (defun bash-completion-parse-current-command (tokens)

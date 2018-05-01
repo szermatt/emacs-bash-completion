@@ -154,6 +154,7 @@ The return value is the one returned by BODY."
 	     (cword . 2)
 	     (words . ("a" "hello" "world"))
 	     (stub-start . 9)
+             (unparsed-stub . "world")
              (open-quote))
 	   (bash-completion-test-with-buffer
 	    "a hello world"
@@ -166,6 +167,7 @@ The return value is the one returned by BODY."
 	     (cword . 0)
 	     (words . (""))
 	     (stub-start . 2)
+             (unparsed-stub . "")
              (open-quote))
 	   (bash-completion-test-with-buffer
 	    " "
@@ -178,6 +180,7 @@ The return value is the one returned by BODY."
 	     (cword . 2)
 	     (words . ("a" "hello" ""))
 	     (stub-start . 9)
+             (unparsed-stub . "")
              (open-quote))
 	   (bash-completion-test-with-buffer
 	    "a hello "
@@ -190,6 +193,7 @@ The return value is the one returned by BODY."
 	     (cword . 1)
 	     (words . ("make" "-"))
 	     (stub-start . 27)
+             (unparsed-stub . "-")
              (open-quote))
 	   (bash-completion-test-with-buffer
 	    "cd /var/tmp ; ZORG=t make -"
@@ -202,6 +206,7 @@ The return value is the one returned by BODY."
 	     (cword . 1)
 	     (words . ("sort" "-"))
 	     (stub-start . 20)
+             (unparsed-stub . "-")
              (open-quote))
 	   (bash-completion-test-with-buffer
 	    "ls /var/tmp | sort -"
@@ -214,6 +219,7 @@ The return value is the one returned by BODY."
 	     (cword . 7)
 	     (words . ("find" "-name" "*.txt" "-exec" "echo" "{}" ";" "-"))
 	     (stub-start . 38)
+             (unparsed-stub . "-")
              (open-quote))
 	   (bash-completion-test-with-buffer
 	    "find -name '*.txt' -exec echo {} ';' -"
@@ -226,6 +232,7 @@ The return value is the one returned by BODY."
 	     (cword . 0)
 	     (words . ("ZORG=t"))
 	     (stub-start . 19)
+             (unparsed-stub . "ZORG=t")
              (open-quote))
 	   (bash-completion-test-with-buffer
 	    "cd /var/tmp ; A=f ZORG=t"
@@ -238,6 +245,7 @@ The return value is the one returned by BODY."
 	     (cword . 1)
 	     (words . ("cd" "/vcr/shows/Dexter's"))
 	     (stub-start . 4)
+             (unparsed-stub . "/vcr/shows/Dexter\\'s")
              (open-quote))
 	   (bash-completion-test-with-buffer
 	    "cd /vcr/shows/Dexter\\'s"
@@ -250,6 +258,7 @@ The return value is the one returned by BODY."
 	     (cword . 1)
 	     (words . ("cd" "/vcr/shows/Dexter's"))
 	     (stub-start . 5) ; possible bug: shouldn't it be 4?
+             (unparsed-stub . "/vcr/shows/\"Dexter's")
              (open-quote . ?\"))
 	   (bash-completion-test-with-buffer
 	    "cd /vcr/shows/\"Dexter's"
@@ -262,6 +271,7 @@ The return value is the one returned by BODY."
 	     (cword . 1)
 	     (words . ("cd" "/vcr/shows/Dexter's"))
 	     (stub-start . 4)
+             (unparsed-stub . "/vcr/shows/'Dexter'\''s")
              (open-quote . ?'))
 	   (bash-completion-test-with-buffer
 	    "cd /vcr/shows/'Dexter'\''s"
