@@ -196,10 +196,14 @@ to remove the extra space bash adds after a completion."
   :type '(boolean)
   :group 'bash-completion)
 
-(defcustom bash-completion-default-completion t
-  "Use Readline’s default filename completion if a compspec
-  generates no matches."
-  :type 'boolean
+(defcustom bash-completion-default 'as-configured
+  "Use default filename completion if a compspec
+  generates no matches. Normally configured function by function
+  using compgen."
+  :type '(choice
+          (:tag "As configured" 'as-configured)
+          (:tag "Always" t)
+          (:tag "Never"))
   :group 'bash-completion)
 
 (if (fboundp 'completion-table-with-cache)
@@ -296,6 +300,29 @@ to be included into a completion output.")
    ((zerop (bash-completion--cword comp)) 'command)
    ((bash-completion--compgen-args comp) 'custom)
    (t 'default)))
+
+(defun bash-completion--compgen-options (comp)
+  (let ((rest (bash-completion--compgen-args comp))
+        (options (list)))
+    (while (setq rest (cdr (member "-o" rest)))
+      (push (car rest) options)
+      (setq rest (cdr rest)))
+    options))
+
+(defun bash-completion--check-option (comp option-name-or-names customize-option)
+  (cond
+   ((eq 'as-configured customize-option)
+    (let ((compgen-options (bash-completion--compgen-options comp)))
+      (if (listp option-name-or-names)
+          (cl-some (lambda (name) (member name compgen-options))
+                   option-name-or-names)
+        (member option-name-or-names compgen-options))))
+   (customize-option (eq 'custom (bash-completion--type comp)))
+   (t nil)))
+
+(defun bash-completion--default-option (comp)
+  (bash-completion--check-option
+   comp '("default" "bashdefault") bash-completion-default))
 
 ;;; ---------- Inline functions
 
@@ -779,9 +806,7 @@ The result is a list of candidates, which might be empty."
              (bash-completion--unparsed-stub comp)
              (bash-completion--open-quote comp)
              (bash-completion--type comp))))
-    (if (and bash-completion-default-completion
-             (not candidates)
-             (eq 'custom (bash-completion--type comp)))
+    (if (and (not candidates) (bash-completion--default-option comp))
         (bash-completion--default-completion
          (bash-completion--stub comp)
          (bash-completion--unparsed-stub comp)
