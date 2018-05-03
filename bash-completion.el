@@ -121,6 +121,7 @@
 ;; https://github.com/szermatt/emacs-bash-completion
 
 (require 'comint)
+(eval-when-compile (require 'cl))
 
 ;;; Code:
 
@@ -298,9 +299,9 @@ to be included into a completion output.")
 
 ;;; ---------- Struct
 
-(cl-defstruct (bash-completion-
-               (:constructor bash-completion--make)
-               (:copier nil))
+(defstruct (bash-completion-
+            (:constructor bash-completion--make)
+            (:copier nil))
   line
   point
   words
@@ -1384,8 +1385,8 @@ Supported options and compgen option equivalent:
 (defun bash-completion--check-option (option-strings option-name-or-names customize-option)
   (if (eq 'as-configured customize-option)
       (if (listp option-name-or-names)
-          (cl-some (lambda (name) (member name option-strings))
-                   option-name-or-names)
+          (delete nil (mapcar (lambda (name) (member name option-strings))
+                            option-name-or-names))
         (member option-name-or-names option-strings))
     customize-option))
 
