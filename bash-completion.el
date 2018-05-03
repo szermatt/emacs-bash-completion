@@ -183,7 +183,7 @@ which typically takes a long time."
   :type '(float)
   :group 'bash-completion)
 
-(defcustom bash-completion-nospace nil
+(defcustom bash-completion-nospace 'as-configured
   "Never let bash add a final space at the end of a completion.
 
 When there is only one completion candidate, bash sometimes adds
@@ -200,6 +200,17 @@ to remove the extra space bash adds after a completion."
   "Use default filename completion if a compspec
   generates no matches. Normally configured function by function
   using compgen."
+  :type '(choice
+          (:tag "As configured" 'as-configured)
+          (:tag "Always" t)
+          (:tag "Never"))
+  :group 'bash-completion)
+
+(defcustom bash-completion-filenames 'as-configured
+  "Perform filenames-specific processing on the candidates, such
+  as adding a slash to directories or supressing trailing
+  characters. Normally configured function by function using
+  compgen."
   :type '(choice
           (:tag "As configured" 'as-configured)
           (:tag "Always" t)
@@ -259,6 +270,13 @@ completion in colon-separated values.")
   (append bash-completion-wordbreaks-str nil)
   "`bash-completion-wordbreaks-str' as a list of characters.")
 
+(defconst bash-completion--default-option-strings
+  '("filenames")
+  "Compgen for command, default and wordbreak completions.
+
+`bash-completion--parse-options' is applied to it at runtime, to
+allow customization of these options.")
+
 (defconst bash-completion-special-chars "[^-0-9a-zA-Z_./\n=]"
   "Regexp of characters that must be escaped or quoted.")
 
@@ -301,28 +319,12 @@ to be included into a completion output.")
    ((bash-completion--compgen-args comp) 'custom)
    (t 'default)))
 
-(defun bash-completion--compgen-options (comp)
-  (let ((rest (bash-completion--compgen-args comp))
-        (options (list)))
-    (while (setq rest (cdr (member "-o" rest)))
-      (push (car rest) options)
-      (setq rest (cdr rest)))
-    options))
-
-(defun bash-completion--check-option (comp option-name-or-names customize-option)
-  (cond
-   ((eq 'as-configured customize-option)
-    (let ((compgen-options (bash-completion--compgen-options comp)))
-      (if (listp option-name-or-names)
-          (cl-some (lambda (name) (member name compgen-options))
-                   option-name-or-names)
-        (member option-name-or-names compgen-options))))
-   (customize-option (eq 'custom (bash-completion--type comp)))
-   (t nil)))
-
-(defun bash-completion--default-option (comp)
-  (bash-completion--check-option
-   comp '("default" "bashdefault") bash-completion-default))
+(defun bash-completion--options (comp)
+  (bash-completion--parse-options 
+   (if (eq (bash-completion--type comp) 'custom)
+       (bash-completion--extract-compgen-options
+        (bash-completion--compgen-args comp))
+     bash-completion--default-option-strings)))
 
 ;;; ---------- Inline functions
 
@@ -474,7 +476,8 @@ This function is not meant to be called outside of
             pos
             (bash-completion--default-completion
              after-wordbreak unparsed-after-wordbreak
-             open-quote)))))
+             open-quote (bash-completion--parse-options
+                         bash-completion--default-option-strings))))))
 
 (defun bash-completion--find-last (elt array)
   "Return the position of the last intance of ELT in array or nil."
@@ -486,7 +489,7 @@ This function is not meant to be called outside of
     nil))
 
 (defun bash-completion--default-completion
-    (stub unparsed-stub open-quote)
+    (stub unparsed-stub open-quote options)
   "Do default completion on the given STUB.
 
 Return the extracted candidate, with STUB replaced with
@@ -497,7 +500,7 @@ UNPARSED-STUB, taking OPEN-QUOTE into account."
                                      (bash-completion-quote stub))))
     (bash-completion-extract-candidates
      stub unparsed-stub open-quote
-     'default)))
+     options)))
 
 ;;; ---------- Functions: parsing and tokenizing
 
@@ -782,7 +785,8 @@ The result is a list of candidates, which might be empty."
   (let* ((entry (bash-completion-require-process))
          (process (car entry))
          (candidates)
-         (completion-status))
+         (completion-status)
+         (options))
     (setq completion-status (bash-completion-send (bash-completion-generate-line comp) process))
     (when (eq 124 completion-status)
       ;; Special 'retry-completion' exit status, typically returned by
@@ -795,22 +799,24 @@ The result is a list of candidates, which might be empty."
         (setcdr entry bash-completion-alist))
       (bash-completion--customize comp 'nodefault)
       (setq completion-status (bash-completion-send (bash-completion-generate-line comp) process)))
+    (setq options (bash-completion--options comp))
     (setq candidates
           (when (eq 0 completion-status)
             (bash-completion-extract-candidates
              (bash-completion--stub comp)
              (bash-completion--unparsed-stub comp)
              (bash-completion--open-quote comp)
-             (bash-completion--type comp))))
-    (if (and (not candidates) (bash-completion--default-option comp))
+             options)))
+    (if (and (not candidates) (memq 'default options))
         (bash-completion--default-completion
          (bash-completion--stub comp)
          (bash-completion--unparsed-stub comp)
-         (bash-completion--open-quote comp))
+         (bash-completion--open-quote comp)
+         options)
       candidates)))
 
 (defun bash-completion-extract-candidates
-    (parsed-stub unparsed-stub open-quote completion-type)
+    (parsed-stub unparsed-stub open-quote options)
   "Extract the completion candidates from the process buffer for PARSED-STUB.
 
 This command takes the content of the completion process buffer,
@@ -829,20 +835,20 @@ Post-processing includes escaping special characters, adding a /
 to directory names, replacing STUB with UNPARSED-STUB in the
 result. See `bash-completion-fix' for more details."
   (let ((candidates) (result (list)))
-    (setq candidates (with-current-buffer (bash-completion-buffer)
-                       (split-string (buffer-string) "\n" t)))
+    (setq candidates (delete-dups (with-current-buffer (bash-completion-buffer)
+                                    (split-string (buffer-string) "\n" t))))
     (if (eq 1 (length candidates))
         (list (bash-completion-fix
                (car candidates) parsed-stub unparsed-stub
-               open-quote completion-type t))
+               open-quote options t))
       (dolist (completion candidates)
         (push (bash-completion-fix
-               completion parsed-stub unparsed-stub open-quote completion-type nil)
+               completion parsed-stub unparsed-stub open-quote options nil)
               result))
       (delete-dups (nreverse result)))))
 
 (defun bash-completion-fix
-    (str parsed-prefix unparsed-prefix open-quote completion-type single)
+    (str parsed-prefix unparsed-prefix open-quote options single)
   "Fix completion candidate in STR if PREFIX is the current prefix.
 
 STR is the completion candidate to modify.
@@ -857,9 +863,10 @@ of candidates.
 OPEN-QUOTE should be the quote that's still open in prefix.  A
 character (' or \") or nil.  
 
-COMPLETION-TYPE describes the type of completion that was
-executed: 'default, 'custom or 'command. It is used
-to choose whether to add a space and detect directories.
+OPTIONS configrues some behaviors:
+ 'nospace to not add a space after a single completion
+ 'filenames to post-process candidates as filenames and detect
+  directories
 
 If SINGLE is non-nil, this is the single completion candidate.
 
@@ -910,7 +917,7 @@ for directory name detection to work."
     ;; build suffix
     (let ((last-char (bash-completion-last-char rest))
           (close-quote-str (if open-quote (char-to-string open-quote) ""))
-          (final-space-str (if bash-completion-nospace "" " ")))
+          (final-space-str (if (memq 'nospace options) "" " ")))
       (cond
        ((eq ?\  last-char)
         (setq rest (substring rest 0 -1))
@@ -919,14 +926,12 @@ for directory name detection to work."
             (eq ?/ last-char))
         (setq suffix ""))
        ((and
-         (memq completion-type '(command default custom))
+         (memq 'filenames options)
          (file-accessible-directory-p
           (bash-completion--expand-file-name (bash-completion-unescape
                                               open-quote (concat parsed-prefix rest)))))
         (setq suffix "/"))
-       ((or (eq completion-type 'command)
-            (and (memq completion-type '(default custom))
-                 single))
+       (single
         (setq suffix (concat close-quote-str final-space-str)))
        (t (setq suffix close-quote-str))))
 
@@ -1344,6 +1349,45 @@ Return the status code of the command, as a number."
     (if (and remote local-part-only)
         (file-remote-p expanded 'localname)
       expanded)))
+
+(defun bash-completion--extract-compgen-options (compgen-args)
+  "Extract from COMPGEN-ARGS the -o option strings."
+  (let ((rest compgen-args)
+        (options (list)))
+    (while (setq rest (cdr (member "-o" rest)))
+      (push (car rest) options)
+      (setq rest (cdr rest)))
+    options))
+
+(defun bash-completion--parse-options (option-strings)
+  "Parse OPTIONS-STRINGS for compgen into a list of symbols.
+
+Supported options and compgen option equivalent:
+ 'default: -o default or -o bashdefault
+ 'nospace: -o nospace
+ 'filenames: -o filenames"
+  (let ((options))
+    (if (bash-completion--check-option
+         option-strings
+         '("default" "bashdefault") bash-completion-default)
+        (push 'default options))
+    (if (bash-completion--check-option
+         option-strings
+         '("nospace") bash-completion-nospace)
+        (push 'nospace options))
+    (if (bash-completion--check-option
+         option-strings
+         '("filenames") bash-completion-filenames)
+        (push 'filenames options))
+    options))
+
+(defun bash-completion--check-option (option-strings option-name-or-names customize-option)
+  (if (eq 'as-configured customize-option)
+      (if (listp option-name-or-names)
+          (cl-some (lambda (name) (member name option-strings))
+                   option-name-or-names)
+        (member option-name-or-names option-strings))
+    customize-option))
 
 (provide 'bash-completion)
 ;;; bash-completion.el ends here

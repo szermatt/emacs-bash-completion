@@ -69,11 +69,12 @@
 	    ;; do a completion and return the result
 	    (with-current-buffer shell-buffer
               (let ((comint-dynamic-complete-functions '(bash-completion-dynamic-complete)))
-                (progn ,@body)))
-	;; finally
-	(when (and shell-buffer (buffer-live-p shell-buffer))
-	  (kill-process (get-buffer-process shell-buffer))
-	  (kill-buffer shell-buffer)))))))
+                (progn ,@body))))
+        (progn ;; finally
+          (when (and shell-buffer (buffer-live-p shell-buffer))
+            (kill-process (get-buffer-process shell-buffer)))
+          (when shell-buffer 
+            (kill-buffer shell-buffer)))))))
 
 (defun bash-completion_test-complete (complete-me)
   (goto-char (point-max))
@@ -100,8 +101,8 @@ for testing completion."
         (insert "function _dummy_complete {\n")
         (insert "  if [[ ${COMP_WORDS[COMP_CWORD]} == du ]]; then COMPREPLY=(dummy); fi\n")
         (insert "}\n")
-        (insert "complete -F _dummy_complete somefunction\n")
-        (insert "complete -F _dummy_complete -o default someotherfunction\n"))
+        (insert "complete -F _dummy_complete -o filenames somefunction\n")
+        (insert "complete -F _dummy_complete -o default -o filenames someotherfunction\n"))
       (let ((default-directory test-env-dir))
         (make-directory "some/directory" 'parents)
         (make-directory "some/other/directory" 'parents)))))

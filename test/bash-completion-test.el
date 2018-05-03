@@ -552,13 +552,11 @@ Return (const return-value new-buffer-content)"
 
   ;; do not escape final space
   (should (equal "ab "
-		 (let ((bash-completion-nospace nil))
-		   (bash-completion-fix "ab " "a" "a" nil nil nil))))
+		   (bash-completion-fix "ab " "a" "a" nil nil nil)))
   
-  ;; remove final space
+  ;; remove final space with option nospace
   (should (equal "ab"
-		 (let ((bash-completion-nospace t))
-		   (bash-completion-fix "ab " "a" "a" nil nil nil))))
+                 (bash-completion-fix "ab " "a" "a" nil '(nospace) nil)))
 
   ;; unexpand home and escape
   (should (equal "~/a/hello\\ world"
@@ -574,10 +572,13 @@ Return (const return-value new-buffer-content)"
   (should (equal "hello\\ world"
 		 (bash-completion-fix " world" "hello" "hello" nil nil nil)))
 
-  ;; append / for home
+  ;; append / for home, with option filenames
   (should (equal "~/"
                  (bash-completion-fix (expand-file-name "~")
-                                      "~" "~" nil 'default nil)))
+                                      "~" "~" nil '(filenames) nil)))
+  (should (equal "~"
+                 (bash-completion-fix (expand-file-name "~")
+                                      "~" "~" nil nil nil)))
 
   (cl-letf (((symbol-function 'file-accessible-directory-p)
              (lambda (d) (equal d "/tmp/somedir"))))
@@ -585,35 +586,31 @@ Return (const return-value new-buffer-content)"
       ;; append / for directory
       (should (equal "somedir/"
                      (bash-completion-fix "somedir" "some" "some"
-                                          nil 'default nil)))
-      ;; append / for initial command that is a directory
-      (should (equal "somedir/"
-                     (bash-completion-fix "somedir" "some" "some"
-                                          nil 'command nil)))))
+                                          nil '(filenames) nil)))))
 
   ;; append a space for initial command that is not a directory
   (should (let ((bash-completion-nospace nil))
             (equal "somecmd "
                    (bash-completion-fix "somecmd" "some" "some"
-                                        nil 'command nil))))
+                                        nil nil 'single))))
 
-  ;; ... but not if nospace is t.
+  ;; ... but not if nospace option is set
   (should (let ((bash-completion-nospace t))
             (equal "somecmd"
                    (bash-completion-fix "somecmd" "some" "some"
-                                        nil 'command nil))))
+                                        nil '(nospace) nil))))
 
-  ;; append a space for a single default completion
+  ;; append a space for a single completion
   (should (let ((bash-completion-nospace nil))
             (equal "somecmd "
                    (bash-completion-fix "somecmd" "some" "some"
-                                        nil 'default 'single))))
+                                        nil nil 'single))))
 
   ;; but only for a single completion
   (should (let ((bash-completion-nospace nil))
             (equal "somecmd"
                    (bash-completion-fix "somecmd" "some" "some"
-                                        nil 'default nil))))
+                                        nil nil nil))))
 
   ;; subset of the prefix"
   (should (equal "Dexter"
@@ -908,7 +905,7 @@ before calling `bash-completion-dynamic-complete-nocomint'.
    (push "bin\nbind\n" --send-results)
    (insert "$ b")
    (should (equal
-            '("bin/" "bind ")
+            '("bin/" "bind")
             (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point)))))
    (should (equal (concat "cd >/dev/null 2>&1 /tmp/test ; "
                           "compgen -b -c -a -A function -- b 2>/dev/null")
@@ -980,9 +977,9 @@ before calling `bash-completion-dynamic-complete-nocomint'.
               '("somedir/")
               (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point))))))))
 
-(ert-deftest bash-completion-single-custom-completion-as-directory-implicit ()
+(ert-deftest bash-completion-single-custom-completion-as-directory-with-option ()
   (--with-fake-bash-completion-send
-   (setq bash-completion-alist '(("ls" "compgen" "args")))
+   (setq bash-completion-alist '(("ls" "compgen" "args" "-o" "filenames")))
    ;; note that adding a / after a completion is not always the right thing
    ;; to do. See github issue #19.
    (push "/tmp/test/somedir" --directories)
@@ -1003,5 +1000,40 @@ before calling `bash-completion-dynamic-complete-nocomint'.
               '("foo" "foobar")
               (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point))))))))
 
+(ert-deftest bash-completion--extract-compgen-options-test ()
+  (should (equal '("filenames" "default")
+                 (bash-completion--extract-compgen-options
+                  '("-a" "-o" "default" "-F" "fun" "-o" "filenames"))))
+  (should (equal '()
+                 (bash-completion--extract-compgen-options
+                  '("-a" "-F" "fun"))))
+  (should (equal '()
+                 (bash-completion--extract-compgen-options
+                  '("-a" "-F" "fun" "-o")))))
+
+(ert-deftest bash-completion--parse-options ()
+  (let ((bash-completion-default 'as-configured)
+        (bash-completion-nospace 'as-configured)
+        (bash-completion-filenames 'as-configured))
+    (should (equal nil (bash-completion--parse-options nil)))
+    (should (equal '(filenames nospace default)
+                   (bash-completion--parse-options
+                    '("filenames" "nospace" "default"))))
+    (should (equal '(filenames)
+                   (bash-completion--parse-options
+                    '("filenames"))))
+    (should (equal '(default)
+                   (bash-completion--parse-options
+                    '("bashdefault"))))
+    (setq bash-completion-default nil)
+    (setq bash-completion-nospace nil)
+    (setq bash-completion-filenames nil)
+    (should (equal '() (bash-completion--parse-options
+                        '("filenames" "nospace" "default"))))
+    (setq bash-completion-default t)
+    (setq bash-completion-nospace t)
+    (setq bash-completion-filenames t)
+    (should (equal '(filenames nospace default)
+                   (bash-completion--parse-options nil)))))
 
 ;;; bash-completion_test.el ends here
