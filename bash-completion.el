@@ -757,8 +757,7 @@ up the completion environment (COMP_LINE, COMP_POINT, COMP_WORDS,
 COMP_CWORD) and calls compgen.
 
 The result is a list of candidates, which might be empty."
-  (let* ((entry (bash-completion-require-process))
-         (process (car entry))
+  (let* ((process (bash-completion-require-process))
          (completion-status)
          (options))
     (setq completion-status (bash-completion-send (bash-completion-generate-line comp) process))
@@ -768,7 +767,7 @@ The result is a list of candidates, which might be empty."
       ;; just setup completion for the current command and is asking
       ;; us to retry once with the new configuration.
       (bash-completion-send "complete -p" process)
-      (setcdr entry (bash-completion-build-alist (process-buffer process)))
+      (process-put process 'complete-p (bash-completion-build-alist (process-buffer process)))
       (bash-completion--customize comp 'nodefault)
       (setq completion-status (bash-completion-send (bash-completion-generate-line comp) process)))
     (setq options (bash-completion--options comp))
@@ -1074,12 +1073,11 @@ is set to t."
               ;; spaces. Noticed in bash_completion v1.872.
               (bash-completion-send "function quote_readline { echo \"$1\"; }" process)
               (bash-completion-send "complete -p" process)
-              (let ((entry (cons process (bash-completion-build-alist
-                                          (process-buffer process)))))
-                (push (cons remote entry)
-                      bash-completion-processes)
-                (setq cleanup nil)
-                entry))
+              (process-put process 'complete-p
+                           (bash-completion-build-alist (process-buffer process)))
+              (push (cons remote process) bash-completion-processes)
+              (setq cleanup nil)
+              process)
           ;; finally
           (progn
             (setenv "EMACS_BASH_COMPLETE" nil)
@@ -1132,7 +1130,8 @@ The returned alist is a sligthly parsed version of the output of
     alist))
 
 (defun bash-completion--customize (comp &optional nodefault)
-  (let ((compgen-args-alist (cdr (bash-completion-require-process)))
+  (let ((compgen-args-alist
+         (process-get (bash-completion-require-process) 'complete-p))
         (command-name (if (eq 'command (bash-completion--type comp))
                           "-E"
                         (file-name-nondirectory
@@ -1212,7 +1211,7 @@ and would like bash completion in Emacs to take these changes into account."
   (interactive)
   (let* ((remote (and default-directory (file-remote-p default-directory)))
          (entry (assoc remote bash-completion-processes))
-         (proc (cadr entry)))
+         (proc (cdr entry)))
     (when proc
       (bash-completion-kill proc)
       (setq bash-completion-processes (delq entry bash-completion-processes)))))
@@ -1235,13 +1234,13 @@ and would like bash completion in Emacs to take these changes into account."
 
 (defun bash-completion-buffer ()
   "Return the buffer of the BASH process, create the BASH process if necessary."
-  (process-buffer (car (bash-completion-require-process))))
+  (process-buffer (bash-completion-require-process)))
 
 (defun bash-completion-is-running ()
   "Check whether the bash completion process is running."
   (let* ((entry (assoc (file-remote-p default-directory)
                        bash-completion-processes))
-         (proc (cadr entry))
+         (proc (cdr entry))
          (running (and proc (eq 'run (process-status proc)))))
     (unless (and entry running)
       (setq bash-completion-processes (delq entry bash-completion-processes)))
@@ -1263,7 +1262,7 @@ of the command in the bash completion process buffer.
 
 Return the status code of the command, as a number."
   ;; (message commandline)
-  (let ((process (or process (car (bash-completion-require-process))))
+  (let ((process (or process (bash-completion-require-process)))
 	(timeout (or timeout bash-completion-process-timeout)))
     (with-current-buffer (process-buffer process)
       (erase-buffer)
