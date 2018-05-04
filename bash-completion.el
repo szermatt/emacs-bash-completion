@@ -851,8 +851,6 @@ character (' or \") or nil.
 
 OPTIONS configrues some behaviors:
  'nospace to not add a space after a single completion
- 'filenames to post-process candidates as filenames and detect
-  directories
 
 If SINGLE is non-nil, this is the single completion candidate.
 
@@ -911,11 +909,9 @@ for directory name detection to work."
        ((or (memq last-char bash-completion-wordbreaks)
             (eq ?/ last-char))
         (setq suffix ""))
-       ((and
-         (memq 'filenames options)
-         (file-accessible-directory-p
-          (bash-completion--expand-file-name (bash-completion-unescape
-                                              open-quote (concat parsed-prefix rest)))))
+       ((file-accessible-directory-p
+         (bash-completion--expand-file-name (bash-completion-unescape
+                                             open-quote (concat parsed-prefix rest))))
         (setq suffix "/"))
        (single
         (setq suffix (concat close-quote-str final-space-str)))
@@ -1349,19 +1345,12 @@ Return the status code of the command, as a number."
   "Parse OPTIONS-STRINGS for compgen into a list of symbols.
 
 Supported options and compgen option equivalent:
- 'default: -o default
- 'nospace: -o nospace
- 'filenames: -o filenames"
+ 'nospace: -o nospace"
   (let ((options))
-    (if (member "default" option-strings)
-        (push 'default options))
     (if (bash-completion--check-option
          option-strings
          "nospace" bash-completion-nospace)
         (push 'nospace options))
-    (if (or (member "filenames" option-strings)
-            (memq 'default options))
-        (push 'filenames options))
     options))
 
 (defun bash-completion--check-option

@@ -572,13 +572,10 @@ Return (const return-value new-buffer-content)"
   (should (equal "hello\\ world"
 		 (bash-completion-fix " world" "hello" "hello" nil nil nil)))
 
-  ;; append / for home, with option filenames
+  ;; append / for home
   (should (equal "~/"
                  (bash-completion-fix (expand-file-name "~")
                                       "~" "~" nil '(filenames) nil)))
-  (should (equal "~"
-                 (bash-completion-fix (expand-file-name "~")
-                                      "~" "~" nil nil nil)))
 
   (cl-letf (((symbol-function 'file-accessible-directory-p)
              (lambda (d) (equal d "/tmp/somedir"))))
@@ -1005,14 +1002,9 @@ before calling `bash-completion-dynamic-complete-nocomint'.
 (ert-deftest bash-completion--parse-options ()
   (let ((bash-completion-nospace 'as-configured))
     (should (equal nil (bash-completion--parse-options nil)))
-    (should (equal '(filenames nospace default)
+    (should (equal '(nospace)
                    (bash-completion--parse-options
                     '("filenames" "nospace" "default"))))
-    (should (equal '(filenames)
-                   (bash-completion--parse-options
-                    '("filenames"))))
-    (should (equal '(filenames default)
-                   (bash-completion--parse-options '("default"))))
     (setq bash-completion-nospace nil)
     (should (equal '() (bash-completion--parse-options
                         '("nospace"))))
