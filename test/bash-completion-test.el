@@ -279,34 +279,7 @@ The return value is the one returned by BODY."
             "cd '/vcr/shows/Dexter'\\''s"
             (bash-completion--parse (point-min) 27)))))
 
-(ert-deftest bash-completion-add-to-alist-test ()
-  ;; garbage
-  (should (equal nil
-		 (let ((bash-completion-alist nil))
-		   (bash-completion-add-to-alist (list "just" "some" "garbage")))))
-
-  ;; empty
-  (should (equal nil
-		 (let ((bash-completion-alist nil))
-		   (bash-completion-add-to-alist '()))))
-
-  ;; empty string
-  (should (equal nil
-		 (let ((bash-completion-alist nil))
-		   (bash-completion-add-to-alist (list "")))))
-
-  ;; empty complete
-  (should (equal  nil
-		  (let ((bash-completion-alist nil))
-		    (bash-completion-add-to-alist (list "complete")))))
-
-  ;; one command
-  (should (equal '(("cdb" . ("-e" "-F" "_cdargs_aliases")))
-		 (let (bash-completion-alist)
-		   (bash-completion-add-to-alist
-		    (list "complete" "-e" "-F" "_cdargs_aliases" "cdb"))))))
-
-(ert-deftest bash-completion-build-alist-test ()
+(ert-deftest bash-completion-build-alist ()
   (should (equal
 	   '(("cdb" "-F" "_cdargs_aliases")
 	     ("project" "-F" "complete_projects")
@@ -324,8 +297,7 @@ complete -F _cdargs_aliases cb
 complete -F _completion_loader -D
 garbage
 "
-	    (let ((bash-completion-alist '(garbage)))
-	      (bash-completion-build-alist (current-buffer)))))))
+            (bash-completion-build-alist (current-buffer))))))
 
 (ert-deftest bash-completion-quote-test ()
   ;; not necessary

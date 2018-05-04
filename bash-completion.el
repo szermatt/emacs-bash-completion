@@ -229,15 +229,6 @@ beginning of a bash completion subprocess.")
 
 Mapping between remote paths as returned by `file-remote-p' and
 Bash processes")
-(defvar bash-completion-alist nil
-  "Maps from command name to the 'complete' arguments.
-
-For example if the following completion is defined in bash:
-  complete -F _cdargs_aliases cdb
-the following entry is added to `bash-completion-alist':
- (\"cdb\" . (\"-F\" \"_cdargs\"))
-
-See `bash-completion-add-to-alist'.")
 
 (defconst bash-completion-wordbreaks-str "@><=;|&(:"
   "String of word break characters.
@@ -766,9 +757,6 @@ up the completion environment (COMP_LINE, COMP_POINT, COMP_WORDS,
 COMP_CWORD) and calls compgen.
 
 The result is a list of candidates, which might be empty."
-  ;; start process now, to make sure bash-completion-alist is
-  ;; set before we run bash-completion-generate-line
-  
   (let* ((entry (bash-completion-require-process))
          (process (car entry))
          (completion-status)
@@ -779,10 +767,8 @@ The result is a list of candidates, which might be empty."
       ;; functions bound by complete -D. Presumably, the function has
       ;; just setup completion for the current command and is asking
       ;; us to retry once with the new configuration.
-      (let ((bash-completion-alist nil))
-        (bash-completion-send "complete -p" process)
-        (bash-completion-build-alist (process-buffer process))
-        (setcdr entry bash-completion-alist))
+      (bash-completion-send "complete -p" process)
+      (setcdr entry (bash-completion-build-alist (process-buffer process)))
       (bash-completion--customize comp 'nodefault)
       (setq completion-status (bash-completion-send (bash-completion-generate-line comp) process)))
     (setq options (bash-completion--options comp))
@@ -1088,8 +1074,8 @@ is set to t."
               ;; spaces. Noticed in bash_completion v1.872.
               (bash-completion-send "function quote_readline { echo \"$1\"; }" process)
               (bash-completion-send "complete -p" process)
-              (bash-completion-build-alist (process-buffer process))
-              (let ((entry (cons process bash-completion-alist)))
+              (let ((entry (cons process (bash-completion-build-alist
+                                          (process-buffer process)))))
                 (push (cons remote entry)
                       bash-completion-processes)
                 (setq cleanup nil)
@@ -1116,57 +1102,44 @@ Return a bash command-line for going to default-directory or \"\"."
       "")))
 
 (defun bash-completion-build-alist (buffer)
-  "Build `bash-completion-alist' with the content of BUFFER.
+  "Parse the content of BUFFER into an alist.
 
 BUFFER should contains the output of:
   complete -p
 
-Return `bash-completion-alist', which is slightly parsed version
-of the output of \"complete -p\"."
-  (with-current-buffer buffer
-    (save-excursion
-      (setq bash-completion-alist nil)
-      (goto-char (point-max))
-      (while (= 0 (forward-line -1))
-	(bash-completion-add-to-alist
-	 (bash-completion-strings-from-tokens
-	  (bash-completion-tokenize
-	   (line-beginning-position)
-	   (line-end-position)))))))
-  bash-completion-alist)
-
-(defun bash-completion-add-to-alist (words)
-  "Add split 'complete' line WORDS to `bash-completion-add-to-alist'.
-
-This parses the complete command-line arguments as output by
-  complete -p
-
-This does not work on arbitrary 'complete' calls.
-
-Lines that do not start with the word complete are skipped.
-
-Return `bash-completion-alist'."
-  (when (string= "complete" (car words))
-    (if (member "-D" (cdr words))
-	;; default completion 
-	(push (cons nil (delete "-D" (cdr words))) bash-completion-alist)
-      ;; normal completion
-      (let* ((reverse-wordsrest (nreverse (cdr words)))
-	     (command (car reverse-wordsrest))
-	     (options (nreverse (cdr reverse-wordsrest))) )
-	(when (and command options)
-	  (push (cons command options) bash-completion-alist)))))
-  bash-completion-alist)
+The returned alist is a sligthly parsed version of the output of
+\"complete -p\"."
+  (let ((alist (list)))
+    (with-current-buffer buffer
+      (save-excursion
+        (setq alist nil)
+        (goto-char (point-max))
+        (while (= 0 (forward-line -1))
+          (let ((words (bash-completion-strings-from-tokens
+                        (bash-completion-tokenize
+                         (line-beginning-position)
+                         (line-end-position)))))
+            (when (string= "complete" (car words))
+              (if (member "-D" (cdr words))
+                  ;; default completion 
+                  (push (cons nil (delete "-D" (cdr words))) alist)
+                ;; normal completion
+                (let* ((reverse-wordsrest (nreverse (cdr words)))
+                       (command (car reverse-wordsrest))
+                       (options (nreverse (cdr reverse-wordsrest))) )
+                  (when (and command options)
+                    (push (cons command options) alist)))))))))
+    alist))
 
 (defun bash-completion--customize (comp &optional nodefault)
-  (let ((bash-completion-alist (cdr (bash-completion-require-process)))
+  (let ((compgen-args-alist (cdr (bash-completion-require-process)))
         (command-name (if (eq 'command (bash-completion--type comp))
                           "-E"
                         (file-name-nondirectory
                          (car (bash-completion--words comp))))))
     (setf (bash-completion--compgen-args comp)
-          (or (cdr (assoc command-name bash-completion-alist))
-              (and (not nodefault) (cdr (assoc nil bash-completion-alist)))))))
+          (or (cdr (assoc command-name compgen-args-alist))
+              (and (not nodefault) (cdr (assoc nil compgen-args-alist)))))))
 
 
 (defun bash-completion-generate-line (comp)
