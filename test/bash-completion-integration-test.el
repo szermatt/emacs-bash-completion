@@ -38,8 +38,7 @@
      (let ((test-env-dir (bash-completion_test-setup-env)))
        (let ((bash-completion-processes nil)
              (bash-completion-alist nil)
-             (bash-completion-nospace nil)
-             (bash-completion-default 'as-configured)
+             (bash-completion-nospace 'as-configured)
              (bash-completion-enable-caching nil)
              (bash-completion-start-files nil)
              (bash-completion-args
@@ -154,10 +153,10 @@ for testing completion."
    ;; custom completion
    (should (equal "somefunction dummy "
                   (bash-completion_test-complete "somefunction du")))
-   ;; failed completion, no -o default
+   ;; function returns nothing, no -o default
    (should (equal "somefunction so"
                   (bash-completion_test-complete "somefunction so")))
-   ;; failed completion, with -o default
+   ;; function returns nothing, -o default, so fallback to default 
    (should (equal "someotherfunction some/"
                   (bash-completion_test-complete "someotherfunction so")))
    ;; wordbreak completion

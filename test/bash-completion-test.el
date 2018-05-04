@@ -733,7 +733,8 @@ The body is run with a test buffer as current buffer. Fill it with the command-l
 before calling `bash-completion-dynamic-complete-nocomint'.
 "
   `(let ((default-directory "/tmp/test")
-         (bash-completion-alist '()))
+         (bash-completion-alist '())
+         (bash-completion-enable-caching nil))
      (lexical-let ((--process-buffer)
                    (--test-buffer)
                    (--send-results (list))
@@ -990,16 +991,6 @@ before calling `bash-completion-dynamic-complete-nocomint'.
               '("somedir/")
               (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point))))))))
 
-(ert-deftest bash-completion-custom-completion-with-fallback ()
-  (--with-fake-bash-completion-send
-   (setq bash-completion-alist '(("ls" "compgen" "args" "-o" "default")))
-   (setq --send-results '("" "foo\nfoobar\n"))
-   (insert "$ ls fo")
-   (let ((bash-completion-nospace nil))
-     (should (equal
-              '("foo" "foobar")
-              (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point))))))))
-
 (ert-deftest bash-completion--extract-compgen-options-test ()
   (should (equal '("filenames" "default")
                  (bash-completion--extract-compgen-options
@@ -1012,9 +1003,7 @@ before calling `bash-completion-dynamic-complete-nocomint'.
                   '("-a" "-F" "fun" "-o")))))
 
 (ert-deftest bash-completion--parse-options ()
-  (let ((bash-completion-default 'as-configured)
-        (bash-completion-nospace 'as-configured)
-        (bash-completion-filenames 'as-configured))
+  (let ((bash-completion-nospace 'as-configured))
     (should (equal nil (bash-completion--parse-options nil)))
     (should (equal '(filenames nospace default)
                    (bash-completion--parse-options
@@ -1022,18 +1011,13 @@ before calling `bash-completion-dynamic-complete-nocomint'.
     (should (equal '(filenames)
                    (bash-completion--parse-options
                     '("filenames"))))
-    (should (equal '(default)
-                   (bash-completion--parse-options
-                    '("bashdefault"))))
-    (setq bash-completion-default nil)
+    (should (equal '(filenames default)
+                   (bash-completion--parse-options '("default"))))
     (setq bash-completion-nospace nil)
-    (setq bash-completion-filenames nil)
     (should (equal '() (bash-completion--parse-options
-                        '("filenames" "nospace" "default"))))
-    (setq bash-completion-default t)
+                        '("nospace"))))
     (setq bash-completion-nospace t)
-    (setq bash-completion-filenames t)
-    (should (equal '(filenames nospace default)
-                   (bash-completion--parse-options nil)))))
+    (should (equal '(nospace)
+                   (bash-completion--parse-options '())))))
 
 ;;; bash-completion_test.el ends here
