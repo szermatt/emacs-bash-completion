@@ -278,9 +278,11 @@ to be included into a completion output.")
 
 ;;; ---------- Struct
 
-;; The main, unnamed completion structure, keeping track of the
-;; definition and state of the current completion.
-(defstruct (bash-completion- (:constructor bash-completion--make))
+;; The main, completion structure, keeping track of the definition and
+;; state of the current completion.
+(defstruct (completion (:constructor bash-completion--make)
+                       (:conc-name bash-completion--)
+                       (:copier nil))
   line           ; the relevant command (string)
   point          ; 0-based position of the cursor in line (number)
   words          ; line split into words, unescaped (list of strings)
