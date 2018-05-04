@@ -341,47 +341,44 @@ garbage
 
 (ert-deftest bash-completion-generate-line-test ()
   ;; no custom completion
-  (should
-   (equal (concat "cd >/dev/null 2>&1 " (expand-file-name "~/test")
+  (let ((default-directory "/test"))
+    (should
+     (equal (concat "cd >/dev/null 2>&1 /test"
                   " ; compgen -o default -- worl 2>/dev/null")
-	  (let ((bash-completion-alist nil)
-		(default-directory "~/test"))
-	    (bash-completion-generate-line
+            (bash-completion-generate-line
              (bash-completion--make
               :line "hello worl"
               :point 7
               :words '("hello" "worl")
-              :cword 1)))))
+              :cword 1))))
 
-  ;; custom completion no function or command
-  (should (equal
-           "cd >/dev/null 2>&1 /test ; compgen -A -G '*.txt' -- worl 2>/dev/null"
-           (let ((default-directory "/test"))
+    ;; custom completion no function or command
+    (should (equal
+             "cd >/dev/null 2>&1 /test ; compgen -A -G '*.txt' -- worl 2>/dev/null"
              (bash-completion-generate-line
               (bash-completion--make
                :line "zorg worl"
                :point 7
                :words '("zorg" "worl")
                :cword 1
-               :compgen-args '("-A" "-G" "*.txt"))))))
+               :compgen-args '("-A" "-G" "*.txt")))))
 
   ;; custom completion function
-  (should (equal
-           (concat
-            "cd >/dev/null 2>&1 /test ; "
-            "__BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; "
-            "COMP_POINT=7; COMP_CWORD=1; "
-            "COMP_WORDS=( zorg worl ); "
-            "__zorg \"${COMP_WORDS[@]}\"' "
-            "compgen -F __bash_complete_wrapper -- worl 2>/dev/null")
-           (let ((default-directory "/test"))
+    (should (equal
+             (concat
+              "cd >/dev/null 2>&1 /test ; "
+              "__BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; "
+              "COMP_POINT=7; COMP_CWORD=1; "
+              "COMP_WORDS=( zorg worl ); "
+              "__zorg \"${COMP_WORDS[@]}\"' "
+              "compgen -F __bash_complete_wrapper -- worl 2>/dev/null")
              (bash-completion-generate-line
               (bash-completion--make
                :line "zorg worl"
                :point 7
                :words '("zorg" "worl")
                :cword 1
-               :compgen-args '("-F" "__zorg"))))))
+               :compgen-args '("-F" "__zorg")))))
 
   ;; custom completion command
   (should (equal
@@ -393,19 +390,40 @@ garbage
             "COMP_WORDS=( zorg worl ); "
             "__zorg \"${COMP_WORDS[@]}\"' "
             "compgen -F __bash_complete_wrapper -- worl 2>/dev/null")
-           (let ((default-directory "/test"))
-             (bash-completion-generate-line
-              (bash-completion--make
-               :line "zorg worl"
-               :point 7
-               :words '("zorg" "worl")
-               :cword 1
-               :compgen-args '("-C" "__zorg")))))))
+           (bash-completion-generate-line
+            (bash-completion--make
+             :line "zorg worl"
+             :point 7
+             :words '("zorg" "worl")
+             :cword 1
+             :compgen-args '("-C" "__zorg")))))
+
+  ;; command completion
+  (should (equal
+           "cd >/dev/null 2>&1 /test ; compgen -b -c -a -A function -- worl 2>/dev/null"
+           (bash-completion-generate-line
+            (bash-completion--make
+             :line "worl"
+             :point 7
+             :words '("worl")
+             :cword 0))))
+
+  ;; command completion, customized
+  (should (equal
+           "cd >/dev/null 2>&1 /test ; compgen -b -c -a -- worl 2>/dev/null"
+           (bash-completion-generate-line
+            (bash-completion--make
+             :line "worl"
+             :point 7
+             :words '("worl")
+             :cword 0
+             :compgen-args '("-b" "-c" "-a")))))))
 
 (ert-deftest bash-completion-customize-test ()
   (cl-letf (((symbol-function 'bash-completion-require-process)
              (lambda () '(nil
                           (nil "-F" "__default")
+                          ("-E" "-b" "-c" "-a")
                           ("zorg" "-F" "__zorg")))))
     (let ((comp (bash-completion--make :cword 1)))
       (setf (bash-completion--words comp) '("zorg" "world"))
@@ -417,7 +435,11 @@ garbage
       (should (equal '("-F" "__default") (bash-completion--compgen-args comp)))
 
       (bash-completion--customize comp 'nodefault)
-      (should (null (bash-completion--compgen-args comp))))))
+      (should (null (bash-completion--compgen-args comp))))
+    (let ((comp (bash-completion--make :cword 0)))
+      (bash-completion--customize comp)
+      (should (equal '("-b" "-c" "-a") (bash-completion--compgen-args comp)))
+      (should (equal 'custom (bash-completion--type comp))))))
 
 (ert-deftest bash-completion--find-last-test ()
   (should (equal nil (bash-completion--find-last ?a "xxxxx")))

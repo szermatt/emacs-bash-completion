@@ -325,8 +325,8 @@ Completion type is 'command, if completing a command (cword = 0),
 customized, usually by `bash-completion--customize'.
 "
   (cond
-   ((zerop (bash-completion--cword comp)) 'command)
    ((bash-completion--compgen-args comp) 'custom)
+   ((zerop (bash-completion--cword comp)) 'command)
    (t 'default)))
 
 (defun bash-completion--options (comp)
@@ -1199,12 +1199,14 @@ Return `bash-completion-alist'."
   bash-completion-alist)
 
 (defun bash-completion--customize (comp &optional nodefault)
-  (unless (eq 'command (bash-completion--type comp))
-    (let ((bash-completion-alist (cdr (bash-completion-require-process))))
-      (let ((command-name (file-name-nondirectory (car (bash-completion--words comp)))))
-        (setf (bash-completion--compgen-args comp)
-              (or (cdr (assoc command-name bash-completion-alist))
-                  (and (not nodefault) (cdr (assoc nil bash-completion-alist)))))))))
+  (let ((bash-completion-alist (cdr (bash-completion-require-process)))
+        (command-name (if (eq 'command (bash-completion--type comp))
+                          "-E"
+                        (file-name-nondirectory
+                         (car (bash-completion--words comp))))))
+    (setf (bash-completion--compgen-args comp)
+          (or (cdr (assoc command-name bash-completion-alist))
+              (and (not nodefault) (cdr (assoc nil bash-completion-alist)))))))
 
 
 (defun bash-completion-generate-line (comp)
