@@ -103,7 +103,7 @@ The return value is the one returned by BODY."
   		  "a \"hello world\" b c"
   		  (bash-completion-strings-from-tokens
   		   (bash-completion-tokenize 1 (line-end-position))))))
-  
+
   ;; escaped single quotes
   (should (equal '("a" "-'hello world'-" "b" "c")
 		 (bash-completion-test-with-buffer
@@ -155,23 +155,11 @@ The return value is the one returned by BODY."
 	     :cword 2
 	     :words '("a" "hello" "world")
 	     :stub-start 9
+             :stub "world"
              :unparsed-stub "world")
 	   (bash-completion-test-with-buffer
 	    "a hello world"
 	    (bash-completion--parse (point-min) 14))))
-
-  ;; just one space, cursor after it
-  (should (equal
-           (bash-completion--make
-            :line ""
-            :point 0
-            :cword 0
-            :words '("")
-            :stub-start 2
-            :unparsed-stub "")
-           (bash-completion-test-with-buffer
-            " "
-            (bash-completion--parse (point-min) 2))))
 
   ;; some words separated by spaces, cursor after the last space
   (should (equal
@@ -181,6 +169,7 @@ The return value is the one returned by BODY."
             :cword 2
             :words '("a" "hello" "")
             :stub-start 9
+            :stub ""
             :unparsed-stub "")
            (bash-completion-test-with-buffer
             "a hello "
@@ -194,6 +183,7 @@ The return value is the one returned by BODY."
             :cword 1
             :words '("make" "-")
             :stub-start 27
+            :stub "-"
             :unparsed-stub "-")
            (bash-completion-test-with-buffer
             "cd /var/tmp ; ZORG=t make -"
@@ -207,6 +197,7 @@ The return value is the one returned by BODY."
             :cword 1
             :words '("sort" "-")
             :stub-start 20
+            :stub "-"
             :unparsed-stub "-")
            (bash-completion-test-with-buffer
             "ls /var/tmp | sort -"
@@ -220,6 +211,7 @@ The return value is the one returned by BODY."
             :cword 7
             :words '("find" "-name" "*.txt" "-exec" "echo" "{}" ";" "-")
             :stub-start 38
+            :stub "-"
             :unparsed-stub "-")
            (bash-completion-test-with-buffer
             "find -name '*.txt' -exec echo {} ';' -"
@@ -232,11 +224,26 @@ The return value is the one returned by BODY."
             :point 6
             :cword 0
             :words '("ZORG=t")
-            :stub-start 19
-            :unparsed-stub "ZORG=t")
+            :stub-start 24
+            :stub "t"
+            :unparsed-stub "t")
            (bash-completion-test-with-buffer
             "cd /var/tmp ; A=f ZORG=t"
             (bash-completion--parse (point-min) 25))))
+
+  ;; stub is a subset of last word
+  (should (equal
+           (bash-completion--make
+            :line "export PATH=/bin:/usr/bi"
+            :point 24
+            :cword 1
+            :words '("export" "PATH=/bin:/usr/bi")
+            :stub-start 18
+            :stub "/usr/bi"
+            :unparsed-stub "/usr/bi")
+           (bash-completion-test-with-buffer
+            "export PATH=/bin:/usr/bi"
+            (bash-completion--parse (point-min) (point-max)))))
 
   ;; with escaped quote
   (should (equal
@@ -246,6 +253,7 @@ The return value is the one returned by BODY."
             :cword 1
             :words '("cd" "/vcr/shows/Dexter's")
             :stub-start 4
+            :stub "/vcr/shows/Dexter's"
             :unparsed-stub "/vcr/shows/Dexter\\'s")
            (bash-completion-test-with-buffer
             "cd /vcr/shows/Dexter\\'s"
@@ -258,8 +266,9 @@ The return value is the one returned by BODY."
             :point 23
             :cword 1
             :words '("cd" "/vcr/shows/Dexter's")
-            :stub-start 5
-            :unparsed-stub "/vcr/shows/Dexter's"
+            :stub-start 4
+            :stub "/vcr/shows/Dexter's"
+            :unparsed-stub "\"/vcr/shows/Dexter's"
             :open-quote ?\")
            (bash-completion-test-with-buffer
             "cd \"/vcr/shows/Dexter's"
@@ -272,12 +281,30 @@ The return value is the one returned by BODY."
             :point 26
             :cword 1
             :words '("cd" "/vcr/shows/Dexter's")
-            :stub-start 5
-            :unparsed-stub "/vcr/shows/Dexter'\\''s"
+            :stub-start 4
+            :unparsed-stub "'/vcr/shows/Dexter'\\''s"
+            :stub "/vcr/shows/Dexter's"
             :open-quote ?')
            (bash-completion-test-with-buffer
             "cd '/vcr/shows/Dexter'\\''s"
-            (bash-completion--parse (point-min) 27)))))
+            (bash-completion--parse (point-min) 27))))
+
+  ;; just one space, cursor after it
+  (should (equal
+           (bash-completion--make
+            :line ""
+            :point 0
+            :cword 0
+            :words '("")
+            :stub-start 2
+            :stub ""
+            :unparsed-stub "")
+           (bash-completion-test-with-buffer
+            " "
+            (bash-completion--parse (point-min) 2))))
+
+
+  )
 
 (ert-deftest bash-completion-build-alist ()
   (should (equal
@@ -316,12 +343,14 @@ garbage
   (let ((default-directory "/test"))
     (should
      (equal (concat "cd >/dev/null 2>&1 /test"
-                  " ; compgen -o default -- worl 2>/dev/null")
+                    " ; compgen -o default -- worl 2>/dev/null")
             (bash-completion-generate-line
              (bash-completion--make
               :line "hello worl"
               :point 7
               :words '("hello" "worl")
+              :stub "worl"
+              :unparsed-stub "worl"
               :cword 1))))
 
     ;; custom completion no function or command
@@ -332,17 +361,39 @@ garbage
                :line "zorg worl"
                :point 7
                :words '("zorg" "worl")
+               :stub "worl"
+               :unparsed-stub "worl"
                :cword 1
                :compgen-args '("-A" "-G" "*.txt")))))
 
-  ;; custom completion function
+    ;; custom completion function
+    (should (equal
+             (concat
+              "cd >/dev/null 2>&1 /test ; "
+              "__BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg blah worl'\\''; "
+              "COMP_POINT=12; COMP_CWORD=2; "
+              "COMP_WORDS=( zorg blah worl ); "
+              "__zorg zorg worl blah' "
+              "compgen -F __bash_complete_wrapper -- worl 2>/dev/null")
+             (bash-completion-generate-line
+              (bash-completion--make
+               :line "zorg blah worl"
+               :point 12
+               :words '("zorg" "blah" "worl")
+               :cword 2
+               :stub "worl"
+               :unparsed-stub "worl"
+               :compgen-args '("-F" "__zorg")))))
+
+    ;; custom completion command
     (should (equal
              (concat
               "cd >/dev/null 2>&1 /test ; "
               "__BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; "
-              "COMP_POINT=7; COMP_CWORD=1; "
+              "COMP_POINT=7; "
+              "COMP_CWORD=1; "
               "COMP_WORDS=( zorg worl ); "
-              "__zorg \"${COMP_WORDS[@]}\"' "
+              "__zorg zorg worl zorg' "
               "compgen -F __bash_complete_wrapper -- worl 2>/dev/null")
              (bash-completion-generate-line
               (bash-completion--make
@@ -350,46 +401,21 @@ garbage
                :point 7
                :words '("zorg" "worl")
                :cword 1
-               :compgen-args '("-F" "__zorg")))))
+               :stub "worl"
+               :unparsed-stub "worl"
+               :compgen-args '("-C" "__zorg")))))
 
-  ;; custom completion command
-  (should (equal
-           (concat
-            "cd >/dev/null 2>&1 /test ; "
-            "__BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; "
-            "COMP_POINT=7; "
-            "COMP_CWORD=1; "
-            "COMP_WORDS=( zorg worl ); "
-            "__zorg \"${COMP_WORDS[@]}\"' "
-            "compgen -F __bash_complete_wrapper -- worl 2>/dev/null")
-           (bash-completion-generate-line
-            (bash-completion--make
-             :line "zorg worl"
-             :point 7
-             :words '("zorg" "worl")
-             :cword 1
-             :compgen-args '("-C" "__zorg")))))
-
-  ;; command completion
-  (should (equal
-           "cd >/dev/null 2>&1 /test ; compgen -b -c -a -A function -- worl 2>/dev/null"
-           (bash-completion-generate-line
-            (bash-completion--make
-             :line "worl"
-             :point 7
-             :words '("worl")
-             :cword 0))))
-
-  ;; command completion, customized
-  (should (equal
-           "cd >/dev/null 2>&1 /test ; compgen -b -c -a -- worl 2>/dev/null"
-           (bash-completion-generate-line
-            (bash-completion--make
-             :line "worl"
-             :point 7
-             :words '("worl")
-             :cword 0
-             :compgen-args '("-b" "-c" "-a")))))))
+    ;; command completion
+    (should (equal
+             "cd >/dev/null 2>&1 /test ; compgen -b -c -a -A function -- worl 2>/dev/null"
+             (bash-completion-generate-line
+              (bash-completion--make
+               :line "worl"
+               :point 7
+               :words '("worl")
+               :cword 0
+               :stub "worl"
+               :unparsed-stub "worl"))))))
 
 (ert-deftest bash-completion-customize-test ()
   (cl-letf (((symbol-function 'bash-completion-require-process)
@@ -466,17 +492,17 @@ Return (const return-value new-buffer-content)"
         (buffer-string))))))
 
 (ert-deftest bash-completion-send-test ()
-  (should (equal 
+  (should (equal
 	   (cons 0 "line1\nline2\n")
 	   (bash-completion-test-send "line1\nline2\n\t0\v")))
 
   ;; command failed"
-  (should (equal 
+  (should (equal
 	   (cons 1 "line1\nline2\n")
 	   (bash-completion-test-send "line1\nline2\n\t1\v")))
 
   ;; wrapped function returned 124"
-  (should (equal 
+  (should (equal
 	   (cons 124 "line1\nline2\n")
 	   (bash-completion-test-send
 	    (concat "line1\nli" bash-completion-wrapped-status "ne2\n\t0\v")))))
@@ -486,7 +512,7 @@ Return (const return-value new-buffer-content)"
   (should (equal ""
 		 (let ((default-directory nil))
 		   (bash-completion-cd-command-prefix))))
-  
+
   ;; current dir
   (should (equal "cd >/dev/null 2>&1 /tmp/x ; "
 		 (let ((default-directory "/tmp/x"))
@@ -547,7 +573,7 @@ Return (const return-value new-buffer-content)"
   ;; do not escape final space
   (should (equal "ab "
 		   (bash-completion-fix "ab " "a" "a" nil nil nil)))
-  
+
   ;; remove final space with option nospace
   (should (equal "ab"
                  (bash-completion-fix "ab " "a" "a" nil '(nospace) nil)))
@@ -675,7 +701,7 @@ Return (const return-value new-buffer-content)"
   ;; double quote: specials
   (should (equal "Specials in double quotes: \\$\\`\\\""
 		 (bash-completion-escape-candidate "Specials in double quotes: $`\"" ?\")))
-  
+
   ;; double quote: escaped specials
   (should (equal "Slash-prefixed specials in double quotes: \\\\\\$\\\\\\`\\\\\\\""
 		 (bash-completion-escape-candidate "Slash-prefixed specials in double quotes: \\$\\`\\\"" ?\")))
@@ -783,7 +809,7 @@ before calling `bash-completion-dynamic-complete-nocomint'.
    (push "hello\n" --send-results)
    (insert "$ cat \"he")
    (should (equal
-            '("hello\" ")
+            '("\"hello\" ")
             (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point)))))))
 
 (ert-deftest bash-completion-single-completion-single-quotes ()
@@ -791,7 +817,7 @@ before calling `bash-completion-dynamic-complete-nocomint'.
    (push "hello\n" --send-results)
    (insert "$ cat 'he")
    (should (equal
-            '("hello' ")
+            '("'hello' ")
             (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point)))))))
 
 (ert-deftest bash-completion-completion-with-double-quotes ()
@@ -799,7 +825,7 @@ before calling `bash-completion-dynamic-complete-nocomint'.
    (push "hell\nhello\n" --send-results)
    (insert "$ cat \"he")
    (should (equal
-            '("hell\"" "hello\"")
+            '("\"hell\"" "\"hello\"")
             (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point)))))))
 
 (ert-deftest bash-completion-trailing-default-completion ()
@@ -886,19 +912,19 @@ before calling `bash-completion-dynamic-complete-nocomint'.
    (push "Documents\n" --send-results)
    (insert "$ cat 'Doc")
    (should (equal
-            '(8 11 ("Documents/"))
+            '(7 11 ("'Documents/"))
             (bash-completion-dynamic-complete-nocomint 3 (point))))
    (insert "uments/")
    (push "Documents/Modes d'emplois\n" --send-results)
    (should (equal
-            '("Documents/Modes d'\\''emplois/")
+            '("'Documents/Modes d'\\''emplois/")
             (nth 2(bash-completion-dynamic-complete-nocomint 3 (point)))))
    (insert "Modes d'\\''emplois/")
    (push "Documents/Modes d'emplois/KAR 1.pdf\nDocuments/Modes d'emplois/KAR 2.pdf\n"
          --send-results)
    (should (equal
-            '("Documents/Modes d'\\''emplois/KAR 1.pdf'"
-              "Documents/Modes d'\\''emplois/KAR 2.pdf'")
+            '("'Documents/Modes d'\\''emplois/KAR 1.pdf'"
+              "'Documents/Modes d'\\''emplois/KAR 2.pdf'")
             (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point)))))))
 
 (ert-deftest bash-completion-complete-command-with-dir ()
@@ -934,7 +960,7 @@ before calling `bash-completion-dynamic-complete-nocomint'.
 (ert-deftest bash-completion-wordbreak-completion ()
   (--with-fake-bash-completion-send
    (push "/tmp/test/bin" --directories)
-   (setq --send-results '("" "./binary\n./bind\n./bin\n"))
+   (setq --send-results '("./binary\n./bind\n./bin\n"))
    (insert "$ export PATH=$PATH:./b")
    (should
     (equal '(21 24 ("./binary" "./bind" "./bin/"))
@@ -943,7 +969,7 @@ before calling `bash-completion-dynamic-complete-nocomint'.
 (ert-deftest bash-completion-single-wordbreak-completion ()
   (--with-fake-bash-completion-send
    (push "/tmp/test/bin" --directories)
-   (setq --send-results '("" "./world\n"))
+   (setq --send-results '("./world\n"))
    (insert "$ set a=./hello:./w")
    (should
     (equal '(17 20 ("./world "))
