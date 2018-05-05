@@ -399,7 +399,6 @@ garbage
                (if (and (eq 'process process)
                         (eq 'complete-p prop))
                    '((nil "-F" "__default")
-                     ("-E" "-b" "-c" "-a")
                      ("zorg" "-F" "__zorg"))
                  (error "unexpected call")))))
     (let ((comp (bash-completion--make :cword 1)))
@@ -412,11 +411,7 @@ garbage
       (should (equal '("-F" "__default") (bash-completion--compgen-args comp)))
 
       (bash-completion--customize comp 'nodefault)
-      (should (null (bash-completion--compgen-args comp))))
-    (let ((comp (bash-completion--make :cword 0)))
-      (bash-completion--customize comp)
-      (should (equal '("-b" "-c" "-a") (bash-completion--compgen-args comp)))
-      (should (equal 'custom (bash-completion--type comp))))))
+      (should (null (bash-completion--compgen-args comp))))))
 
 (ert-deftest bash-completion--find-last-test ()
   (should (equal nil (bash-completion--find-last ?a "xxxxx")))

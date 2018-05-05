@@ -1130,15 +1130,14 @@ The returned alist is a sligthly parsed version of the output of
     alist))
 
 (defun bash-completion--customize (comp &optional nodefault)
-  (let ((compgen-args-alist
-         (process-get (bash-completion-require-process) 'complete-p))
-        (command-name (if (eq 'command (bash-completion--type comp))
-                          "-E"
-                        (file-name-nondirectory
-                         (car (bash-completion--words comp))))))
-    (setf (bash-completion--compgen-args comp)
-          (or (cdr (assoc command-name compgen-args-alist))
-              (and (not nodefault) (cdr (assoc nil compgen-args-alist)))))))
+  (unless (eq 'command (bash-completion--type comp))
+    (let ((compgen-args-alist
+           (process-get (bash-completion-require-process) 'complete-p))
+          (command-name (file-name-nondirectory
+                         (car (bash-completion--words comp)))))
+      (setf (bash-completion--compgen-args comp)
+            (or (cdr (assoc command-name compgen-args-alist))
+                (and (not nodefault) (cdr (assoc nil compgen-args-alist))))))))
 
 
 (defun bash-completion-generate-line (comp)
