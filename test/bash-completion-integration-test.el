@@ -127,7 +127,9 @@ for testing completion."
                           :words '("hel")
                           :cword 0
                           :stub "hel"
-                          :unparsed-stub "hel"))))))
+                          :unparsed-stub "hel"
+                          :wordbreaks "@><=;|&(:")
+                        (bash-completion-require-process))))))
    (bash-completion-reset)
    (should-not (bash-completion-is-running))))
 
