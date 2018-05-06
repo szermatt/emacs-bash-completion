@@ -7,7 +7,8 @@
 rootdir="$(dirname "$0")"
 testdir="${rootdir}/test"
 emacscmd="${EMACSCMD:-emacs}"
-echo "Testing against ${emacscmd}:"
+bashcmd="${BASHCMD:-$(which bash)}"
+echo "Testing against ${emacscmd} and ${bashcmd}:"
 "${emacscmd}" \
      -Q \
      -batch \
@@ -19,7 +20,7 @@ echo "Testing against ${emacscmd}:"
 exec "${emacscmd}" \
     -Q \
     -batch \
-    -eval "(setq bash-completion-prog \"${BASHCMD:-$(which bash)}\")" \
+    -eval "(setq bash-completion-prog \"${bashcmd}\")" \
     -L "${rootdir}" \
     -L "${testdir}" \
     -l "${testdir}/bash-completion-test.el" \
