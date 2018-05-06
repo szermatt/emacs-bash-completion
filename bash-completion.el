@@ -202,6 +202,9 @@ to remove the extra space bash adds after a completion."
   "Shell files that, if they exist, will be sourced at the
 beginning of a bash completion subprocess.")
 
+(defvar bash-completion-wordbreaks ""
+  "Extra wordbreaks to use when tokenizing, in `bash-completion-tokenize'")
+
 ;;; ---------- Internal variables and constants
 
 (defvar bash-completion-processes nil
@@ -378,7 +381,8 @@ Returns (list stub-start stub-end completions) with
     (let* ((process (bash-completion-require-process))
            (comp (bash-completion--parse
                   comp-start comp-pos
-                  (process-get process 'wordbreaks)))
+                  (process-get process 'wordbreaks)
+                  (process-get process 'bash-major-version)))
 	   (stub-start (bash-completion--stub-start comp)))
       (bash-completion--customize comp process)
       (list
@@ -426,7 +430,7 @@ functions adds single quotes around it and return the result."
 	    (replace-regexp-in-string "'" "'\\''" word nil t)
 	    "'")))
 
-(defun bash-completion--parse (comp-start comp-pos wordbreaks)
+(defun bash-completion--parse (comp-start comp-pos wordbreaks bash-major-version)
   "Process a command line split into TOKENS that end at POS.
 
 WORDBREAK is the value of COMP_WORDBREAKS to use for this completion,
@@ -437,7 +441,9 @@ This function takes a list of tokens built by
 function expect in an association list.
 
 Returns a completion struct."
-  (let* ((all-tokens (bash-completion-tokenize comp-start comp-pos))
+  (let* ((all-tokens (bash-completion-tokenize
+                      comp-start comp-pos (if (>= bash-major-version 4)
+                                              wordbreaks "")))
          (line-tokens (bash-completion-parse-current-command  all-tokens))
          (first-token (car line-tokens))
 	 (last-token (car (last line-tokens)))
@@ -451,21 +457,12 @@ Returns a completion struct."
               unparsed-stub ""
               parsed-stub ""
               words (append words '("")))
-      (let* ((last-word-start (car (bash-completion-tokenize-get-range last-token)))
-             (last-word (bash-completion-tokenize-get-str last-token))
-             (last-word-unparsed (buffer-substring-no-properties last-word-start comp-pos))
-             (last-word-unparsed-split (bash-completion-last-wordbreak-split
-                                        last-word-unparsed wordbreaks))
-             (last-word-unparsed-separator (nth 2 last-word-unparsed-split))
-             (last-word-unparsed-before (if (zerop last-word-unparsed-separator)
-                                            ""
-                                          (nth 0 last-word-unparsed-split))))
-        (setq stub-start (+ last-word-start (length last-word-unparsed-before))
-              unparsed-stub (buffer-substring-no-properties stub-start comp-pos)
-              parsed-stub (substring last-word
-                                     (1+ (or (bash-completion--find-last
-                                              last-word-unparsed-separator last-word)
-                                             -1))))))
+      (if (< bash-major-version 4)
+          (setq last-token (car (last (bash-completion-tokenize
+                                       comp-start comp-pos wordbreaks)))))
+      (setq stub-start (car (bash-completion-tokenize-get-range last-token))
+            parsed-stub (bash-completion-tokenize-get-str last-token)
+            unparsed-stub (buffer-substring-no-properties stub-start comp-pos)))
     (bash-completion--make
      :line (buffer-substring-no-properties start comp-pos)
      :point (- comp-pos start)
@@ -526,12 +523,13 @@ list of strings.
 TOKENS should be in the format returned by `bash-completion-tokenize'."
   (mapcar 'bash-completion-tokenize-get-str tokens))
 
-(defun bash-completion-tokenize (start end)
+(defun bash-completion-tokenize (start end &optional wordbreaks)
   "Tokenize the portion of the current buffer between START and END.
 
 This function splits a BASH command line into tokens.  It knows
 about quotes, escape characters and special command separators such
-as ;, | and &&.
+as ;, | and &&. If specified WORDBREAKS contains extra word breaks,
+usually taken from COMP_WORDBREAKS, to apply while tokenizing.
 
 This method returns a list of tokens found between START and END,
 ordered by position.  Tokens contain a string and a range.
@@ -554,9 +552,16 @@ set using `bash-completion-tokenize-set-end'.
 Tokens should always be accessed using the functions specified above,
 never directly as they're likely to change as this code evolves.
 The current format of a token is '(string . (start . end))."
-  (save-excursion
-    (goto-char start)
-    (nreverse (bash-completion-tokenize-new-element end nil))))
+  (let ((bash-completion-wordbreaks
+         (mapconcat 'char-to-string
+                    (delq nil (mapcar
+                               (lambda (c)
+                                 (if (memq c '(?\; ?& ?| ?' ?\")) nil c))
+                               (or wordbreaks "")))
+                    "")))
+    (save-excursion
+      (goto-char start)
+      (nreverse (bash-completion-tokenize-new-element end nil)))))
 
 (defun bash-completion-tokenize-new-element (end tokens)
   "Tokenize the rest of the line until END and complete TOKENS.
@@ -626,8 +631,12 @@ Return TOKENS with new tokens prepended to it."
   ;; parse the token elements at the current position and
   ;; append them
   (let ((local-start (point)))
-    (when (= (skip-chars-forward "[;&|]" end) 0)
-      (skip-chars-forward (bash-completion-nonsep quote) end))
+    (when (= (skip-chars-forward
+              (concat "[;&|" bash-completion-wordbreaks "]")
+              end)
+             0)
+      (skip-chars-forward
+       (bash-completion-nonsep quote bash-completion-wordbreaks) end))
     (bash-completion-tokenize-append-str
      token
      (buffer-substring-no-properties local-start (point))))
@@ -658,20 +667,14 @@ Return TOKENS with new tokens prepended to it."
     (push token tokens)
     (bash-completion-tokenize-new-element end tokens))))
 
-(defconst bash-completion-nonsep-alist
-  '((nil . "^ \t\n\r;&|'\"#")
-    (?' . "^ \t\n\r'")
-    (?\" . "^ \t\n\r\""))
-  "Alist of sets of non-breaking characters.
-Keeps a regexp specifying the set of non-breaking characters for
-all quoting environment (no quote, single quote and double
-quote).  Get it using `bash-completion-nonsep'.")
-
-(defun bash-completion-nonsep (quote)
+(defun bash-completion-nonsep (quote wordbreaks)
   "Return the set of non-breaking characters when QUOTE is the current quote.
 
 QUOTE should be nil, ?' or ?\"."
-  (cdr (assq quote bash-completion-nonsep-alist)))
+  (concat
+   "^ \t\n\r"
+   (if (null quote) (concat ";&|'\"" wordbreaks)
+     (char-to-string quote))))
 
 ;;; ---------- Functions: getting candidates from bash
 
@@ -965,6 +968,11 @@ is set to t."
               (bash-completion-send "complete -p" process)
               (process-put process 'complete-p
                            (bash-completion-build-alist (process-buffer process)))
+              (bash-completion-send "echo -n ${BASH_VERSINFO[0]}" process)
+              (process-put process 'bash-major-version
+                           (with-current-buffer (process-buffer process)
+                             (string-to-number (buffer-substring-no-properties
+                                                (point-min) (point-max)))))
               (bash-completion-send "echo -n ${COMP_WORDBREAKS}" process)
               (process-put process 'wordbreaks
                            (with-current-buffer (process-buffer process)
