@@ -895,7 +895,7 @@ before calling `bash-completion-dynamic-complete-nocomint'.
                       (lambda (process prop value)
                         (cond ((and (eq 'process process) (eq 'complete-p prop))
                                (setq bash-completion-alist value))
-                              ((and (eq 'process process) (eq 'bash-major-version))
+                              ((and (eq 'process process) (eq 'bash-major-version prop))
                                (setq bash-major-version value))
                               (t (error "unexpected: (process-put %s %s)" process prop)))))
                      ((symbol-function 'process-get)
