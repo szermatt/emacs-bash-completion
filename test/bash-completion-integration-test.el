@@ -111,26 +111,6 @@ for testing completion."
         (delete-directory test-env-dir 'recursive)
       (dired-delete-file test-env-dir 'always))))
 
-(ert-deftest bash-completion-integration-test ()
-  (bash-completion_test-harness
-   (should-not (bash-completion-is-running))
-   (should (buffer-live-p (bash-completion-buffer)))
-   (should (bash-completion-is-running))
-   (should-not (null (member
-                      "help "
-                      (bash-completion-comm
-                       (bash-completion--make
-                        :line "hel"
-                        :point 4
-                        :words '("hel")
-                        :cword 0
-                        :stub "hel"
-                        :unparsed-stub "hel"
-                        :wordbreaks "@><=;|&(:")
-                       (bash-completion-require-process)))))
-   (bash-completion-reset)
-   (should-not (bash-completion-is-running))))
-
 (ert-deftest bash-completion-integration-setenv-test ()
   (bash-completion_test-harness
    (bash-completion-send "echo $EMACS_BASH_COMPLETE")
@@ -142,6 +122,9 @@ for testing completion."
    (bash-completion-integration-test-complete)))
 
 (defun bash-completion-integration-test-complete ()
+   ;; complete bash builtin
+   (should (equal "readonly "
+                  (bash-completion_test-complete "reado")))
    ;; complete command
    (should (equal "somefunction "
                   (bash-completion_test-complete "somef")))
