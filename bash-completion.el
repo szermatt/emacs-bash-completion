@@ -197,26 +197,6 @@ to remove the extra space bash adds after a completion."
   :type '(boolean)
   :group 'bash-completion)
 
-(if (fboundp 'completion-table-with-cache)
-    (defcustom bash-completion-enable-caching nil
-      "If non-nil, enable caching in `bash-completion-dynamic-complete-nocomint'.
-
-When caching is enabled,
-`bash-completion-dynamic-complete-nocomint' returns a function
-instead of the list of all possible completions. Enabling caching
-improves performance because less calls will be made to
-`bash-completion-comm' which is an expensive function.
-
-Wordbreak completions behaves slightly differently when this operation is
-enabled."
-        :type 'boolean
-        :group 'bash-completion)
-  (defconst bash-completion-enable-caching nil))
-
-(defalias 'bash-completion--completion-table-with-cache
-  (if (fboundp 'completion-table-with-cache)
-      'completion-table-with-cache 'completion-table-dynamic))
-
 (defvar bash-completion-start-files
   '("~/.emacs_bash.sh" "~/.emacs.d/init_bash.sh")
   "Shell files that, if they exist, will be sourced at the
@@ -366,13 +346,19 @@ When doing completion outside of a comint buffer, call
       (unwind-protect
           (bash-completion-dynamic-complete-nocomint
            (comint-line-beginning-position)
-           (point))
+           (point)
+           'dynamic-table)
         ;; cleanup
         (if message-timer
             (cancel-timer message-timer)))))
 
+(defalias 'bash-completion--completion-table-with-cache
+  (if (fboundp 'completion-table-with-cache)
+      'completion-table-with-cache 'completion-table-dynamic))
+
 ;;;###autoload
-(defun bash-completion-dynamic-complete-nocomint (comp-start comp-pos)
+(defun bash-completion-dynamic-complete-nocomint
+    (comp-start comp-pos &optional dynamic-table)
   "Return completion information for bash command at an arbitrary position.
 
 The bash command to be completed begins at COMP-START in the
@@ -385,8 +371,9 @@ It is meant to be called directly from any completion engine.
 Returns (list stub-start stub-end completions) with
  - stub-start, the position at which the completed region starts
  - stub-end, the position at which the completed region ends
- - completions, a possibly empty list of completion candidates or a function if
-   `bash-completion-enable-caching' is non-nil"
+ - completions, a possibly empty list of completion candidates
+   or a function, if DYNAMIC-TABLE is non-nil, a lambda such as the one
+   returned by `completion-table-dynamic'"
   (when bash-completion-enabled
     (let* ((process (bash-completion-require-process))
            (comp (bash-completion--parse
@@ -397,7 +384,7 @@ Returns (list stub-start stub-end completions) with
       (list
        stub-start
        comp-pos
-       (if bash-completion-enable-caching
+       (if dynamic-table
            (bash-completion--completion-table-with-cache
             (lambda (_)
               (bash-completion-comm comp process)))

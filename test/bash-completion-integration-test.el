@@ -38,7 +38,6 @@
      (let ((test-env-dir (bash-completion_test-setup-env)))
        (let ((bash-completion-processes nil)
              (bash-completion-nospace nil)
-             (bash-completion-enable-caching nil)
              (bash-completion-start-files nil)
              (bash-completion-args
               (list "--noediting"
@@ -140,11 +139,6 @@ for testing completion."
 
 (ert-deftest bash-completion-integration-completion-test ()
   (bash-completion_test-with-shell-harness
-   (bash-completion-integration-test-complete)))
-
-(ert-deftest bash-completion-integration-completion-test-with-caching ()
-  (bash-completion_test-with-shell-harness
-   (setq bash-completion-enable-caching t)
    (bash-completion-integration-test-complete)))
 
 (defun bash-completion-integration-test-complete ()

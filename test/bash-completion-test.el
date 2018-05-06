@@ -863,7 +863,6 @@ before calling `bash-completion-dynamic-complete-nocomint'.
   `(let ((default-directory "/tmp/test")
          (bash-completion-alist '())
          (wordbreaks "@><=;|&(:")
-         (bash-completion-enable-caching nil)
          (bash-completion-nospace nil))
      (lexical-let ((--process-buffer)
                    (--test-buffer)
@@ -910,6 +909,18 @@ before calling `bash-completion-dynamic-complete-nocomint'.
             (bash-completion-dynamic-complete-nocomint 3 (point))))
    (should (equal "cd >/dev/null 2>&1 /tmp/test ; compgen -o default -- he 2>/dev/null"
                   (pop --captured-commands)))))
+
+(ert-deftest bash-completion-simple-dynamic-table-test ()
+  (--with-fake-bash-completion-send
+   (push "hell\nhello1\nhello2\n" --send-results)
+   (insert "$ cat he")
+   (pcase-let ((`(,stub-start ,stub-end ,completions)
+                (bash-completion-dynamic-complete-nocomint
+                 3 (point) 'dynamic-table)))
+     (should (equal 7 stub-start))
+     (should (equal 9 stub-end))
+     (should (equal '("hell" "hello1" "hello2")
+                    (funcall completions "he" nil t))))))
 
 (ert-deftest bash-completion-single-completion-test ()
   (--with-fake-bash-completion-send
