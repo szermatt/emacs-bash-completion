@@ -457,21 +457,12 @@ Returns a completion struct."
               unparsed-stub ""
               parsed-stub ""
               words (append words '("")))
-      (let* ((last-word-start (car (bash-completion-tokenize-get-range last-token)))
-             (last-word (bash-completion-tokenize-get-str last-token))
-             (last-word-unparsed (buffer-substring-no-properties last-word-start comp-pos))
-             (last-word-unparsed-split (bash-completion-last-wordbreak-split
-                                        last-word-unparsed wordbreaks))
-             (last-word-unparsed-separator (nth 2 last-word-unparsed-split))
-             (last-word-unparsed-before (if (zerop last-word-unparsed-separator)
-                                            ""
-                                          (nth 0 last-word-unparsed-split))))
-        (setq stub-start (+ last-word-start (length last-word-unparsed-before))
-              unparsed-stub (buffer-substring-no-properties stub-start comp-pos)
-              parsed-stub (substring last-word
-                                     (1+ (or (bash-completion--find-last
-                                              last-word-unparsed-separator last-word)
-                                             -1))))))
+      (if (< bash-major-version 4)
+          (setq last-token (car (last (bash-completion-tokenize
+                                       comp-start comp-pos wordbreaks)))))
+      (setq stub-start (car (bash-completion-tokenize-get-range last-token))
+            parsed-stub (bash-completion-tokenize-get-str last-token)
+            unparsed-stub (buffer-substring-no-properties stub-start comp-pos)))
     (bash-completion--make
      :line (buffer-substring-no-properties start comp-pos)
      :point (- comp-pos start)
@@ -561,7 +552,13 @@ set using `bash-completion-tokenize-set-end'.
 Tokens should always be accessed using the functions specified above,
 never directly as they're likely to change as this code evolves.
 The current format of a token is '(string . (start . end))."
-  (let ((bash-completion-wordbreaks (or wordbreaks "")))
+  (let ((bash-completion-wordbreaks
+         (mapconcat 'char-to-string
+                    (delq nil (mapcar
+                               (lambda (c)
+                                 (if (memq c '(?\; ?& ?| ?' ?\")) nil c))
+                               (or wordbreaks "")))
+                    "")))
     (save-excursion
       (goto-char start)
       (nreverse (bash-completion-tokenize-new-element end nil)))))

@@ -140,7 +140,7 @@ The return value is the one returned by BODY."
   		   (bash-completion-tokenize 1 (line-end-position)))))))
 
 (ert-deftest bash-completion--parse-test ()
-  (let ((wordbreaks "@><=;|&(:"))
+  (let ((wordbreaks "@><=;|&(:'\""))
     ;; cursor at end of word
     (should (equal
              (bash-completion--make
@@ -275,6 +275,21 @@ The return value is the one returned by BODY."
            (bash-completion-test-with-buffer
             "cd /vcr/shows/Dexter\\'s"
             (bash-completion--parse (point-min) 24 wordbreaks 3))))
+
+  ;; with escaped quote, bash 4
+  (should (equal
+           (bash-completion--make
+            :line "cd /vcr/shows/Dexter\\'s"
+            :point 23
+            :cword 1
+            :words '("cd" "/vcr/shows/Dexter's")
+            :stub-start 4
+            :stub "/vcr/shows/Dexter's"
+            :unparsed-stub "/vcr/shows/Dexter\\'s"
+            :wordbreaks wordbreaks)
+           (bash-completion-test-with-buffer
+            "cd /vcr/shows/Dexter\\'s"
+            (bash-completion--parse (point-min) 24 wordbreaks 4))))
 
   ;; with double quote
   (should (equal
