@@ -37,7 +37,7 @@
   `(if (file-executable-p bash-completion-prog)
      (let ((test-env-dir (bash-completion_test-setup-env)))
        (let ((bash-completion-processes nil)
-             (bash-completion-nospace 'as-configured)
+             (bash-completion-nospace nil)
              (bash-completion-enable-caching nil)
              (bash-completion-start-files nil)
              (bash-completion-args
@@ -119,17 +119,16 @@ for testing completion."
    (should (bash-completion-is-running))
    (should-not (null (member
                       "help "
-                      (let ((bash-completion-nospace nil))
-                        (bash-completion-comm
-                         (bash-completion--make
-                          :line "hel"
-                          :point 4
-                          :words '("hel")
-                          :cword 0
-                          :stub "hel"
-                          :unparsed-stub "hel"
-                          :wordbreaks "@><=;|&(:")
-                        (bash-completion-require-process))))))
+                      (bash-completion-comm
+                       (bash-completion--make
+                        :line "hel"
+                        :point 4
+                        :words '("hel")
+                        :cword 0
+                        :stub "hel"
+                        :unparsed-stub "hel"
+                        :wordbreaks "@><=;|&(:")
+                       (bash-completion-require-process)))))
    (bash-completion-reset)
    (should-not (bash-completion-is-running))))
 

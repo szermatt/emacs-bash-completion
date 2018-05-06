@@ -184,7 +184,7 @@ which typically takes a long time."
   :type '(float)
   :group 'bash-completion)
 
-(defcustom bash-completion-nospace 'as-configured
+(defcustom bash-completion-nospace nil
   "Never let bash add a final space at the end of a completion.
 
 When there is only one completion candidate, bash sometimes adds
@@ -283,16 +283,17 @@ customized, usually by `bash-completion--customize'.
    ((bash-completion--compgen-args comp) 'custom)
    (t 'default)))
 
-(defun bash-completion--options (comp)
-  "Returns options for comp, either default or customized.
+(defun bash-completion--nospace (comp)
+  "Returns the value of the nospace option to use for COMP.
 
-See options definition in
-`bash-completion--extract-compgen-options'"
-  (bash-completion--parse-options 
-   (if (eq (bash-completion--type comp) 'custom)
-       (bash-completion--extract-compgen-options
-        (bash-completion--compgen-args comp))
-     nil)))
+The option can be:
+ - set globally, by setting `bash-completion-nospace' to t
+ - set for a customized completion, in bash, with
+   '-o' 'nospace'."
+  (if bash-completion-nospace
+      t ; set globally
+    (bash-completion--has-compgen-option
+     (bash-completion--compgen-args comp) "nospace")))
 
 (defun bash-completion--command (comp)
   "Return the current command for the completion, if there is one."
@@ -756,7 +757,7 @@ for directory name detection to work."
   (let ((parsed-prefix (bash-completion--stub comp))
         (unparsed-prefix (bash-completion--unparsed-stub comp))
         (open-quote (bash-completion--open-quote comp))
-        (options (bash-completion--options comp))
+        (nospace (bash-completion--nospace comp))
         (wordbreaks (bash-completion--wordbreaks comp))
         (suffix "")
         (rest) ; the part between the prefix and the suffix
@@ -795,7 +796,7 @@ for directory name detection to work."
     ;; build suffix
     (let ((last-char (bash-completion-last-char rest))
           (close-quote-str (if open-quote (char-to-string open-quote) ""))
-          (final-space-str (if (memq 'nospace options) "" " ")))
+          (final-space-str (if nospace "" " ")))
       (cond
        ((eq ?\  last-char)
         (setq rest (substring rest 0 -1))
@@ -1209,25 +1210,15 @@ Return the status code of the command, as a number."
         (file-remote-p expanded 'localname)
       expanded)))
 
-(defun bash-completion--extract-compgen-options (compgen-args)
-  "Extract from COMPGEN-ARGS the -o option strings."
-  (let ((rest compgen-args)
-        (options (list)))
-    (while (setq rest (cdr (member "-o" rest)))
-      (push (car rest) options)
+(defun bash-completion--has-compgen-option (compgen-args option-name)
+  "Check whether COMPGEN-ARGS contains -o OPTION-NAME."
+  (let ((rest compgen-args) (found))
+    (while (and (not found)
+                (setq rest (cdr (member "-o" rest))))
+      (when (string= option-name (car rest))
+        (setq found t))
       (setq rest (cdr rest)))
-    options))
-
-(defun bash-completion--parse-options (option-strings)
-  "Parse OPTIONS-STRINGS for compgen into a list of symbols.
-
-The only supported option is nospace, which might come from
-compgen options or from `bash-completion-nospace'"
-  (if (if (eq 'as-configured bash-completion-nospace)
-          (member "nospace" option-strings)
-        bash-completion-nospace)
-      '(nospace)
-    nil))
+    found))
 
 (provide 'bash-completion)
 ;;; bash-completion.el ends here

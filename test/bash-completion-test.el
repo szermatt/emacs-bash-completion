@@ -667,8 +667,33 @@ Return (const return-value new-buffer-content)"
                       nil)))))
 
   ;; append a space for initial command that is not a directory
-  (should (let ((bash-completion-nospace nil))
-            (equal "somecmd "
+  (let ((bash-completion-nospace nil))
+    (should
+     (equal "somecmd "
+            (bash-completion-fix
+             "somecmd"
+             (bash-completion--make
+              :cword 0
+              :stub "some"
+              :unparsed-stub "some"
+              :wordbreaks "")
+             'single))))
+
+  ;; ... but not if nospace option is set for the function
+  (should (equal "somecmd"
+                 (bash-completion-fix
+                  "somecmd"
+                  (bash-completion--make
+                   :cword 0
+                   :stub "some"
+                   :unparsed-stub "some"
+                   :wordbreaks ""
+                   :compgen-args '("-o" "nospace"))
+                  nil)))
+
+  ;; ... or globally
+  (let ((bash-completion-nospace t))
+    (should (equal "somecmd"
                    (bash-completion-fix
                     "somecmd"
                     (bash-completion--make
@@ -676,24 +701,11 @@ Return (const return-value new-buffer-content)"
                      :stub "some"
                      :unparsed-stub "some"
                      :wordbreaks "")
-                    'single))))
-
-  ;; ... but not if nospace option is set
-  (should (let ((bash-completion-nospace t))
-            (equal "somecmd"
-                   (bash-completion-fix
-                    "somecmd"
-                    (bash-completion--make
-                     :cword 0
-                     :stub "some"
-                     :unparsed-stub "some"
-                     :wordbreaks ""
-                     :compgen-args '("-o" "nospace"))
                     nil))))
 
   ;; append a space for a single completion
-  (should (let ((bash-completion-nospace nil))
-            (equal "somecmd "
+  (let ((bash-completion-nospace nil))
+    (should (equal "somecmd "
                    (bash-completion-fix
                     "somecmd"
                     (bash-completion--make
@@ -704,16 +716,17 @@ Return (const return-value new-buffer-content)"
                     'single))))
 
   ;; but only for a single completion
-  (should (let ((bash-completion-nospace nil))
-            (equal "somecmd"
-                   (bash-completion-fix
-                    "somecmd"
-                    (bash-completion--make
-                     :cword 0
-                     :stub "some"
-                     :unparsed-stub "some"
-                     :wordbreaks "")
-                    nil))))
+  (let ((bash-completion-nospace nil))
+    (should
+     (equal "somecmd"
+            (bash-completion-fix
+             "somecmd"
+             (bash-completion--make
+              :cword 0
+              :stub "some"
+              :unparsed-stub "some"
+              :wordbreaks "")
+             nil))))
 
   ;; subset of the prefix"
   (should (equal "Dexter"
@@ -850,7 +863,8 @@ before calling `bash-completion-dynamic-complete-nocomint'.
   `(let ((default-directory "/tmp/test")
          (bash-completion-alist '())
          (wordbreaks "@><=;|&(:")
-         (bash-completion-enable-caching nil))
+         (bash-completion-enable-caching nil)
+         (bash-completion-nospace nil))
      (lexical-let ((--process-buffer)
                    (--test-buffer)
                    (--send-results (list))
@@ -1120,28 +1134,21 @@ before calling `bash-completion-dynamic-complete-nocomint'.
               '("somedir/")
               (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point))))))))
 
-(ert-deftest bash-completion--extract-compgen-options-test ()
-  (should (equal '("filenames" "default")
-                 (bash-completion--extract-compgen-options
-                  '("-a" "-o" "default" "-F" "fun" "-o" "filenames"))))
-  (should (equal '()
-                 (bash-completion--extract-compgen-options
-                  '("-a" "-F" "fun"))))
-  (should (equal '()
-                 (bash-completion--extract-compgen-options
-                  '("-a" "-F" "fun" "-o")))))
-
-(ert-deftest bash-completion--parse-options ()
-  (let ((bash-completion-nospace 'as-configured))
-    (should (equal nil (bash-completion--parse-options nil)))
-    (should (equal '(nospace)
-                   (bash-completion--parse-options
-                    '("filenames" "nospace" "default"))))
-    (setq bash-completion-nospace nil)
-    (should (equal '() (bash-completion--parse-options
-                        '("nospace"))))
-    (setq bash-completion-nospace t)
-    (should (equal '(nospace)
-                   (bash-completion--parse-options '())))))
+(ert-deftest bash-completion--has-compgen-option ()
+  (should (equal nil
+                 (bash-completion--has-compgen-option
+                  '("-F" "boo" "-o" "filenames" "-a" "-o" "default")
+                  "nospace")))
+  (should (equal t
+                 (bash-completion--has-compgen-option
+                  '("-F" "boo" "-o" "filenames" "-a" "-o" "default")
+                  "filenames")))
+  (should (equal t
+                 (bash-completion--has-compgen-option
+                  '("-F" "boo" "-o" "filenames" "-a" "-o" "default")
+                  "default")))
+  (should (equal nil (bash-completion--has-compgen-option
+                      '("-o") "any")))
+  (should (equal nil (bash-completion--has-compgen-option '() "any"))))
 
 ;;; bash-completion_test.el ends here
