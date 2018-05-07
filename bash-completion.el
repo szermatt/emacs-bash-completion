@@ -915,7 +915,7 @@ is set to t."
     (if (bash-completion-is-running)
         (cdr (assoc remote bash-completion-processes))
       ;; start process
-      (let ((process) (oldterm (getenv "TERM")) (cleanup t))
+      (let ((process) (oldterm (getenv "TERM")) (cleanup t) (bash-major-version))
         (unwind-protect
             (progn
               (setenv "EMACS_BASH_COMPLETE" "t")
@@ -944,13 +944,6 @@ is set to t."
                 (when (file-exists-p (bash-completion--expand-file-name start-file))
                   (process-send-string process (concat ". " start-file "\n"))))
               (bash-completion-send "PROMPT_COMMAND='';PS1='\t$?\v'" process bash-completion-initial-timeout)
-              (bash-completion-send (concat "function __bash_complete_wrapper {"
-                                            " eval $__BASH_COMPLETE_WRAPPER;"
-                                            " n=$?; if [[ $n = 124 ]]; then"
-                                            "  echo -n \""
-                                            bash-completion-wrapped-status
-                                            "\"; return 1; "
-                                            " fi; }") process)
               ;; attempt to turn off unexpected status messages from bash
               ;; if the current version of bash does not support these options,
               ;; the commands will fail silently and be ignored.
@@ -969,15 +962,25 @@ is set to t."
               (process-put process 'complete-p
                            (bash-completion-build-alist (process-buffer process)))
               (bash-completion-send "echo -n ${BASH_VERSINFO[0]}" process)
-              (process-put process 'bash-major-version
-                           (with-current-buffer (process-buffer process)
-                             (string-to-number (buffer-substring-no-properties
-                                                (point-min) (point-max)))))
+              (setq bash-major-version
+                    (with-current-buffer (process-buffer process)
+                      (string-to-number (buffer-substring-no-properties
+                                         (point-min) (point-max)))))
+              (bash-completion-send (concat "function __bash_complete_wrapper {"
+                                            (if (>= bash-major-version 4)
+                                                " COMP_TYPE=9; COMP_KEY=9;" "")
+                                            " eval $__BASH_COMPLETE_WRAPPER;"
+                                            " n=$?; if [[ $n = 124 ]]; then"
+                                            "  echo -n \""
+                                            bash-completion-wrapped-status
+                                            "\"; return 1; "
+                                            " fi; }") process)
               (bash-completion-send "echo -n ${COMP_WORDBREAKS}" process)
               (process-put process 'wordbreaks
                            (with-current-buffer (process-buffer process)
                              (buffer-substring-no-properties
                               (point-min) (point-max))))
+              (process-put process 'bash-major-version bash-major-version)
               (push (cons remote process) bash-completion-processes)
               (setq cleanup nil)
               process)
