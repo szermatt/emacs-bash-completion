@@ -37,7 +37,6 @@
   `(if (file-executable-p bash-completion-prog)
      (let ((test-env-dir (bash-completion_test-setup-env)))
        (let ((bash-completion-processes nil)
-             (bash-completion-alist nil)
              (bash-completion-nospace 'as-configured)
              (bash-completion-enable-caching nil)
              (bash-completion-start-files nil)
