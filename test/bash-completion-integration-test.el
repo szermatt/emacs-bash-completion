@@ -126,7 +126,10 @@ for testing completion."
                           :point 4
                           :words '("hel")
                           :cword 0
-                          :unparsed-stub "hel"))))))
+                          :stub "hel"
+                          :unparsed-stub "hel"
+                          :wordbreaks "@><=;|&(:")
+                        (bash-completion-require-process))))))
    (bash-completion-reset)
    (should-not (bash-completion-is-running))))
 
@@ -154,7 +157,7 @@ for testing completion."
                   (bash-completion_test-complete "somefunction du")))
    ;; function returns nothing, no -o default
    (should (equal "somefunction so"
-                  (bash-completion_test-complete "somefunction so")))
+                  (bash-completion_test-complete "somefunction so"))) ;
    ;; function returns nothing, -o default, so fallback to default 
    (should (equal "someotherfunction some/"
                   (bash-completion_test-complete "someotherfunction so")))
