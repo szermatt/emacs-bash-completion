@@ -33,9 +33,9 @@
 (require 'dired)
 (require 'ert)
 
-(defmacro bash-completion_test-harness (&rest body)
+(defmacro bash-completion_test-harness (bashrc &rest body)
   `(if (file-executable-p bash-completion-prog)
-     (let ((test-env-dir (bash-completion_test-setup-env)))
+     (let ((test-env-dir (bash-completion_test-setup-env ,bashrc)))
        (let ((bash-completion-processes nil)
              (bash-completion-nospace nil)
              (bash-completion-start-files nil)
@@ -54,8 +54,9 @@
              (bash-completion_test-teardown-env test-env-dir)
              (bash-completion-reset-all)))))))
 
-(defmacro bash-completion_test-with-shell-harness (&rest body)
+(defmacro bash-completion_test-with-shell-harness (bashrc &rest body)
   `(bash-completion_test-harness
+    ,bashrc
     (let ((shell-buffer))
       (unwind-protect
 	  (progn
@@ -65,7 +66,9 @@
 	    (while (accept-process-output nil 0.6))
 	    ;; do a completion and return the result
 	    (with-current-buffer shell-buffer
-              (let ((comint-dynamic-complete-functions '(bash-completion-dynamic-complete)))
+              (let ((comint-dynamic-complete-functions '(bash-completion-dynamic-complete))
+                    (bash-major-version (process-get (bash-completion-require-process)
+                                                     'bash-major-version)))
                 (progn ,@body))))
         (progn ;; finally
           (when (and shell-buffer (buffer-live-p shell-buffer))
@@ -81,7 +84,7 @@
   (buffer-substring-no-properties
    (comint-line-beginning-position) (point)))
 
-(defun bash-completion_test-setup-env ()
+(defun bash-completion_test-setup-env (bashrc)
   "Sets up a directory that contains a bashrc file other files
 for testing completion."
   (let ((test-env-dir (make-temp-file
@@ -93,13 +96,7 @@ for testing completion."
         test-env-dir
       (with-temp-file (expand-file-name "bashrc" test-env-dir)
         (insert (format "cd '%s'\n" test-env-dir))
-        (insert "function somefunction { echo ok; }\n")
-        (insert "function someotherfunction { echo ok; }\n")
-        (insert "function _dummy_complete {\n")
-        (insert "  if [[ ${COMP_WORDS[COMP_CWORD]} == du ]]; then COMPREPLY=(dummy); fi\n")
-        (insert "}\n")
-        (insert "complete -F _dummy_complete -o filenames somefunction\n")
-        (insert "complete -F _dummy_complete -o default -o filenames someotherfunction\n"))
+        (insert bashrc))
       (let ((default-directory test-env-dir))
         (make-directory "some/directory" 'parents)
         (make-directory "some/other/directory" 'parents)))))
@@ -113,15 +110,22 @@ for testing completion."
 
 (ert-deftest bash-completion-integration-setenv-test ()
   (bash-completion_test-harness
+   ""
    (bash-completion-send "echo $EMACS_BASH_COMPLETE")
    (with-current-buffer (bash-completion-buffer)
      (should (equal "t\n" (buffer-string))))))
 
 (ert-deftest bash-completion-integration-completion-test ()
   (bash-completion_test-with-shell-harness
-   (bash-completion-integration-test-complete)))
+   (concat ; .bashrc
+    "function somefunction { echo ok; }\n"
+    "function someotherfunction { echo ok; }\n"
+    "function _dummy_complete {\n"
+    "  if [[ ${COMP_WORDS[COMP_CWORD]} == du ]]; then COMPREPLY=(dummy); fi\n"
+    "}\n"
+    "complete -F _dummy_complete -o filenames somefunction\n"
+    "complete -F _dummy_complete -o default -o filenames someotherfunction\n")
 
-(defun bash-completion-integration-test-complete ()
    ;; complete bash builtin
    (should (equal "readonly "
                   (bash-completion_test-complete "reado")))
@@ -140,6 +144,25 @@ for testing completion."
    ;; wordbreak completion
    (should (equal "export SOMEPATH=some/directory:some/other/"
                   (bash-completion_test-complete
-                   "export SOMEPATH=some/directory:some/oth"))))
+                   "export SOMEPATH=some/directory:some/oth")))))
+
+(ert-deftest bash-completion-integration-bash-4-default-completion ()
+  (bash-completion_test-with-shell-harness
+   (concat ; .bashrc
+    "function _default {\n"
+    "  if [[ ${COMP_WORDS[0]} == dosomething ]]; then\n"
+    "    complete -F _dummy_complete ${COMP_WORDS[0]}\n"
+    "    return 124\n"
+    "  fi\n"
+    "}\n"
+    "function _dummy_complete {\n"
+    "  if [[ ${COMP_WORDS[COMP_CWORD]} == du ]]; then COMPREPLY=(dummy); fi\n"
+    "}\n"
+    "complete -D -F _default\n")
+   (when (>= bash-major-version 4)
+     (should (equal "dosomething dummy "
+                    (bash-completion_test-complete "dosomething du")))
+     (should (equal "dosomethingelse du"
+                      (bash-completion_test-complete "dosomethingelse du"))))))
 
 ;;; bash-completion-integration-test.el ends here
