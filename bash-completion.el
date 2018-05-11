@@ -927,7 +927,6 @@ is set to t."
       (let ((process) (oldterm (getenv "TERM")) (cleanup t) (bash-major-version))
         (unwind-protect
             (progn
-              (setenv "EMACS_BASH_COMPLETE" "t")
               (setenv "TERM" "dumb")
               (let* ((start-proc-fun (if remote #'start-file-process #'start-process))
                      (buffer-name (generate-new-buffer-name " bash-completion"))
@@ -949,6 +948,7 @@ is set to t."
                   ;; user
                   (setq process (apply start-proc-fun args))))
               (set-process-query-on-exit-flag process nil)
+              (process-send-string process "EMACS_BASH_COMPLETE=t\n")
               (dolist (start-file bash-completion-start-files)
                 (when (file-exists-p (bash-completion--expand-file-name start-file))
                   (process-send-string process (concat ". " start-file "\n"))))
@@ -1001,7 +1001,6 @@ is set to t."
               process)
           ;; finally
           (progn
-            (setenv "EMACS_BASH_COMPLETE" nil)
             (setenv "TERM" oldterm)
             (when cleanup
               (condition-case nil
