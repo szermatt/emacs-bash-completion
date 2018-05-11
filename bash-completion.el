@@ -153,6 +153,15 @@ for command-line completion."
   :type '(file :must-match t)
   :group 'bash-completion)
 
+(defcustom bash-completion-remote-prog "bash"
+  "Name or path of the remote BASH executable to use.
+
+This is the path of an BASH executable available on the remote machine.
+Best is to just specify \"bash\" and rely on the PATH being set correctly
+for the remote connection."
+  :type '(string)
+  :group 'bash-completion)
+
 (defcustom bash-completion-args '("--noediting")
   "Args passed to the BASH shell."
   :type '(repeat (string :tag "Argument"))
@@ -924,7 +933,7 @@ is set to t."
                      (buffer-name (generate-new-buffer-name " bash-completion"))
                      (args `("*bash-completion*"
                              ,buffer-name
-                             ,bash-completion-prog
+                             ,(if remote bash-completion-remote-prog bash-completion-prog)
                              ,@bash-completion-args)))
                 (when remote
                   ;; See http://lists.gnu.org/archive/html/tramp-devel/2016-05/msg00004.html
@@ -1179,7 +1188,10 @@ Return the status code of the command, as a number."
       (process-send-string process (concat commandline "\n"))
       (while (not (progn (goto-char 1) (search-forward "\v" nil t)))
 	(unless (accept-process-output process timeout)
-	  (error "Timeout while waiting for an answer from bash-completion process")))
+	  (error (concat
+                  "Timeout while waiting for an answer from "
+                  "bash-completion process.\nProcess output: <<<EOF\n%sEOF")
+                 (buffer-string))))
       (let* ((control-v-position (point))
 	     (control-t-position (progn (search-backward "\t" nil t) (point)))
 	     (status-code (string-to-number
