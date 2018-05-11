@@ -144,7 +144,7 @@ BASH completion is only available in the environment for which
   :type '(boolean)
   :group 'bash-completion)
 
-(defcustom bash-completion-prog "/bin/bash"
+(defcustom bash-completion-prog (executable-find "bash")
   "Name or path of the BASH executable to run for command-line completion.
 This should be either an absolute path to the BASH executable or
 the name of the bash command if it is on Emacs' PATH.  This
