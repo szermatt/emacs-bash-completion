@@ -214,6 +214,20 @@ beginning of a bash completion subprocess.")
 (defvar bash-completion-wordbreaks ""
   "Extra wordbreaks to use when tokenizing, in `bash-completion-tokenize'")
 
+(defcustom bash-completion-enable-caching nil
+  "If non-nil, enable caching of completion results.
+
+When caching is enabled, completion results are agressivly reused
+across calls. When asked for completing a stub, and the last call
+asked for completing a prefix of that stub, the result of the
+last completion command will be reused, after filtering, if any
+are found.
+
+This assumption might no hold true for the most dynamic
+completions."
+  :type 'boolean
+  :group 'bash-completion)
+
 ;;; ---------- Internal variables and constants
 
 (defvar bash-completion-processes nil
@@ -398,16 +412,66 @@ Returns (list stub-start stub-end completions) with
        stub-start
        comp-pos
        (cond
-        ((and dynamic-table (bash-completion--reuse-last-p process comp))
+        ;; reuse previous completion function, if compatible.
+        ((and dynamic-table
+              bash-completion-enable-caching
+              (bash-completion--reuse-last-p process comp)
+              (stringp (funcall (process-get process 'last-comp-func)
+                                (bash-completion--unparsed-stub comp) nil nil)))
          (process-get process 'last-comp-func))
+
+        ;; return completion function and keep it, for next time
         (dynamic-table
-         (let ((comp-func (bash-completion--completion-table-with-cache
-                           (lambda (_)
-                             (bash-completion-comm comp process)))))
-           (process-put process 'last-comp comp)
+         (let ((comp-func (bash-completion--completion-func
+                           comp (lambda (_)
+                                  (prog1 (bash-completion-comm comp process)
+                                    (process-put process 'last-comp comp))))))
+           (process-put process 'last-comp nil) ; set in lambda, once it's run
            (process-put process 'last-comp-func comp-func)
            comp-func))
+
+        ;; return a collection
         (t (bash-completion-comm comp process)))))))
+
+(defun bash-completion--completion-func (comp fun)
+  "Transform FUN into a reusable dynamic completion table.
+
+This function works like `completion-table-dynamic', but with
+caching and support for appending a space after a single
+completion."
+  (let ((comp-func (bash-completion--completion-table-with-cache fun)))
+    (lambda (string prod action)
+      (let ((result (funcall comp-func string prod action)))
+        (cond
+         ;; nothing to change
+         ((bash-completion--nospace comp) result)
+
+         ;; try-completion, exact match
+         ((and (null action)
+               (stringp result)
+               (not (string-suffix-p " " string))
+               (and (= 1 (length (funcall comp-func string prod t)))))
+          (concat result " "))
+
+         ;; try-completion or test-completion, no match
+         ((and (or (null action) (eq action 'lambda))
+               (eq result nil)
+               (string-suffix-p " " string)
+               (eq t (funcall comp-func
+                              (substring string 0 (1- (length string)))
+                              prod
+                              'lambda)))
+          t)
+
+         ;; all-completions one match
+         ((and (eq action t)
+               (listp result)
+               (= 1 (length result))
+               (stringp (car result))
+               (not (string-suffix-p " " (car result))))
+          (list (concat (car result) " ")))
+
+         (t result))))))
 
 (defun bash-completion--reuse-last-p (process comp)
   "Check whether the PROCESS's last completion function can be reused for COMP."
