@@ -397,11 +397,27 @@ Returns (list stub-start stub-end completions) with
       (list
        stub-start
        comp-pos
-       (if dynamic-table
-           (bash-completion--completion-table-with-cache
-            (lambda (_)
-              (bash-completion-comm comp process)))
-         (bash-completion-comm comp process))))))
+       (cond
+        ((and dynamic-table (bash-completion--reuse-last-p process comp))
+         (process-get process 'last-comp-func))
+        (dynamic-table
+         (let ((comp-func (bash-completion--completion-table-with-cache
+                           (lambda (_)
+                             (bash-completion-comm comp process)))))
+           (process-put process 'last-comp comp)
+           (process-put process 'last-comp-func comp-func)
+           comp-func))
+        (t (bash-completion-comm comp process)))))))
+
+(defun bash-completion--reuse-last-p (process comp)
+  "Check whether the PROCESS's last completion function can be reused for COMP."
+  (let ((last-comp (process-get process 'last-comp)))
+    (and last-comp
+         (= (bash-completion--cword comp)
+            (bash-completion--cword last-comp))
+         (string-prefix-p
+          (bash-completion--line last-comp)
+          (bash-completion--line comp)))))
 
 (defun bash-completion--find-last (elt array)
   "Return the position of the last intance of ELT in array or nil."
