@@ -764,16 +764,16 @@ for directory name detection to work."
 
     ;; build rest by removing parsed-prefix from str
     (cond
-     ((bash-completion-starts-with str parsed-prefix)
+     ((string-prefix-p parsed-prefix str)
       (setq rest (substring str (length parsed-prefix))))
 
      ;; unexpand the home directory expanded by bash automatically
-     ((and (bash-completion-starts-with parsed-prefix "~")
-           (bash-completion-starts-with str (bash-completion--expand-file-name "~" t)))
+     ((and (string-prefix-p "~" parsed-prefix)
+           (string-prefix-p (bash-completion--expand-file-name "~" t) str))
       (setq rest (substring (concat "~" (substring str (length (bash-completion--expand-file-name "~" t))))
                             (length parsed-prefix))))
 
-     ((bash-completion-starts-with parsed-prefix str)
+     ((string-prefix-p str parsed-prefix)
       ;; completion is a substring of prefix something's gone
       ;; wrong. Treat it as one (useless) candidate.
       (setq unparsed-prefix "")
@@ -782,9 +782,9 @@ for directory name detection to work."
      ;; completion sometimes only applies to the last word, as
      ;; defined by COMP_WORDBREAKS. This detects and works around
      ;; this feature.
-     ((bash-completion-starts-with
-       (setq rebuilt (concat (bash-completion-before-last-wordbreak parsed-prefix wordbreaks) str))
-       parsed-prefix)
+     ((string-prefix-p
+       parsed-prefix
+       (setq rebuilt (concat (bash-completion-before-last-wordbreak parsed-prefix wordbreaks) str)))
       (setq rest (substring rebuilt (length parsed-prefix))))
 
      ;; there is no meaningful link between the prefix and
@@ -886,14 +886,6 @@ Return a CONS containing (before . after)."
   (let ((str-len (length str)))
     (and (>= str-len 1)
          (aref str (1- str-len)))))
-
-(defun bash-completion-starts-with (str prefix)
-  "Return t if STR starts with PREFIX."
-  (let ((prefix-len (length prefix))
-	(str-len (length str)))
-    (and
-     (>= str-len prefix-len)
-     (string= (substring str 0 prefix-len) prefix))))
 
 ;;; ---------- Functions: bash subprocess
 

@@ -481,23 +481,6 @@ garbage
   (should (equal 5 (bash-completion--find-last ?f "abcdef")))
   (should (equal 9 (bash-completion--find-last ?d "abcdefabcdef"))))
 
-(ert-deftest bash-completion-starts-with-test ()
-  ;; empty str
-  (should (equal nil
-		 (bash-completion-starts-with "" "prefix")))
-
-  ;; starts with
-  (should (equal t
-		 (bash-completion-starts-with "blah-blah" "blah-")))
-
-  ;; does not starts with
-  (should (equal nil
-		 (bash-completion-starts-with "blah-blah" "blih-")))
-
-  ;; same
-  (should (equal t
-		 (bash-completion-starts-with "blah-" "blah-"))))
-
 (defun bash-completion-test-send (buffer-content)
   "Run `bash-completion-send' on BUFFER-CONTENT.
 Return (const return-value new-buffer-content)"
@@ -559,12 +542,6 @@ Return (const return-value new-buffer-content)"
 	   (concat "cd >/dev/null 2>&1 " (expand-file-name "~/x") " ; ")
 	   (let ((default-directory "~/x"))
 	     (bash-completion-cd-command-prefix)))))
-
-(ert-deftest bash-completion-starts-with-test ()
-  (should (equal nil (bash-completion-starts-with "" "hello ")))
-  (should (equal t (bash-completion-starts-with "hello world" "hello ")))
-  (should (equal nil (bash-completion-starts-with "hello world" "hullo ")))
-  (should (equal t (bash-completion-starts-with "hello" ""))))
 
 (ert-deftest bash-completion-last-wordbreak-split-test ()
   (let ((wordbreaks "@><=;|&(:"))
