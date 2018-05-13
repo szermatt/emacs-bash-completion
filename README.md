@@ -20,6 +20,10 @@ Unfortunately, many Emacs editing features are not available when
 running in term mode.  Also, term mode is not available in
 shell-command prompts.
 
+Bash completion can also be run programatically, outside of a
+shell-mode command, by calling
+`bash-completion-dynamic-complete-nocomint'
+
 ## INSTALLATION
 
 1. copy bash-completion.el into a directory that's on Emacs load-path
@@ -95,5 +99,6 @@ important disadvantages:
 
 ## COMPATIBILITY
 
-bash-completion.el is known to work on Emacs, starting with version
-24.1, under Linux and OSX. It does not work on XEmacs.
+bash-completion.el is known to work with Bash 3 and 4, on Emacs,
+starting with version 24.1, under Linux and OSX. It does not work on
+XEmacs.
