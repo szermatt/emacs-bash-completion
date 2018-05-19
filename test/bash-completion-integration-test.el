@@ -44,6 +44,7 @@
                     "--noprofile"
                     "--rcfile" (expand-file-name "bashrc" test-env-dir)))
              (kill-buffer-query-functions '())
+             (minibuffer-message-timeout 0)
              (default-directory test-env-dir))
          ;; Give Emacs time to process any input or process state
          ;; change from bash-completion-reset.
