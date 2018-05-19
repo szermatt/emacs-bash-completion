@@ -111,8 +111,9 @@
 ;;
 ;; COMPATIBILITY
 ;;
-;; bash-completion.el is known to work on Emacs 22 and later under
-;; Linux and OSX. It does not works on XEmacs.
+;; bash-completion.el is known to work with Bash 3 and 4, on Emacs,
+;; starting with version 24.1, under Linux and OSX. It does not work
+;; on XEmacs.
 ;;
 
 ;;; History:
@@ -147,9 +148,9 @@ BASH completion is only available in the environment for which
 (defcustom bash-completion-prog (executable-find "bash")
   "Name or path of the BASH executable to run for command-line completion.
 This should be either an absolute path to the BASH executable or
-the name of the bash command if it is on Emacs' PATH.  This
-should point to a recent version of BASH (BASH 3) with support
-for command-line completion."
+the name of the bash command if it is on Emacs' PATH. This should
+point to a recent version of BASH, 3 or 4, with support for
+command-line completion."
   :type '(file :must-match t)
   :group 'bash-completion)
 
@@ -239,13 +240,6 @@ Bash processes")
 (defconst bash-completion-special-chars "[^-0-9a-zA-Z_./\n=]"
   "Regexp of characters that must be escaped or quoted.")
 
-(defconst bash-completion-wrapped-status
-  "\e\ebash-completion-wrapped-status=124\e\e"
-  "String output by __bash_complete_wrapper when the wrapped
-function returns status code 124, meaning that the completion
-should be retried. This should be a string that's unlikely
-to be included into a completion output.")
-
 (eval-when-compile
   (unless (or (and (= emacs-major-version 24) (>= emacs-minor-version 1))
               (>= emacs-major-version 25))
@@ -274,6 +268,7 @@ to be included into a completion output.")
   open-quote     ; quote open at stub end: nil, ?' or ?\""
   compgen-args   ; compgen arguments for this command (list of strings)
   wordbreaks     ; value of COMP_WORDBREAKS active for this completion
+  compopt        ; options forced with compopt nil or `(nospace . ,bool) 
 )
 
 (defun bash-completion--type (comp)
@@ -296,10 +291,13 @@ The option can be:
  - set globally, by setting `bash-completion-nospace' to t
  - set for a customized completion, in bash, with
    '-o' 'nospace'."
-  (if bash-completion-nospace
-      t ; set globally
-    (bash-completion--has-compgen-option
-     (bash-completion--compgen-args comp) "nospace")))
+  (let ((cell))
+    (cond
+     (bash-completion-nospace t) ; set globally
+     ((setq cell (assq 'nospace (bash-completion--compopt comp)))
+      (cdr cell))
+     (t (bash-completion--has-compgen-option
+         (bash-completion--compgen-args comp) "nospace")))))
 
 (defun bash-completion--command (comp)
   "Return the current command for the completion, if there is one."
@@ -805,15 +803,23 @@ for directory name detection to work.
 Post-processing includes escaping special characters, adding a /
 to directory names, replacing STUB with UNPARSED-STUB in the
 result. See `bash-completion-fix' for more details."
-  (let ((candidates) (result (list)))
-    (setq candidates (delete-dups
-                      (with-current-buffer buffer
-                        (split-string (buffer-string) "\n" t))))
+  (let ((output) (candidates))
+    (with-current-buffer buffer
+      (let ((compopt (bash-completion--parse-side-channel-data "compopt")))
+        (cond
+         ((string= "-o nospace" compopt)
+          (setf (bash-completion--compopt comp) '((nospace . t))))
+         ((string= "+o nospace" compopt)
+          (setf (bash-completion--compopt comp) '((nospace . nil))))))
+      (setq output (buffer-string)))
+    (setq candidates (delete-dups (split-string output "\n" t)))
     (if (eq 1 (length candidates))
         (list (bash-completion-fix (car candidates) comp t))
-      (dolist (completion candidates)
-        (push (bash-completion-fix completion comp nil) result))
-      (delete-dups (nreverse result)))))
+      ;; multiple candidates
+      (let ((result (list)))
+        (dolist (completion candidates)
+          (push (bash-completion-fix completion comp nil) result))
+        (delete-dups (nreverse result))))))
 
 (defun bash-completion-fix (str comp single)
   "Fix completion candidate in STR for COMP
@@ -1060,15 +1066,43 @@ is set to t."
                     (with-current-buffer (process-buffer process)
                       (string-to-number (buffer-substring-no-properties
                                          (point-min) (point-max)))))
-              (bash-completion-send (concat "function __bash_complete_wrapper {"
-                                            (if (>= bash-major-version 4)
-                                                " COMP_TYPE=9; COMP_KEY=9;" "")
-                                            " eval $__BASH_COMPLETE_WRAPPER;"
-                                            " n=$?; if [[ $n = 124 ]]; then"
-                                            "  echo -n \""
-                                            bash-completion-wrapped-status
-                                            "\"; return 1; "
-                                            " fi; }") process)
+              (bash-completion-send
+               (concat "function __bash_complete_wrapper {"
+                       (if (>= bash-major-version 4)
+                           " COMP_TYPE=9; COMP_KEY=9; _EMACS_COMPOPT=\"\";"
+                         "")
+                       " eval $__BASH_COMPLETE_WRAPPER;"
+                       " n=$?;"
+                       " if [[ $n = 124 ]]; then"
+                       (bash-completion--side-channel-data
+                        "wrapped-status" "124")
+                       "  return 1; "
+                       " fi; "
+                       (when (>= bash-major-version 4)
+                         (concat " if [[ -n \"${_EMACS_COMPOPT}\" ]]; then"
+                                 (bash-completion--side-channel-data
+                                  "compopt" "${_EMACS_COMPOPT}")
+                                 " fi;"))
+                       " return $n;"
+                       "}")
+               process)
+              (if (>= bash-major-version 4)
+                  (bash-completion-send
+                   (concat
+                    "function compopt {"
+                    " command compopt \"$@\" 2>/dev/null;"
+                    " ret=$?; "
+                    " if [[ $ret == 1 && \"$*\" = *\"-o nospace\"* ]]; then"
+                    "  _EMACS_COMPOPT='-o nospace';"
+                    "  return 0;"
+                    " fi;"
+                    " if [[ $ret == 1 && \"$*\" = *\"+o nospace\"* ]]; then"
+                    "  _EMACS_COMPOPT='+o nospace';"
+                    "  return 0;"
+                    " fi;"
+                    " return $ret; "
+                    "}")
+                   process))
               (bash-completion-send "echo -n ${COMP_WORDBREAKS}" process)
               (process-put process 'wordbreaks
                            (with-current-buffer (process-buffer process)
@@ -1283,16 +1317,19 @@ Return the status code of the command, as a number."
 			   (buffer-substring-no-properties
 			    (1+ control-t-position) (1- control-v-position)))))
 	(delete-region control-t-position (point-max))
-	(goto-char (point-min))
-	(let ((case-fold-search nil))
-	  (when (search-forward bash-completion-wrapped-status nil t)
-	    (setq status-code 124)
-	    (delete-region (match-beginning 0) (match-end 0))))
 	;; (message "status: %d content: \"%s\""
 	;; 	 status-code
 	;; 	 (buffer-substring-no-properties
 	;; 	  (point-min) (point-max)))
-	status-code))))
+        (if (string=
+               "124"
+               (bash-completion--parse-side-channel-data "wrapped-status"))
+            124
+          status-code)))))
+
+(defun bash-completion--get-output (process)
+  "Return the output of the last command sent through `bash-completion-send'."
+  (with-current-buffer (process-buffer process) (buffer-string)))
 
 (defun bash-completion--expand-file-name (name &optional local-part-only)
   (let* ((remote (file-remote-p default-directory))
@@ -1314,6 +1351,30 @@ Return the status code of the command, as a number."
         (setq found t))
       (setq rest (cdr rest)))
     found))
+
+(defun bash-completion--side-channel-data (name value)
+  "Return an echo command that outputs NAME=VALUE as side-channel data.
+
+Parse that data from the buffer output using
+`bash-completion--side-channel-data'."
+  (format " echo -n \"\e\e%s=%s\e\e\";" name value))
+
+(defun bash-completion--parse-side-channel-data (name)
+  "Parse side-channel data NAME from the current buffer.
+
+This parses data added by `bash-completion--side-channel-data'
+being run by the shell and removes it from the buffer.
+
+Return the parsed value, as a string or nil."
+  (save-excursion
+    (goto-char (point-min))
+    (let ((case-fold-search nil))
+      (when (search-forward-regexp
+             (format "\e\e%s=\\([^\e]*\\)\e\e"
+                     (regexp-quote name))
+             nil 'noerror)
+        (prog1 (match-string 1)
+          (delete-region (match-beginning 0) (match-end 0)))))))
 
 (provide 'bash-completion)
 ;;; bash-completion.el ends here

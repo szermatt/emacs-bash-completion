@@ -44,6 +44,7 @@
                     "--noprofile"
                     "--rcfile" (expand-file-name "bashrc" test-env-dir)))
              (kill-buffer-query-functions '())
+             (minibuffer-message-timeout 0)
              (default-directory test-env-dir))
          ;; Give Emacs time to process any input or process state
          ;; change from bash-completion-reset.
@@ -164,5 +165,50 @@ for testing completion."
                     (bash-completion_test-complete "dosomething du")))
      (should (equal "dosomethingelse du"
                       (bash-completion_test-complete "dosomethingelse du"))))))
+
+(ert-deftest bash-completion-integration-bash-4-compopt ()
+  (bash-completion_test-with-shell-harness
+   (concat ; .bashrc
+    "function _sometimes_nospace {\n"
+    "  if [[ ${COMP_WORDS[COMP_CWORD]} == du ]]; then\n"
+    "    COMPREPLY=(dummy)\n"
+    "  fi\n"
+    "  if [[ ${COMP_WORDS[COMP_CWORD]} == dum ]]; then\n"
+    "    COMPREPLY=(dummyo)\n"
+    "    compopt -o nospace\n"
+    "  fi\n"
+    "}\n"
+    "function _sometimes_not_nospace {\n"
+    "  if [[ ${COMP_WORDS[COMP_CWORD]} == du ]]; then\n"
+    "    COMPREPLY=(dummy)\n"
+    "  fi\n"
+    "  if [[ ${COMP_WORDS[COMP_CWORD]} == dum ]]; then \n"
+    "    COMPREPLY=(dummyo)\n"
+    "    compopt +o nospace\n"
+    "  fi\n"
+    "}\n"
+    "complete -F _sometimes_nospace sometimes_nospace\n"
+    "complete -F _sometimes_not_nospace -o nospace sometimes_not_nospace\n")
+   (when (>= bash-major-version 4)
+     (should (equal
+              "sometimes_nospace dummy "
+              (bash-completion_test-complete "sometimes_nospace du")))
+     (should (equal
+              "sometimes_nospace dummyo"
+              (bash-completion_test-complete "sometimes_nospace dum")))
+     (should (equal
+              "sometimes_not_nospace dummy"
+              (bash-completion_test-complete "sometimes_not_nospace du")))
+     (should (equal
+              "sometimes_not_nospace dummyo "
+              (bash-completion_test-complete "sometimes_not_nospace dum")))
+     (let ((bash-completion-nospace t)) ;; never nospace
+       (should (equal
+                "sometimes_nospace dummy"
+                (bash-completion_test-complete "sometimes_nospace du")))
+       (should (equal
+                "sometimes_not_nospace dummyo"
+                (bash-completion_test-complete "sometimes_not_nospace dum")))))))
+
 
 ;;; bash-completion-integration-test.el ends here

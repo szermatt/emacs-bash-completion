@@ -524,7 +524,7 @@ Return (const return-value new-buffer-content)"
   (should (equal
 	   (cons 124 "line1\nline2\n")
 	   (bash-completion-test-send
-	    (concat "line1\nli" bash-completion-wrapped-status "ne2\n\t0\v")))))
+	    (concat "line1\nli\e\ewrapped-status=124\e\ene2\n\t0\v")))))
 
 (ert-deftest bash-completion-cd-command-prefix-test ()
   ;; no current dir
@@ -763,6 +763,47 @@ Return (const return-value new-buffer-content)"
       '("hello" "hellish" "hellow")
       (bash-completion-test-with-buffer
        "hello\nhellish\nhello\nhellow\n"
+       (bash-completion-extract-candidates
+        (bash-completion--make :stub "hell"
+                               :unparsed-stub "hell"
+                               :wordbreaks ""
+                               :cword 1)
+        (current-buffer)))))))
+
+(ert-deftest bash-completion-extract-candidates-compopt-test ()
+  (let ((bash-completion-nospace nil))
+    (should
+     (equal
+      '("hello")
+      (bash-completion-test-with-buffer
+       "\e\ecompopt=-o nospace\e\ehello\n"
+       (bash-completion-extract-candidates
+        (bash-completion--make :stub "hell"
+                               :unparsed-stub "hell"
+                               :wordbreaks ""
+                               :cword 1)
+        (current-buffer)))))
+
+    (should
+     (equal
+      '("hello ")
+      (bash-completion-test-with-buffer
+       "\e\ecompopt=+o nospace\e\ehello\n"
+       (bash-completion-extract-candidates
+        (bash-completion--make :stub "hell"
+                               :unparsed-stub "hell"
+                               :wordbreaks ""
+                               :cword 1
+                               :compgen-args '("-o" "nospace"))
+        (current-buffer)))))))
+
+(ert-deftest bash-completion-extract-candidates-ignore-compopt-test ()
+  (let ((bash-completion-nospace t))
+    (should
+     (equal
+      '("hello")
+      (bash-completion-test-with-buffer
+       "hello\n\e\ecompopt=+o nospace\e\e"
        (bash-completion-extract-candidates
         (bash-completion--make :stub "hell"
                                :unparsed-stub "hell"
@@ -1172,5 +1213,23 @@ before calling `bash-completion-dynamic-complete-nocomint'.
   (should (equal nil (bash-completion--has-compgen-option
                       '("-o") "any")))
   (should (equal nil (bash-completion--has-compgen-option '() "any"))))
+
+(ert-deftest bash-completion--parse-side-channel-data ()
+  (bash-completion-test-with-buffer
+   "test\ntest\e\ename=value\e\e\ntest"
+   (should (equal
+            "value"
+            (bash-completion--parse-side-channel-data "name")))
+   (should (equal "test\ntest\ntest" (buffer-string))))
+  ;; leave other data alone
+  (bash-completion-test-with-buffer
+   "test\ntest\e\eothername=value\e\e\ntest"
+   (should (null (bash-completion--parse-side-channel-data "name")))
+   (should (equal "test\ntest\e\eothername=value\e\e\ntest" (buffer-string))))
+  ;; name can contain chars special for regexps
+  (bash-completion-test-with-buffer 
+   "\e\ename*=value\e\etest"
+   (should (equal "value" (bash-completion--parse-side-channel-data "name*")))
+   (should (equal "test" (buffer-string)))))
 
 ;;; bash-completion_test.el ends here
