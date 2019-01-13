@@ -487,21 +487,31 @@ Returns (list stub-start stub-end completions) with
    or a function, if DYNAMIC-TABLE is non-nil, a lambda such as the one
    returned by `completion-table-dynamic'"
   (when bash-completion-enabled
-    (let* ((process (bash-completion-require-process))
-           (comp (bash-completion--parse
-                  comp-start comp-pos
-                  (process-get process 'wordbreaks)
-                  (process-get process 'bash-major-version)))
-	   (stub-start (bash-completion--stub-start comp)))
-      (bash-completion--customize comp process)
-      (list
-       stub-start
-       comp-pos
-       (if dynamic-table
-           (bash-completion--completion-table-with-cache
-            (lambda (_)
-              (bash-completion-comm comp process)))
-         (bash-completion-comm comp process))))))
+    (let ((bash-completion-use-separate-processes
+           bash-completion-use-separate-processes)
+          (process (bash-completion-require-process)))
+      (when (and (not process) (not bash-completion-use-separate-processes))
+        ;; no process associated with the current buffer, create a
+        ;; separate completion process
+        (setq bash-completion-use-separate-processes t)
+        (setq process (bash-completion-require-process)))
+      (let* ((comp (bash-completion--parse
+                    comp-start comp-pos
+                    (process-get process 'wordbreaks)
+                    (process-get process 'bash-major-version)))
+             (stub-start (bash-completion--stub-start comp))
+             (use-separate-processes bash-completion-use-separate-processes))
+        (bash-completion--customize comp process)
+        (list
+         stub-start
+         comp-pos
+         (if dynamic-table
+             (bash-completion--completion-table-with-cache
+              (lambda (_)
+                (let ((bash-completion-use-separate-processes
+                       use-separate-processes))
+                  (bash-completion-comm comp process))))
+           (bash-completion-comm comp process)))))))
 
 (defun bash-completion--find-last (elt array)
   "Return the position of the last intance of ELT in array or nil."
@@ -1103,7 +1113,7 @@ is set to t."
 (defun bash-completion--require-same-process ()
   "Setup the process associated with the current buffer and return it."
   (let ((process (get-buffer-process (current-buffer))))
-    (unless (process-get process 'complete-p)
+    (unless (or (not process) (process-get process 'complete-p))
       (bash-completion--setup-bash-common process))
     process))
 
