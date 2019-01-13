@@ -145,12 +145,21 @@ BASH completion is only available in the environment for which
   :type '(boolean)
   :group 'bash-completion)
 
+(defcustom bash-completion-use-separate-processes t
+  "Enable/disable the use of separate processes to do the completion."
+  :type 'boolean
+  :group 'bash-completion)
+
 (defcustom bash-completion-prog (executable-find "bash")
   "Name or path of the BASH executable to run for command-line completion.
+
 This should be either an absolute path to the BASH executable or
 the name of the bash command if it is on Emacs' PATH. This should
 point to a recent version of BASH, 3 or 4, with support for
-command-line completion."
+command-line completion.
+
+This variable is not used if
+`bash-completion-use-separate-processes' is nil."
   :type '(file :must-match t)
   :group 'bash-completion)
 
@@ -159,17 +168,24 @@ command-line completion."
 
 This is the path of an BASH executable available on the remote machine.
 Best is to just specify \"bash\" and rely on the PATH being set correctly
-for the remote connection."
+for the remote connection.
+
+This variable is not used if
+`bash-completion-use-separate-processes' is nil."
   :type '(string)
   :group 'bash-completion)
 
 (defcustom bash-completion-args '("--noediting")
-  "Args passed to the BASH shell."
+  "Args passed to the BASH shell.
+
+This variable is not used if
+`bash-completion-use-separate-processes' is nil."
   :type '(repeat (string :tag "Argument"))
   :group 'bash-completion)
 
 (defcustom bash-completion-process-timeout 2.5
   "Number of seconds to wait for an answer from bash.
+
 If bash takes longer than that to answer, the answer will be
 ignored."
   :type '(float)
@@ -189,8 +205,12 @@ Only relevant when using bash completion in a shell, through
 
 (defcustom bash-completion-initial-timeout 30
   "Timeout value to apply when talking to bash for the first time.
+
 The first thing bash is supposed to do is process /etc/bash_complete,
-which typically takes a long time."
+which typically takes a long time.
+
+This variable is not used if
+`bash-completion-use-separate-processes' is nil."
   :type '(float)
   :group 'bash-completion)
 
@@ -209,11 +229,19 @@ to remove the extra space bash adds after a completion."
 
 (defvar bash-completion-start-files
   '("~/.emacs_bash.sh" "~/.emacs.d/init_bash.sh")
-  "Shell files that, if they exist, will be sourced at the
-beginning of a bash completion subprocess.")
+  "Shell files that, if they exist, will be sourced at the beginning of a bash completion subprocess.
+
+This variable is not used if
+`bash-completion-use-separate-processes' is nil.")
 
 (defvar bash-completion-wordbreaks ""
-  "Extra wordbreaks to use when tokenizing, in `bash-completion-tokenize'")
+  "Extra wordbreaks to use when tokenizing, in `bash-completion-tokenize'.")
+
+(defvar bash-completion-output-buffer " *bash-completion*"
+  "Buffer storing completion results.
+
+This variable is not used when
+`bash-completion-use-separate-processes' is non-nil.")
 
 ;;; ---------- Internal variables and constants
 
@@ -221,7 +249,10 @@ beginning of a bash completion subprocess.")
   "Bash processes alist.
 
 Mapping between remote paths as returned by `file-remote-p' and
-Bash processes")
+Bash processes.
+
+This variable is not used if
+`bash-completion-use-separate-processes' is nil.")
 
 (defconst bash-completion-special-chars "[^-0-9a-zA-Z_./\n=]"
   "Regexp of characters that must be escaped or quoted.")
@@ -288,6 +319,77 @@ The option can be:
 (defun bash-completion--command (comp)
   "Return the current command for the completion, if there is one."
   (file-name-nondirectory (car (bash-completion--words comp))))
+
+(defun bash-completion--get-buffer (process)
+  "Return the buffer used to store completion results.
+
+PROCESS is the bash process from which completions are
+retrieved. When `bash-completion-use-separate-processes' is nil,
+PROCESS is not used and `bash-completion-output-buffer' is
+returned."
+  (if bash-completion-use-separate-processes
+      (process-buffer process)
+    (get-buffer-create bash-completion-output-buffer)))
+
+(defun bash-completion--setup-bash-common (process)
+  "Setup PROCESS to be ready for completion."
+  (let (bash-major-version)
+    (bash-completion-send "complete -p" process)
+    (process-put process 'complete-p
+                 (bash-completion-build-alist (bash-completion--get-buffer process)))
+    (bash-completion-send "echo -n ${BASH_VERSINFO[0]}" process)
+    (setq bash-major-version
+          (with-current-buffer (bash-completion--get-buffer process)
+            (string-to-number (buffer-substring-no-properties
+                               (point-min) (point-max)))))
+    (bash-completion-send
+     (concat "function __bash_complete_wrapper {"
+             (if (>= bash-major-version 4)
+                 " COMP_TYPE=9; COMP_KEY=9; _EMACS_COMPOPT=\"\";"
+               "")
+             " eval $__BASH_COMPLETE_WRAPPER;"
+             " n=$?;"
+             " if [[ $n = 124 ]]; then"
+             (bash-completion--side-channel-data
+              "wrapped-status" "124")
+             "  return 1; "
+             " fi; "
+             (when (>= bash-major-version 4)
+               (concat " if [[ -n \"${_EMACS_COMPOPT}\" ]]; then"
+                       (bash-completion--side-channel-data
+                        "compopt" "${_EMACS_COMPOPT}")
+                       " fi;"))
+             " return $n;"
+             "}")
+     process)
+    (if (>= bash-major-version 4)
+        (bash-completion-send
+         (concat
+          "function compopt {"
+          " command compopt \"$@\" 2>/dev/null;"
+          " ret=$?; "
+          " if [[ $ret == 1 && \"$*\" = *\"-o nospace\"* ]]; then"
+          "  _EMACS_COMPOPT='-o nospace';"
+          "  return 0;"
+          " fi;"
+          " if [[ $ret == 1 && \"$*\" = *\"+o nospace\"* ]]; then"
+          "  _EMACS_COMPOPT='+o nospace';"
+          "  return 0;"
+          " fi;"
+          " return $ret; "
+          "}")
+         process))
+    (bash-completion-send "echo -n ${COMP_WORDBREAKS}" process)
+    (process-put process 'wordbreaks
+                 (with-current-buffer (bash-completion--get-buffer process)
+                   (buffer-substring-no-properties
+                    (point-min) (point-max))))
+    (process-put process 'bash-major-version bash-major-version)))
+
+(defun bash-completion--output-filter (output)
+  (with-current-buffer (bash-completion--get-buffer nil)
+    (insert output)
+    ""))
 
 ;;; ---------- Inline functions
 
@@ -695,7 +797,7 @@ up the completion environment (COMP_LINE, COMP_POINT, COMP_WORDS,
 COMP_CWORD) and calls compgen.
 
 The result is a list of candidates, which might be empty."
-  (let* ((buffer (process-buffer process))
+  (let* ((buffer (bash-completion--get-buffer process))
          (completion-status))
     (setq completion-status (bash-completion-send (bash-completion-generate-line comp) process))
     (when (eq 124 completion-status)
@@ -903,7 +1005,7 @@ Return a CONS containing (before . after)."
 
 ;;; ---------- Functions: bash subprocess
 
-(defun bash-completion-require-process ()
+(defun bash-completion--require-separate-process ()
   "Return the bash completion process or start it.
 
 If a bash completion process is already running, return it.
@@ -930,7 +1032,7 @@ is set to t."
     (if (bash-completion-is-running)
         (cdr (assoc remote bash-completion-processes))
       ;; start process
-      (let ((process) (oldterm (getenv "TERM")) (cleanup t) (bash-major-version))
+      (let (process (oldterm (getenv "TERM")) (cleanup t))
         (unwind-protect
             (progn
               (setenv "TERM" "dumb")
@@ -984,59 +1086,8 @@ is set to t."
                 ;; business to get a saner way of handling spaces.
                 ;; Noticed in bash_completion v1.872.
                 "function quote_readline { echo \"$1\"; }\n"))
-
               (bash-completion-send "PROMPT_COMMAND='';PS1='\t$?\v'" process bash-completion-initial-timeout)
-              (bash-completion-send "complete -p" process)
-              (process-put process 'complete-p
-                           (bash-completion-build-alist (process-buffer process)))
-              (bash-completion-send "echo -n ${BASH_VERSINFO[0]}" process)
-              (setq bash-major-version
-                    (with-current-buffer (process-buffer process)
-                      (string-to-number (buffer-substring-no-properties
-                                         (point-min) (point-max)))))
-              (bash-completion-send
-               (concat "function __bash_complete_wrapper {"
-                       (if (>= bash-major-version 4)
-                           " COMP_TYPE=9; COMP_KEY=9; _EMACS_COMPOPT=\"\";"
-                         "")
-                       " eval $__BASH_COMPLETE_WRAPPER;"
-                       " n=$?;"
-                       " if [[ $n = 124 ]]; then"
-                       (bash-completion--side-channel-data
-                        "wrapped-status" "124")
-                       "  return 1; "
-                       " fi; "
-                       (when (>= bash-major-version 4)
-                         (concat " if [[ -n \"${_EMACS_COMPOPT}\" ]]; then"
-                                 (bash-completion--side-channel-data
-                                  "compopt" "${_EMACS_COMPOPT}")
-                                 " fi;"))
-                       " return $n;"
-                       "}")
-               process)
-              (if (>= bash-major-version 4)
-                  (bash-completion-send
-                   (concat
-                    "function compopt {"
-                    " command compopt \"$@\" 2>/dev/null;"
-                    " ret=$?; "
-                    " if [[ $ret == 1 && \"$*\" = *\"-o nospace\"* ]]; then"
-                    "  _EMACS_COMPOPT='-o nospace';"
-                    "  return 0;"
-                    " fi;"
-                    " if [[ $ret == 1 && \"$*\" = *\"+o nospace\"* ]]; then"
-                    "  _EMACS_COMPOPT='+o nospace';"
-                    "  return 0;"
-                    " fi;"
-                    " return $ret; "
-                    "}")
-                   process))
-              (bash-completion-send "echo -n ${COMP_WORDBREAKS}" process)
-              (process-put process 'wordbreaks
-                           (with-current-buffer (process-buffer process)
-                             (buffer-substring-no-properties
-                              (point-min) (point-max))))
-              (process-put process 'bash-major-version bash-major-version)
+              (bash-completion--setup-bash-common process)
               (push (cons remote process) bash-completion-processes)
               (setq cleanup nil)
               process)
@@ -1048,6 +1099,24 @@ is set to t."
               (condition-case nil
                   (bash-completion-kill process)
                 (error nil)))))))))
+
+(defun bash-completion--require-same-process ()
+  "Setup the process associated with the current buffer and return it."
+  (let ((process (get-buffer-process (current-buffer))))
+    (unless (process-get process 'complete-p)
+      (bash-completion--setup-bash-common process))
+    process))
+
+(defun bash-completion-require-process ()
+  "Setup and return a bash completion process.
+
+If `bash-completion-use-separate-processes' is non-nil,
+`bash-completion--require-separate-process' is called to get the
+process, otherwise `bash-completion--require-same-process' is
+used. "
+  (if bash-completion-use-separate-processes
+      (bash-completion--require-separate-process)
+    (bash-completion--require-same-process)))
 
 (defun bash-completion-cd-command-prefix ()
   "Build a command-line that CD to default-directory.
@@ -1123,7 +1192,9 @@ completion candidates."
         (completion-type (bash-completion--type comp))
         (compgen-args (bash-completion--compgen-args comp)))
     (concat
-     (bash-completion-cd-command-prefix)
+     (if bash-completion-use-separate-processes
+         (bash-completion-cd-command-prefix)
+       "")
      (cond
       ((eq 'command completion-type)
        (concat "compgen -b -c -a -A function -- " quoted-stub))
@@ -1194,13 +1265,13 @@ and would like bash completion in Emacs to take these changes into account."
   (when process
     (when (eq 'run (process-status process))
       (kill-process process))
-    (let ((buffer (process-buffer process)))
+    (let ((buffer (bash-completion--get-buffer process)))
       (when (buffer-live-p buffer)
 	(kill-buffer buffer)))))
 
 (defun bash-completion-buffer ()
   "Return the buffer of the BASH process, create the BASH process if necessary."
-  (process-buffer (bash-completion-require-process)))
+  (bash-completion--get-buffer (bash-completion-require-process)))
 
 (defun bash-completion-is-running ()
   "Check whether the bash completion process is running."
@@ -1212,25 +1283,12 @@ and would like bash completion in Emacs to take these changes into account."
       (setq bash-completion-processes (delq entry bash-completion-processes)))
     running))
 
-(defun bash-completion-send (commandline &optional process timeout)
-  "Send a command to the bash completion process.
+(defun bash-completion--send-separate-process (commandline &optional process timeout)
 
-COMMANDLINE should be a bash command, without the final newline.
-
-PROCESS should be the bash process, if nil this function calls
-`bash-completion-require-process' which might start a new process.
-
-TIMEOUT is the timeout value for this operation, if nil the value of
-`bash-completion-process-timeout' is used.
-
-Once this command has run without errors, you will find the result
-of the command in the bash completion process buffer.
-
-Return the status code of the command, as a number."
   ;; (message commandline)
   (let ((process (or process (bash-completion-require-process)))
 	(timeout (or timeout bash-completion-process-timeout)))
-    (with-current-buffer (process-buffer process)
+    (with-current-buffer (bash-completion--get-buffer process)
       (erase-buffer)
       (process-send-string process (concat commandline "\n"))
       (while (not (progn (goto-char 1) (search-forward "\v" nil t)))
@@ -1255,9 +1313,61 @@ Return the status code of the command, as a number."
             124
           status-code)))))
 
+(defun bash-completion--send-same-process (commandline &optional process timeout)
+  (let ((process (or process (bash-completion-require-process)))
+        (timeout (or timeout bash-completion-process-timeout))
+        (prompt-regex comint-prompt-regexp)
+        (comint-preoutput-filter-functions '(bash-completion--output-filter)))
+    (with-current-buffer (bash-completion--get-buffer process)
+      (erase-buffer)
+      (comint-send-string process (concat commandline "; echo -e \"\v$?\"" "\n"))
+      (while (not (save-excursion
+                    (forward-line 0)
+                    (re-search-forward prompt-regex nil t)))
+        (unless (accept-process-output process timeout)
+          (error (concat
+                  "Timeout while waiting for an answer from "
+                  "bash-completion process.\nProcess output: <<<EOF\n%sEOF")
+                 (buffer-string))))
+      (forward-line 0)
+      (delete-region (point) (point-max))
+      (search-backward "\v")
+      (let* ((status-code (string-to-number
+                           (buffer-substring-no-properties
+                            (point) (line-end-position)))))
+        (delete-region (point) (point-max))
+        (if (string=
+             "124"
+             (bash-completion--parse-side-channel-data "wrapped-status"))
+            124
+          status-code)))))
+
+(defun bash-completion-send (commandline &optional process timeout)
+  "Send a command to the bash completion process.
+
+COMMANDLINE should be a bash command, without the final newline.
+
+PROCESS should be the bash process, if nil this function calls
+`bash-completion-require-process' which might start a new process
+depending on the value of
+`bash-completion-use-separate-processes'.
+
+TIMEOUT is the timeout value for this operation, if nil the value of
+`bash-completion-process-timeout' is used.
+
+Once this command has run without errors, you will find the
+result of the command in the bash completion process buffer or
+`bash-completion-output-buffer' is
+`bash-completion-use-separate-processes' is nil.
+
+Return the status code of the command, as a number."
+  (if bash-completion-use-separate-processes
+      (bash-completion--send-separate-process commandline process timeout)
+    (bash-completion--send-same-process commandline process timeout)))
+
 (defun bash-completion--get-output (process)
   "Return the output of the last command sent through `bash-completion-send'."
-  (with-current-buffer (process-buffer process) (buffer-string)))
+  (with-current-buffer (bash-completion--get-buffer process) (buffer-string)))
 
 (defun bash-completion--expand-file-name (name &optional local-part-only)
   (let* ((remote (file-remote-p default-directory))

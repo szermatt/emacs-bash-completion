@@ -21,15 +21,17 @@ running in term mode.  Also, term mode is not available in
 shell-command prompts.
 
 Bash completion can also be run programatically, outside of a
-shell-mode command, by calling
-`bash-completion-dynamic-complete-nocomint'
+shell-mode command, by setting
+`bash-completion-use-separate-processes` to a non-nil value (which is
+the default) and by calling
+`bash-completion-dynamic-complete-nocomint`.
 
 ## INSTALLATION
 
 1. copy bash-completion.el into a directory that's on Emacs load-path
 2. add this into your .emacs file:
 
-        (autoload 'bash-completion-dynamic-complete 
+        (autoload 'bash-completion-dynamic-complete
           "bash-completion"
           "BASH completion hook")
         (add-hook 'shell-dynamic-complete-functions
@@ -56,6 +58,9 @@ and then adding this to your .bashrc:
 
     . /etc/bash_completion
 
+NOTE: The following paragraph are not relevant when
+`bash-completion-use-separate-processes` is nil.
+
 Right after enabling programmable bash completion, and whenever you
 make changes to you .bashrc, call `bash-completion-reset' to make
 sure bash completion takes your new settings into account.
@@ -77,6 +82,9 @@ started from it. Processes started by bash-completion.el have
 the environment variable EMACS_BASH_COMPLETE set to t.
 
 ## CAVEATS
+
+NOTE: This section is not relevant when
+`bash-completion-use-separate-processes` is nil.
 
 Using a separate process for doing the completion has several
 important disadvantages:
