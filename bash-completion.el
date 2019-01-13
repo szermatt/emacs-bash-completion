@@ -146,7 +146,12 @@ BASH completion is only available in the environment for which
   :group 'bash-completion)
 
 (defcustom bash-completion-use-separate-processes t
-  "Enable/disable the use of separate processes to do the completion."
+  "Enable/disable the use of separate processes to perform completion.
+
+When set to a non-nil value, separate processes will be used to
+perform completion. If nil, the process associated with the
+current buffer is used to perform completion. If no process is
+associated with the current buffer, a separate process is used."
   :type 'boolean
   :group 'bash-completion)
 
@@ -158,8 +163,10 @@ the name of the bash command if it is on Emacs' PATH. This should
 point to a recent version of BASH, 3 or 4, with support for
 command-line completion.
 
-This variable is not used if
-`bash-completion-use-separate-processes' is nil."
+This variable is only used when creating separate processes for
+performing completion. See
+`bash-completion-use-separate-processes' for further
+explanation."
   :type '(file :must-match t)
   :group 'bash-completion)
 
@@ -170,16 +177,20 @@ This is the path of an BASH executable available on the remote machine.
 Best is to just specify \"bash\" and rely on the PATH being set correctly
 for the remote connection.
 
-This variable is not used if
-`bash-completion-use-separate-processes' is nil."
+This variable is only used when creating separate processes for
+performing completion. See
+`bash-completion-use-separate-processes' for further
+explanation."
   :type '(string)
   :group 'bash-completion)
 
 (defcustom bash-completion-args '("--noediting")
   "Args passed to the BASH shell.
 
-This variable is not used if
-`bash-completion-use-separate-processes' is nil."
+This variable is only used when creating separate processes for
+performing completion. See
+`bash-completion-use-separate-processes' for further
+explanation."
   :type '(repeat (string :tag "Argument"))
   :group 'bash-completion)
 
@@ -209,8 +220,10 @@ Only relevant when using bash completion in a shell, through
 The first thing bash is supposed to do is process /etc/bash_complete,
 which typically takes a long time.
 
-This variable is not used if
-`bash-completion-use-separate-processes' is nil."
+This variable is only used when creating separate processes for
+performing completion. See
+`bash-completion-use-separate-processes' for further
+explanation."
   :type '(float)
   :group 'bash-completion)
 
@@ -231,8 +244,10 @@ to remove the extra space bash adds after a completion."
   '("~/.emacs_bash.sh" "~/.emacs.d/init_bash.sh")
   "Shell files that, if they exist, will be sourced at the beginning of a bash completion subprocess.
 
-This variable is not used if
-`bash-completion-use-separate-processes' is nil.")
+This variable is only used when creating separate processes for
+performing completion. See
+`bash-completion-use-separate-processes' for further
+explanation.")
 
 (defvar bash-completion-wordbreaks ""
   "Extra wordbreaks to use when tokenizing, in `bash-completion-tokenize'.")
@@ -249,10 +264,7 @@ This variable is not used when
   "Bash processes alist.
 
 Mapping between remote paths as returned by `file-remote-p' and
-Bash processes.
-
-This variable is not used if
-`bash-completion-use-separate-processes' is nil.")
+Bash processes.")
 
 (defconst bash-completion-special-chars "[^-0-9a-zA-Z_./\n=]"
   "Regexp of characters that must be escaped or quoted.")
