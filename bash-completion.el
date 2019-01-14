@@ -150,8 +150,11 @@ BASH completion is only available in the environment for which
 
 When set to a non-nil value, separate processes will be used to
 perform completion. If nil, the process associated with the
-current buffer is used to perform completion. If no process is
-associated with the current buffer, a separate process is used."
+current buffer is used to perform completion. Even when this
+variable is set to nil, a separate process can be used to perform
+completion when:
+- no process is associated with the current buffer
+- an error occurred while trying to get completions"
   :type 'boolean
   :group 'bash-completion)
 
@@ -480,6 +483,17 @@ When doing completion outside of a comint buffer, call
   (if (fboundp 'completion-table-with-cache)
       'completion-table-with-cache 'completion-table-dynamic))
 
+(defun bash-completion--complete (comp process)
+  (condition-case err
+      (bash-completion-comm comp process)
+    (error (if (not bash-completion-use-separate-processes)
+               ;; try again with a separate process
+               (let* ((bash-completion-use-separate-processes t)
+                      (process (bash-completion-require-process)))
+                 (bash-completion-comm comp process))
+             ;; re-throw the error
+             (signal (car err) (cdr err))))))
+
 ;;;###autoload
 (defun bash-completion-dynamic-complete-nocomint
     (comp-start comp-pos &optional dynamic-table)
@@ -522,8 +536,8 @@ Returns (list stub-start stub-end completions) with
               (lambda (_)
                 (let ((bash-completion-use-separate-processes
                        use-separate-processes))
-                  (bash-completion-comm comp process))))
-           (bash-completion-comm comp process)))))))
+                  (bash-completion--complete comp process))))
+           (bash-completion--complete comp process)))))))
 
 (defun bash-completion--find-last (elt array)
   "Return the position of the last intance of ELT in array or nil."
