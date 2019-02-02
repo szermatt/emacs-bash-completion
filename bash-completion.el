@@ -1355,14 +1355,18 @@ Return the status code of the command, as a number."
         (comint-preoutput-filter-functions
          (if bash-completion-use-separate-processes
              comint-preoutput-filter-functions
-           '(bash-completion--output-filter))))
+           '(bash-completion--output-filter)))
+        (send-string (if bash-completion-use-separate-processes
+                         #'process-send-string
+                       #'comint-send-string)))
     (with-current-buffer (bash-completion--get-buffer process)
       (erase-buffer)
-      (comint-send-string process (concat
-                                   commandline
-                                   (when (not bash-completion-use-separate-processes)
-                                     "; echo -e \"\v$?\"; history -d -1")
-                                   "\n"))
+      (funcall send-string process
+               (concat
+                commandline
+                (when (not bash-completion-use-separate-processes)
+                  "; echo -e \"\v$?\"; history -d -1")
+                "\n"))
       (unless (bash-completion--wait-for-prompt process prompt-regexp timeout)
         (error (concat
                 "Timeout while waiting for an answer from "
