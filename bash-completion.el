@@ -1321,10 +1321,10 @@ and would like bash completion in Emacs to take these changes into account."
       (setq bash-completion-processes (delq entry bash-completion-processes)))
     running))
 
-(defun bash-completion--wait-for-prompt (process output-regexp timeout)
+(defun bash-completion--wait-for-prompt (process prompt-regexp timeout)
   (let ((no-timeout t))
     (while (and no-timeout
-                (not (re-search-backward output-regexp nil t)))
+                (not (re-search-backward prompt-regexp nil t)))
       (setq no-timeout (accept-process-output process timeout)))
     no-timeout))
 
