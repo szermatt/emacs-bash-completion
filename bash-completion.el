@@ -1139,10 +1139,11 @@ is set to t."
 
 (defun bash-completion--require-same-process ()
   "Setup the process associated with the current buffer and return it."
-  (let ((process (get-buffer-process (current-buffer))))
-    (unless (or (not process) (process-get process 'complete-p))
-      (bash-completion--setup-bash-common process))
-    process))
+  (when (derived-mode-p 'comint-mode)
+    (let ((process (get-buffer-process (current-buffer))))
+      (unless (or (not process) (process-get process 'complete-p))
+        (bash-completion--setup-bash-common process))
+      process)))
 
 (defun bash-completion-require-process ()
   "Setup and return a bash completion process.
