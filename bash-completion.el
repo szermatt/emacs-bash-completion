@@ -403,6 +403,7 @@ returned."
 
 (defun bash-completion--output-filter (output)
   (with-current-buffer (bash-completion--get-buffer nil)
+    (goto-char (point-max))
     (insert output)
     ""))
 
@@ -1319,6 +1320,13 @@ and would like bash completion in Emacs to take these changes into account."
       (setq bash-completion-processes (delq entry bash-completion-processes)))
     running))
 
+(defun bash-completion--wait-for-output (process output-regex timeout)
+  (let ((no-timeout t))
+    (while (and no-timeout
+                (not (re-search-backward output-regex nil t)))
+      (setq no-timeout (accept-process-output process timeout)))
+    no-timeout))
+
 (defun bash-completion--send-separate-process (commandline &optional process timeout)
 
   ;; (message commandline)
@@ -1357,20 +1365,15 @@ and would like bash completion in Emacs to take these changes into account."
     (with-current-buffer (bash-completion--get-buffer process)
       (erase-buffer)
       (comint-send-string process (concat commandline "; echo -e \"\v$?\"" "\n"))
-      (while (not (save-excursion
-                    (forward-line 0)
-                    (re-search-forward prompt-regex nil t)))
-        (unless (accept-process-output process timeout)
-          (error (concat
-                  "Timeout while waiting for an answer from "
-                  "bash-completion process.\nProcess output: <<<EOF\n%sEOF")
-                 (buffer-string))))
-      (forward-line 0)
-      (delete-region (point) (point-max))
+      (unless (bash-completion--wait-for-output process prompt-regex timeout)
+        (error (concat
+                "Timeout while waiting for an answer from "
+                "bash-completion process.\nProcess output: <<<EOF\n%sEOF")
+               (buffer-string)))
       (search-backward "\v")
       (let* ((status-code (string-to-number
                            (buffer-substring-no-properties
-                            (point) (line-end-position)))))
+                            (1+ (point)) (line-end-position)))))
         (delete-region (point) (point-max))
         (if (string=
              "124"
