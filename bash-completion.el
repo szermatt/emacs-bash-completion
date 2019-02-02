@@ -1321,69 +1321,12 @@ and would like bash completion in Emacs to take these changes into account."
       (setq bash-completion-processes (delq entry bash-completion-processes)))
     running))
 
-(defun bash-completion--wait-for-output (process output-regex timeout)
+(defun bash-completion--wait-for-prompt (process output-regexp timeout)
   (let ((no-timeout t))
     (while (and no-timeout
-                (not (re-search-backward output-regex nil t)))
+                (not (re-search-backward output-regexp nil t)))
       (setq no-timeout (accept-process-output process timeout)))
     no-timeout))
-
-(defun bash-completion--send-separate-process (commandline &optional process timeout)
-
-  ;; (message commandline)
-  (let ((process (or process (bash-completion-require-process)))
-	(timeout (or timeout bash-completion-process-timeout)))
-    (with-current-buffer (bash-completion--get-buffer process)
-      (erase-buffer)
-      (process-send-string process (concat commandline "\n"))
-      (while (not (progn (goto-char 1) (search-forward "\v" nil t)))
-	(unless (accept-process-output process timeout)
-	  (error (concat
-                  "Timeout while waiting for an answer from "
-                  "bash-completion process.\nProcess output: <<<EOF\n%sEOF")
-                 (buffer-string))))
-      (let* ((control-v-position (point))
-	     (control-t-position (progn (search-backward "\t" nil t) (point)))
-	     (status-code (string-to-number
-			   (buffer-substring-no-properties
-			    (1+ control-t-position) (1- control-v-position)))))
-	(delete-region control-t-position (point-max))
-	;; (message "status: %d content: \"%s\""
-	;; 	 status-code
-	;; 	 (buffer-substring-no-properties
-	;; 	  (point-min) (point-max)))
-        (if (string=
-               "124"
-               (bash-completion--parse-side-channel-data "wrapped-status"))
-            124
-          status-code)))))
-
-(defun bash-completion--send-same-process (commandline &optional process timeout)
-  (let ((process (or process (bash-completion-require-process)))
-        (timeout (or timeout bash-completion-process-timeout))
-        (prompt-regex comint-prompt-regexp)
-        (comint-preoutput-filter-functions '(bash-completion--output-filter)))
-    (with-current-buffer (bash-completion--get-buffer process)
-      (erase-buffer)
-      (comint-send-string process (concat
-                                   commandline
-                                   "; echo -e \"\v$?\""
-                                   "; history -d -1\n"))
-      (unless (bash-completion--wait-for-output process prompt-regex timeout)
-        (error (concat
-                "Timeout while waiting for an answer from "
-                "bash-completion process.\nProcess output: <<<EOF\n%sEOF")
-               (buffer-string)))
-      (search-backward "\v")
-      (let* ((status-code (string-to-number
-                           (buffer-substring-no-properties
-                            (1+ (point)) (line-end-position)))))
-        (delete-region (point) (point-max))
-        (if (string=
-             "124"
-             (bash-completion--parse-side-channel-data "wrapped-status"))
-            124
-          status-code)))))
 
 (defun bash-completion-send (commandline &optional process timeout)
   "Send a command to the bash completion process.
@@ -1399,14 +1342,43 @@ TIMEOUT is the timeout value for this operation, if nil the value of
 `bash-completion-process-timeout' is used.
 
 Once this command has run without errors, you will find the
-result of the command in the bash completion process buffer or
-`bash-completion-output-buffer' is
+result of the command in the bash completion process buffer or in
+`bash-completion-output-buffer' if
 `bash-completion-use-separate-processes' is nil.
 
 Return the status code of the command, as a number."
-  (if bash-completion-use-separate-processes
-      (bash-completion--send-separate-process commandline process timeout)
-    (bash-completion--send-same-process commandline process timeout)))
+  (let ((process (or process (bash-completion-require-process)))
+        (timeout (or timeout bash-completion-process-timeout))
+        (prompt-regexp (if bash-completion-use-separate-processes
+                           "\t-?[[:digit:]]+\v"
+                         comint-prompt-regexp))
+        (comint-preoutput-filter-functions
+         (if bash-completion-use-separate-processes
+             comint-preoutput-filter-functions
+           '(bash-completion--output-filter))))
+    (with-current-buffer (bash-completion--get-buffer process)
+      (erase-buffer)
+      (comint-send-string process (concat
+                                   commandline
+                                   (when (not bash-completion-use-separate-processes)
+                                     "; echo -e \"\v$?\"; history -d -1")
+                                   "\n"))
+      (unless (bash-completion--wait-for-prompt process prompt-regexp timeout)
+        (error (concat
+                "Timeout while waiting for an answer from "
+                "bash-completion process.\nProcess output: <<<EOF\n%sEOF")
+               (buffer-string)))
+      (when (not bash-completion-use-separate-processes)
+        (search-backward "\v"))
+      (let ((status-code (string-to-number
+                          (buffer-substring-no-properties
+                           (1+ (point)) (line-end-position)))))
+        (delete-region (point) (point-max))
+        (if (string=
+             "124"
+             (bash-completion--parse-side-channel-data "wrapped-status"))
+            124
+          status-code)))))
 
 (defun bash-completion--get-output (process)
   "Return the output of the last command sent through `bash-completion-send'."
