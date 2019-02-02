@@ -1376,7 +1376,10 @@ Return the status code of the command, as a number."
         (search-backward "\v"))
       (let ((status-code (string-to-number
                           (buffer-substring-no-properties
-                           (1+ (point)) (line-end-position)))))
+                           (1+ (point))
+                           (if bash-completion-use-separate-processes
+                               (1- (line-end-position))
+                             (line-end-position))))))
         (delete-region (point) (point-max))
         (if (string=
              "124"
