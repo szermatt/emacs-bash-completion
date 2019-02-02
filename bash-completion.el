@@ -1364,7 +1364,10 @@ and would like bash completion in Emacs to take these changes into account."
         (comint-preoutput-filter-functions '(bash-completion--output-filter)))
     (with-current-buffer (bash-completion--get-buffer process)
       (erase-buffer)
-      (comint-send-string process (concat commandline "; echo -e \"\v$?\"" "\n"))
+      (comint-send-string process (concat
+                                   commandline
+                                   "; echo -e \"\v$?\""
+                                   "; history -d -1\n"))
       (unless (bash-completion--wait-for-output process prompt-regex timeout)
         (error (concat
                 "Timeout while waiting for an answer from "
