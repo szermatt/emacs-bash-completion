@@ -1328,6 +1328,13 @@ and would like bash completion in Emacs to take these changes into account."
       (setq no-timeout (accept-process-output process timeout)))
     no-timeout))
 
+(defun bash-completion--get-prompt-regexp ()
+  (if comint-use-prompt-regexp
+      comint-prompt-regexp
+    (let* ((end (comint-line-beginning-position))
+           (start (previous-property-change end)))
+      (regexp-quote (buffer-substring-no-properties start end)))))
+
 (defun bash-completion-send (commandline &optional process timeout)
   "Send a command to the bash completion process.
 
@@ -1351,7 +1358,7 @@ Return the status code of the command, as a number."
         (timeout (or timeout bash-completion-process-timeout))
         (prompt-regexp (if bash-completion-use-separate-processes
                            "\t-?[[:digit:]]+\v"
-                         comint-prompt-regexp))
+                         (bash-completion--get-prompt-regexp)))
         (comint-preoutput-filter-functions
          (if bash-completion-use-separate-processes
              comint-preoutput-filter-functions
