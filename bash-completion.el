@@ -1365,7 +1365,7 @@ Return the status code of the command, as a number."
                (concat
                 commandline
                 (when (not bash-completion-use-separate-processes)
-                  "; echo -e \"\v$?\"; history -d -1")
+                  "; echo -e \"\v$?\"; history -d $((HISTCMD - 1))")
                 "\n"))
       (unless (bash-completion--wait-for-prompt process prompt-regexp timeout)
         (error (concat
