@@ -946,7 +946,7 @@ before calling `bash-completion-dynamic-complete-nocomint'.
          (setq --process-buffer (current-buffer))
          (with-temp-buffer
            (setq --test-buffer (current-buffer))
-           (cl-letf (((symbol-function 'bash-completion-require-process) (lambda () 'process))
+           (cl-letf (((symbol-function 'bash-completion-get-process) (lambda () 'process))
                      ((symbol-function 'process-put)
                       (lambda (process prop value)
                         (cond ((and (eq 'process process) (eq 'complete-p prop))

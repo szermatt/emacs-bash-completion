@@ -68,7 +68,7 @@
 	    ;; do a completion and return the result
 	    (with-current-buffer shell-buffer
               (let ((comint-dynamic-complete-functions '(bash-completion-dynamic-complete))
-                    (bash-major-version (process-get (bash-completion-require-process)
+                    (bash-major-version (process-get (bash-completion-get-process)
                                                      'bash-major-version)))
                 (progn ,@body))))
         (progn ;; finally
