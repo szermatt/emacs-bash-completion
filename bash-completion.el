@@ -1371,7 +1371,7 @@ Return the status code of the command, as a number."
       (funcall send-string process
                (concat
                 commandline
-                (when (not bash-completion-use-separate-processes)
+                (unless bash-completion-use-separate-processes
                   "; echo -e \"\v$?\"; history -d $((HISTCMD - 1))")
                 "\n"))
       (unless (bash-completion--wait-for-prompt process prompt-regexp timeout)
@@ -1379,7 +1379,7 @@ Return the status code of the command, as a number."
                 "Timeout while waiting for an answer from "
                 "bash-completion process.\nProcess output: <<<EOF\n%sEOF")
                (buffer-string)))
-      (when (not bash-completion-use-separate-processes)
+      (unless bash-completion-use-separate-processes
         (search-backward "\v"))
       (let ((status-code (string-to-number
                           (buffer-substring-no-properties
