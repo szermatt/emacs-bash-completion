@@ -400,7 +400,8 @@ returned."
                  (with-current-buffer (bash-completion--get-buffer process)
                    (buffer-substring-no-properties
                     (point-min) (point-max))))
-    (process-put process 'bash-major-version bash-major-version)))
+    (process-put process 'bash-major-version bash-major-version)
+    (process-put process 'setup-done t)))
 
 ;;; ---------- Inline functions
 
@@ -1136,7 +1137,7 @@ is set to t."
   "Setup the process associated with the current buffer and return it."
   (when (derived-mode-p 'comint-mode)
     (let ((process (get-buffer-process (current-buffer))))
-      (unless (or (not process) (process-get process 'complete-p))
+      (unless (or (not process) (process-get process 'setup-done))
         (bash-completion--setup-bash-common process))
       process)))
 
