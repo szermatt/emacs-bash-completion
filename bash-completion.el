@@ -122,6 +122,7 @@
 ;; https://github.com/szermatt/emacs-bash-completion
 
 (require 'comint)
+(require 'ansi-color)
 (eval-when-compile (require 'cl))
 
 ;;; Code:
@@ -400,12 +401,6 @@ returned."
                    (buffer-substring-no-properties
                     (point-min) (point-max))))
     (process-put process 'bash-major-version bash-major-version)))
-
-(defun bash-completion--output-filter (output)
-  (with-current-buffer (bash-completion--get-buffer nil)
-    (goto-char (point-max))
-    (insert output)
-    ""))
 
 ;;; ---------- Inline functions
 
@@ -1321,6 +1316,14 @@ and would like bash completion in Emacs to take these changes into account."
       (setq bash-completion-processes (delq entry bash-completion-processes)))
     running))
 
+(defun bash-completion--output-filter (output)
+  (with-current-buffer (bash-completion--get-buffer nil)
+    (let ((begin (point-max)))
+      (goto-char begin)
+      (insert output)
+      (ansi-color-filter-region begin (point))
+      "")))
+
 (defun bash-completion--wait-for-prompt (process prompt-regexp timeout)
   (let ((no-timeout t))
     (while (and no-timeout
@@ -1329,11 +1332,11 @@ and would like bash completion in Emacs to take these changes into account."
     no-timeout))
 
 (defun bash-completion--get-prompt-regexp ()
-  (if comint-use-prompt-regexp
-      comint-prompt-regexp
-    (let* ((end (comint-line-beginning-position))
-           (start (previous-property-change end)))
-      (regexp-quote (buffer-substring-no-properties start end)))))
+  (if comint-last-prompt
+      (let ((start (car comint-last-prompt))
+            (end (cdr comint-last-prompt)))
+        (regexp-quote (buffer-substring-no-properties start end)))
+    comint-prompt-regexp))
 
 (defun bash-completion-send (commandline &optional process timeout)
   "Send a command to the bash completion process.
