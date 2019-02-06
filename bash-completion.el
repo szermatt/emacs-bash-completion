@@ -1329,7 +1329,7 @@ and would like bash completion in Emacs to take these changes into account."
   (let ((no-timeout t))
     (while (and no-timeout
                 (not (re-search-backward prompt-regexp nil t)))
-      (setq no-timeout (accept-process-output process timeout)))
+      (setq no-timeout (accept-process-output process timeout nil t)))
     no-timeout))
 
 (defun bash-completion--get-prompt-regexp ()
