@@ -121,10 +121,10 @@
 ;; Full history is available on
 ;; https://github.com/szermatt/emacs-bash-completion
 
-(require 'comint)
-(eval-when-compile (require 'cl))
-
 ;;; Code:
+
+(require 'comint)
+(require 'cl-lib)
 
 ;;; ---------- Customization
 (defgroup bash-completion nil
@@ -239,9 +239,9 @@ Bash processes")
 
 ;; The main, completion structure, keeping track of the definition and
 ;; state of the current completion.
-(defstruct (completion (:constructor bash-completion--make)
-                       (:conc-name bash-completion--)
-                       (:copier nil))
+(cl-defstruct (completion (:constructor bash-completion--make)
+                          (:conc-name bash-completion--)
+                          (:copier nil))
   line           ; the relevant command (string)
   point          ; 0-based position of the cursor in line (number)
   words          ; line split into words, unescaped (list of strings)
