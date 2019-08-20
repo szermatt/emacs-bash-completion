@@ -52,7 +52,7 @@
 ;;   (autoload 'bash-completion-dynamic-complete \"bash-completion\"
 ;;     \"BASH completion hook\")
 ;;   (add-hook 'shell-dynamic-complete-functions
-;; 	'bash-completion-dynamic-complete)
+;;      'bash-completion-dynamic-complete)
 ;;
 ;;   or simpler, but forces you to load this file at startup:
 ;;
@@ -121,10 +121,10 @@
 ;; Full history is available on
 ;; https://github.com/szermatt/emacs-bash-completion
 
-(require 'comint)
-(eval-when-compile (require 'cl))
-
 ;;; Code:
+
+(require 'comint)
+(require 'cl-lib)
 
 ;;; ---------- Customization
 (defgroup bash-completion nil
@@ -239,9 +239,9 @@ Bash processes")
 
 ;; The main, completion structure, keeping track of the definition and
 ;; state of the current completion.
-(defstruct (completion (:constructor bash-completion--make)
-                       (:conc-name bash-completion--)
-                       (:copier nil))
+(cl-defstruct (completion (:constructor bash-completion--make)
+                          (:conc-name bash-completion--)
+                          (:copier nil))
   line           ; the relevant command (string)
   point          ; 0-based position of the cursor in line (number)
   words          ; line split into words, unescaped (list of strings)
@@ -331,10 +331,10 @@ before it is needed. For an autoload version, add:
   (autoload 'bash-completion-dynamic-complete \"bash-completion\"
     \"BASH completion hook\")
   (add-hook 'shell-dynamic-complete-functions
-  	  'bash-completion-dynamic-complete)
+          'bash-completion-dynamic-complete)
 "
   (add-hook 'shell-dynamic-complete-functions
-	    'bash-completion-dynamic-complete))
+            'bash-completion-dynamic-complete))
 
 ;;;###autoload
 (defun bash-completion-dynamic-complete ()
@@ -390,7 +390,7 @@ Returns (list stub-start stub-end completions) with
                   comp-start comp-pos
                   (process-get process 'wordbreaks)
                   (process-get process 'bash-major-version)))
-	   (stub-start (bash-completion--stub-start comp)))
+           (stub-start (bash-completion--stub-start comp)))
       (bash-completion--customize comp process)
       (list
        stub-start
@@ -457,11 +457,11 @@ Returns a completion struct."
                                               wordbreaks "")))
          (line-tokens (bash-completion-parse-current-command  all-tokens))
          (first-token (car line-tokens))
-	 (last-token (car (last line-tokens)))
+         (last-token (car (last line-tokens)))
          (open-quote (bash-completion-tokenize-open-quote line-tokens))
-	 (start (or (car (bash-completion-tokenize-get-range first-token)) comp-pos))
-	 (end (or (cdr (bash-completion-tokenize-get-range last-token)) comp-pos))
-	 (words (bash-completion-strings-from-tokens line-tokens))
+         (start (or (car (bash-completion-tokenize-get-range first-token)) comp-pos))
+         (end (or (cdr (bash-completion-tokenize-get-range last-token)) comp-pos))
+         (words (bash-completion-strings-from-tokens line-tokens))
          (stub-start) (unparsed-stub) (parsed-stub))
     (if (or (> comp-pos end) (= start end))
         (setq stub-start comp-pos
@@ -505,24 +505,24 @@ Return a sublist of TOKENS."
    (catch 'bash-completion-return
      (let ((command nil) (state 'initial))
        (dolist (token tokens)
-	 (let* ((string (bash-completion-tokenize-get-str token))
-		(is-terminal
-		 (and (member string '(";" "&" "|" "&&" "||"))
-		      (let ((range (bash-completion-tokenize-get-range token)))
-			(= (- (cdr range) (car range))
-			   (length string))))))
-	   (cond
-	    (is-terminal
-	     (setq state 'initial)
-	     (setq command nil))
+         (let* ((string (bash-completion-tokenize-get-str token))
+                (is-terminal
+                 (and (member string '(";" "&" "|" "&&" "||"))
+                      (let ((range (bash-completion-tokenize-get-range token)))
+                        (= (- (cdr range) (car range))
+                           (length string))))))
+           (cond
+            (is-terminal
+             (setq state 'initial)
+             (setq command nil))
 
-	    ((and (eq state 'initial)
-		  (null (string-match "=" string)))
-	     (setq state 'args)
-	     (push token command))
+            ((and (eq state 'initial)
+                  (null (string-match "=" string)))
+             (setq state 'args)
+             (push token command))
 
-	    ((eq state 'args)
-	     (push token command)))))
+            ((eq state 'args)
+             (push token command)))))
        (or command (last tokens))))))
 
 (defun bash-completion-strings-from-tokens (tokens)
@@ -588,9 +588,9 @@ END prepended to it."
   (skip-chars-forward " \t\n\r" end)
   (if (< (point) end)
       (bash-completion-tokenize-0 end tokens
-				  (list
-				   (cons 'str "")
-				   (cons 'range (cons (point) nil))))
+                                  (list
+                                   (cons 'str "")
+                                   (cons 'range (cons (point) nil))))
     tokens))
 
 (defun bash-completion-tokenize-0 (end tokens token)
@@ -612,7 +612,7 @@ TOKEN is the token currently being built.
 
 Return TOKENS with new tokens prepended to it."
   (let ((char-start (char-after))
-	(quote nil) )
+        (quote nil) )
     (when (and char-start (or (= char-start ?') (= char-start ?\")))
       (forward-char)
       (setq quote char-start))
@@ -884,11 +884,11 @@ Return a CONS containing (before . after)."
     (let ((end (- (length str) 1)))
       (while (>= end 0)
         (when (bash-completion--find-last (aref str end) wordbreaks)
-	  (throw 'bash-completion-return
+          (throw 'bash-completion-return
                  (list (substring str 0 (1+ end))
                        (substring str (1+ end))
                        (aref str end))))
-	(setq end (1- end))))
+        (setq end (1- end))))
       (list "" str ?\0)))
 
 (defun bash-completion-last-char (str)
@@ -900,7 +900,7 @@ Return a CONS containing (before . after)."
 (defun bash-completion-starts-with (str prefix)
   "Return t if STR starts with PREFIX."
   (let ((prefix-len (length prefix))
-	(str-len (length str)))
+        (str-len (length str)))
     (and
      (>= str-len prefix-len)
      (string= (substring str 0 prefix-len) prefix))))
@@ -1200,7 +1200,7 @@ and would like bash completion in Emacs to take these changes into account."
       (kill-process process))
     (let ((buffer (process-buffer process)))
       (when (buffer-live-p buffer)
-	(kill-buffer buffer)))))
+        (kill-buffer buffer)))))
 
 (defun bash-completion-buffer ()
   "Return the buffer of the BASH process, create the BASH process if necessary."
@@ -1233,26 +1233,26 @@ of the command in the bash completion process buffer.
 Return the status code of the command, as a number."
   ;; (message commandline)
   (let ((process (or process (bash-completion-require-process)))
-	(timeout (or timeout bash-completion-process-timeout)))
+        (timeout (or timeout bash-completion-process-timeout)))
     (with-current-buffer (process-buffer process)
       (erase-buffer)
       (process-send-string process (concat commandline "\n"))
       (while (not (progn (goto-char 1) (search-forward "\v" nil t)))
-	(unless (accept-process-output process timeout)
-	  (error (concat
+        (unless (accept-process-output process timeout)
+          (error (concat
                   "Timeout while waiting for an answer from "
                   "bash-completion process.\nProcess output: <<<EOF\n%sEOF")
                  (buffer-string))))
       (let* ((control-v-position (point))
-	     (control-t-position (progn (search-backward "\t" nil t) (point)))
-	     (status-code (string-to-number
-			   (buffer-substring-no-properties
-			    (1+ control-t-position) (1- control-v-position)))))
-	(delete-region control-t-position (point-max))
-	;; (message "status: %d content: \"%s\""
-	;; 	 status-code
-	;; 	 (buffer-substring-no-properties
-	;; 	  (point-min) (point-max)))
+             (control-t-position (progn (search-backward "\t" nil t) (point)))
+             (status-code (string-to-number
+                           (buffer-substring-no-properties
+                            (1+ control-t-position) (1- control-v-position)))))
+        (delete-region control-t-position (point-max))
+        ;; (message "status: %d content: \"%s\""
+        ;;       status-code
+        ;;       (buffer-substring-no-properties
+        ;;        (point-min) (point-max)))
         (if (string=
                "124"
                (bash-completion--parse-side-channel-data "wrapped-status"))
@@ -1309,4 +1309,8 @@ Return the parsed value, as a string or nil."
           (delete-region (match-beginning 0) (match-end 0)))))))
 
 (provide 'bash-completion)
+
+;; Local Variables:
+;; indent-tabs-mode: nil
+;; End:
 ;;; bash-completion.el ends here
