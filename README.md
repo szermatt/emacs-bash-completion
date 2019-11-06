@@ -20,7 +20,7 @@ Unfortunately, many Emacs editing features are not available when
 running in term mode.  Also, term mode is not available in
 shell-command prompts.
 
-Bash completion can also be run programatically, outside of a
+Bash completion can also be run programmatically, outside of a
 shell-mode command, by calling
 `bash-completion-dynamic-complete-nocomint'
 

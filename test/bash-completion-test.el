@@ -927,7 +927,7 @@ When `bash-completion-send' is called, it pops the result from
 --captured-commands.
 
 Directories in --directories get a / appended to them. Note that
-the current directory in this environemnt is /tmp/test.
+the current directory in this environment is /tmp/test.
 
 The body is run with a test buffer as current buffer. Fill it with the command-line
 before calling `bash-completion-dynamic-complete-nocomint'.
