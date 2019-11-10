@@ -402,7 +402,7 @@ Returns (list stub-start stub-end completions) with
          (bash-completion-comm comp process))))))
 
 (defun bash-completion--find-last (elt array)
-  "Return the position of the last intance of ELT in array or nil."
+  "Return the position of the last instance of ELT in array or nil."
   (catch 'bash-completion-return
     (let ((array-len (length array)))
       (dotimes (index array-len)
