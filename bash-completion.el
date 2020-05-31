@@ -987,7 +987,11 @@ is set to t."
                 ;; but only in some environment. disable this dreadful
                 ;; business to get a saner way of handling spaces.
                 ;; Noticed in bash_completion v1.872.
-                "function quote_readline { echo \"$1\"; }\n"))
+                "function quote_readline { echo \"$1\"; }\n"
+                ;; User's profiles can turn line editing back on,
+                ;; so make sure it's off
+                "set +o emacs\n"
+                "set +o vi\n"))
 
               (bash-completion-send "PROMPT_COMMAND='';PS1='\t$?\v'" process bash-completion-initial-timeout)
               (bash-completion-send "complete -p" process)
