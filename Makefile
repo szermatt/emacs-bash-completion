@@ -2,22 +2,39 @@ CASK ?= cask
 EMACS ?= emacs
 BASH ?= bash
 
+setup_bash=test/.set-bash-prog.el
+
 all: test
+.PHONY: all
 
 test: clean-elc
-	${MAKE} unit
+	${MAKE} ert
 	${MAKE} compile
-	${MAKE} unit
+	${MAKE} ert
 	${MAKE} clean-elc
+.PHONY: test
 
 unit:
-	@echo '(setq bash-completion-prog "${BASH}")' >test/.set-bash-prog.el
-	${CASK} exec ert-runner -l test/.set-bash-prog.el
+	${CASK} exec ert-runner  test/bash-completion-test.el
+.PHONY: unit
+
+integration: setup_bash
+	${CASK} exec ert-runner -l $(setup_bash) -p integration test/bash-completion-integration-test.el
+.PHONY: integration
+
+ert: setup_bash
+	${CASK} exec ert-runner -l $(setup_bash)
+.PHONY: ert
 
 compile:
 	${CASK} build
+.PHONY: compile
 
 clean-elc:
 	${CASK} clean-elc
+.PHONY: clean-elc
 
-.PHONY:	all test unit
+setup_bash:
+	@echo '(setq bash-completion-prog "${BASH}")' >$(setup_bash)
+.PHONY: setup_bash
+
