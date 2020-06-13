@@ -1,5 +1,6 @@
 CASK ?= cask
 EMACS ?= emacs
+BASH ?= bash
 
 all: test
 
@@ -10,7 +11,8 @@ test: clean-elc
 	${MAKE} clean-elc
 
 unit:
-	${CASK} exec ert-runner
+	@echo '(setq bash-completion-prog "${BASH}")' >test/.set-bash-prog.el
+	${CASK} exec ert-runner -l test/.set-bash-prog.el
 
 compile:
 	${CASK} build
