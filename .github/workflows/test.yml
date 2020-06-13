@@ -33,3 +33,20 @@ jobs:
     - name: Run tests (allow failure)
       if: matrix.allow_failure == true
       run: 'cask && make test || true'
+      
+  test-macos-bash3:
+    runs-on: macos-10.15
+    strategy:
+      matrix:
+        emacs_version:
+          - '26.3'
+    steps:
+    - uses: actions/checkout@v1
+    - uses: purcell/setup-emacs@master
+      with:
+        version: ${{ matrix.emacs_version }}
+    - uses: conao3/setup-cask@master
+
+    - name: Run tests
+      run: 'cask && make test'
+      
