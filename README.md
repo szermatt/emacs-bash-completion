@@ -1,3 +1,5 @@
+# bash-completion [![test](https://github.com/szermatt/emacs-bash-completion/workflows/test/badge.svg)](https://github.com/szermatt/emacs-bash-completion/actions)
+
 bash-completion.el defines dynamic completion hooks for shell-mode and
 shell-command prompts that are based on bash completion.
 
