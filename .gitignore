@@ -1,1 +1,3 @@
 *.elc
+.cask
+test/.set-bash-prog.el

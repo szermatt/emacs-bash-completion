@@ -34,26 +34,25 @@
 (require 'ert)
 
 (defmacro bash-completion_test-harness (bashrc &rest body)
-  `(if (file-executable-p bash-completion-prog)
-     (let ((test-env-dir (bash-completion_test-setup-env ,bashrc)))
-       (let ((bash-completion-processes nil)
-             (bash-completion-nospace nil)
-             (bash-completion-start-files nil)
-             (bash-completion-args
-              (list "--noediting"
-                    "--noprofile"
-                    "--rcfile" (expand-file-name "bashrc" test-env-dir)))
-             (kill-buffer-query-functions '())
-             (minibuffer-message-timeout 0)
-             (default-directory test-env-dir))
-         ;; Give Emacs time to process any input or process state
-         ;; change from bash-completion-reset.
-         (while (accept-process-output nil 0.1))
-         (unwind-protect
-             (progn ,@body)
-           (progn
-             (bash-completion_test-teardown-env test-env-dir)
-             (bash-completion-reset-all)))))))
+  `(let ((test-env-dir (bash-completion_test-setup-env ,bashrc)))
+     (let ((bash-completion-processes nil)
+           (bash-completion-nospace nil)
+           (bash-completion-start-files nil)
+           (bash-completion-args
+            (list "--noediting"
+                  "--noprofile"
+                  "--rcfile" (expand-file-name "bashrc" test-env-dir)))
+           (kill-buffer-query-functions '())
+           (minibuffer-message-timeout 0)
+           (default-directory test-env-dir))
+       ;; Give Emacs time to process any input or process state
+       ;; change from bash-completion-reset.
+       (while (accept-process-output nil 0.1))
+       (unwind-protect
+           (progn ,@body)
+         (progn
+           (bash-completion_test-teardown-env test-env-dir)
+           (bash-completion-reset-all))))))
 
 (defmacro bash-completion_test-with-shell-harness (bashrc &rest body)
   `(bash-completion_test-harness

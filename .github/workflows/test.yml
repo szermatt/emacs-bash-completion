@@ -1,0 +1,52 @@
+name: test
+on:
+  push: {branches: [master]}
+  pull_request: {branches: [master]}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        emacs_version:
+          - '24.3'
+          - '25.1'
+          - '25.3'
+          - '26.1'
+          - '26.2'
+          - '26.3'
+          - 'snapshot'
+        include:
+          - emacs_version: 'snapshot'
+            allow_failure: true
+    steps:
+    - uses: actions/checkout@v1
+    - uses: purcell/setup-emacs@master
+      with:
+        version: ${{ matrix.emacs_version }}
+    - uses: conao3/setup-cask@master
+
+    - name: Run tests
+      if: matrix.allow_failure != true
+      run: 'cask && make test'
+
+    - name: Run tests (allow failure)
+      if: matrix.allow_failure == true
+      run: 'cask && make test || true'
+      
+  test-macos-bash3:
+    runs-on: macos-10.15
+    strategy:
+      matrix:
+        emacs_version:
+          - '26.3'
+    steps:
+    - uses: actions/checkout@v1
+    - uses: purcell/setup-emacs@master
+      with:
+        version: ${{ matrix.emacs_version }}
+    - uses: conao3/setup-cask@master
+
+    - name: Run tests
+      run: 'cask && make test'
+      
