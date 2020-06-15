@@ -514,7 +514,7 @@ Return (const return-value new-buffer-content)"
                  (unless (equal "cmd\n" command)
                    (error "unexpected command: %s" command))))
               ((symbol-function 'accept-process-output)
-               (lambda (process timeout)
+               (lambda (process timeout &optional millisec just-this-one)
                  (unless (eq process 'process)
                    (error "unexpected process: %s" process))
                  (unless (= timeout 3.14)
