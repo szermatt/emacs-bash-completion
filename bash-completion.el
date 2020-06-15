@@ -514,7 +514,7 @@ When doing completion outside of a comint buffer, call
     (error (if (not bash-completion-use-separate-processes)
                ;; try again with a separate process
                (let* ((bash-completion-use-separate-processes t)
-                      (process (bash-completion-get-process)))
+                      (process (bash-completion--get-process)))
                  (bash-completion-comm comp process))
              ;; re-throw the error
              (signal (car err) (cdr err))))))
@@ -542,12 +542,12 @@ Returns (list stub-start stub-end completions) with
           (comp-pos (or comp-pos (point)))
           (bash-completion-use-separate-processes
            bash-completion-use-separate-processes)
-          (process (bash-completion-get-process)))
+          (process (bash-completion--get-process)))
       (when (and (not process) (not bash-completion-use-separate-processes))
         ;; no process associated with the current buffer, create a
         ;; separate completion process
         (setq bash-completion-use-separate-processes t)
-        (setq process (bash-completion-get-process)))
+        (setq process (bash-completion--get-process)))
       (let* ((comp (bash-completion--parse
                     comp-start comp-pos
                     (process-get process 'wordbreaks)
@@ -1187,7 +1187,7 @@ completion in these cases."
           (bash-completion--setup-bash-common process))
         process))))
 
-(defun bash-completion-get-process ()
+(defun bash-completion--get-process ()
   "Setup and return a bash completion process.
 
 If `bash-completion-use-separate-processes' is non-nil,
@@ -1323,7 +1323,7 @@ with the builtin complete.
 This is only useful when `bash-completion-use-separate-processes'
 is t."
   (interactive)
-  (let* ((process (bash-completion-get-process))
+  (let* ((process (bash-completion--get-process))
          (buffer (bash-completion--get-buffer process)))
     (bash-completion-send "complete -p" process)
     (process-put process 'complete-p (bash-completion-build-alist buffer))))
@@ -1366,7 +1366,7 @@ and would like bash completion in Emacs to take these changes into account."
 
 (defun bash-completion-buffer ()
   "Return the buffer of the BASH process, create the BASH process if necessary."
-  (bash-completion--get-buffer (bash-completion-get-process)))
+  (bash-completion--get-buffer (bash-completion--get-process)))
 
 (defun bash-completion-is-running ()
   "Check whether the bash completion process is running."
@@ -1411,7 +1411,7 @@ and would like bash completion in Emacs to take these changes into account."
 COMMANDLINE should be a bash command, without the final newline.
 
 PROCESS should be the bash process, if nil this function calls
-`bash-completion-get-process' which might start a new process
+`bash-completion--get-process' which might start a new process
 depending on the value of
 `bash-completion-use-separate-processes'.
 
@@ -1424,7 +1424,7 @@ result of the command in the bash completion process buffer or in
 `bash-completion-use-separate-processes' is nil.
 
 Return the status code of the command, as a number."
-  (let ((process (or process (bash-completion-get-process)))
+  (let ((process (or process (bash-completion--get-process)))
         (timeout (or timeout bash-completion-process-timeout))
         (prompt-regexp (if bash-completion-use-separate-processes
                            "\t-?[[:digit:]]+\v"

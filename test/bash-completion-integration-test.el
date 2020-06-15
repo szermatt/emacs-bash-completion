@@ -95,7 +95,7 @@
 
 (defun bash-completion_test-bash-major-version ()
   "Return the major version of the bash process."
-  (process-get (bash-completion-get-process) 'bash-major-version))
+  (process-get (bash-completion--get-process) 'bash-major-version))
 
 (defun bash-completion_test-complete (complete-me)
   (goto-char (point-max))
