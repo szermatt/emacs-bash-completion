@@ -73,22 +73,25 @@
   `(bash-completion_test-harness
     ,bashrc
     ,use-separate-process
-    (let ((shell-buffer))
-      (unwind-protect
-	  (progn
-	    (setq shell-buffer (shell (generate-new-buffer-name
-				       "*bash-completion_test-with-shell*")))
-            (bash-completion--wait-for-prompt (get-buffer-process shell-buffer)
-                                              (bash-completion--get-prompt-regexp)
-                                              3.0)
-	    (with-current-buffer shell-buffer
-              (let ((comint-dynamic-complete-functions '(bash-completion-dynamic-complete)))
-                (progn ,@body))))
-        (when shell-buffer
-          (when (and (buffer-live-p shell-buffer)
-                     (get-buffer-process shell-buffer))
-            (kill-process (get-buffer-process shell-buffer)))
-          (kill-buffer shell-buffer))))))
+    (bash-completion_test-with-shell ,@body)))
+
+(defmacro bash-completion_test-with-shell (&rest body)
+  `(let ((shell-buffer))
+     (unwind-protect
+	 (progn
+	   (setq shell-buffer (shell (generate-new-buffer-name
+				      "*bash-completion_test-with-shell*")))
+	   (with-current-buffer shell-buffer
+             (bash-completion--wait-for-prompt (get-buffer-process shell-buffer)
+                                               (bash-completion--get-prompt-regexp)
+                                               3.0)
+             (let ((comint-dynamic-complete-functions '(bash-completion-dynamic-complete)))
+               (progn ,@body))))
+       (when shell-buffer
+         (when (and (buffer-live-p shell-buffer)
+                    (get-buffer-process shell-buffer))
+           (kill-process (get-buffer-process shell-buffer)))
+         (kill-buffer shell-buffer)))))
 
 (defun bash-completion_test-bash-major-version ()
   "Return the major version of the bash process."
@@ -96,7 +99,7 @@
 
 (defun bash-completion_test-complete (complete-me)
   (goto-char (point-max))
-  (comint-delete-input)
+  (delete-region (line-beginning-position) (line-end-position))
   (insert complete-me)
   (completion-at-point)
   (buffer-substring-no-properties
@@ -171,6 +174,38 @@ for testing completion."
    (should (equal "export SOMEPATH=some/directory:some/other/"
                   (bash-completion_test-complete
                    "export SOMEPATH=some/directory:some/oth")))))
+
+(ert-deftest bash-completion-integration-nocomint-test ()
+  (bash-completion_test-harness
+   "function somefunction { echo ok; }\n"
+   nil ; use-separate-process=nil will be ignored
+   (with-temp-buffer
+     (let ((completion-at-point-functions '(bash-completion-dynamic-complete-nocomint)))
+       ;; complete bash builtin
+       (should (equal "readonly "
+                      (bash-completion_test-complete "reado")))
+       ;; complete command
+       (should (equal "somefunction "
+                      (bash-completion_test-complete "somef")))))))
+
+(ert-deftest bash-completion-integration-notbash-test ()
+  (bash-completion_test-harness
+   "function somefunction { echo ok; }\n"
+   ; use-separate-process=nil will be ignored because the shell is not
+   ; a bash shell.
+   nil 
+   (let ((explicit-shell-file-name "/bin/sh"))
+     (bash-completion_test-with-shell
+      ;; complete bash builtin
+      (should (equal "readonly "
+                     (bash-completion_test-complete "reado")))
+      ;; complete command
+      (should (equal "somefunction "
+                     (bash-completion_test-complete "somef")))
+
+      ;; make sure a separate process was used; in case /bin/sh is
+      ;; actually bash, the test could otherwise work just fine.
+      (should (not (null (cdr (assq nil bash-completion-processes)))))))))
 
 (ert-deftest bash-completion-integration-bash-4-default-completion ()
   (bash-completion_test-with-shell-harness

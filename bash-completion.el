@@ -181,7 +181,8 @@ perform completion. If nil, the process associated with the
 current buffer is used to perform completion. Even when this
 variable is set to nil, a separate process can be used to perform
 completion when:
-- no process is associated with the current buffer
+- the current buffer is not a comint buffer
+- no bash process is associated with the current buffer
 - an error occurred while trying to get completions"
   :type 'boolean
   :group 'bash-completion)
@@ -520,7 +521,7 @@ When doing completion outside of a comint buffer, call
 
 ;;;###autoload
 (defun bash-completion-dynamic-complete-nocomint
-    (comp-start comp-pos &optional dynamic-table)
+    (&optional comp-start comp-pos dynamic-table)
   "Return completion information for bash command at an arbitrary position.
 
 The bash command to be completed begins at COMP-START in the
@@ -537,7 +538,9 @@ Returns (list stub-start stub-end completions) with
    or a function, if DYNAMIC-TABLE is non-nil, a lambda such as the one
    returned by `completion-table-dynamic'"
   (when bash-completion-enabled
-    (let ((bash-completion-use-separate-processes
+    (let ((comp-start (or comp-start (line-beginning-position)))
+          (comp-pos (or comp-pos (point)))
+          (bash-completion-use-separate-processes
            bash-completion-use-separate-processes)
           (process (bash-completion-get-process)))
       (when (and (not process) (not bash-completion-use-separate-processes))
@@ -1170,12 +1173,19 @@ is set to t."
                 (error nil)))))))))
 
 (defun bash-completion--get-same-process ()
-  "Setup the process associated with the current buffer and return it."
+  "Return the BASH process associated with the current buffer.
+
+Return nil if the current buffer is not a comint buffer or is not
+associated with a command that looks like a bash shell.
+Completion will fallback to creating a separate process
+completion in these cases."
   (when (derived-mode-p 'comint-mode)
-    (let ((process (get-buffer-process (current-buffer))))
-      (unless (or (not process) (process-get process 'setup-done))
-        (bash-completion--setup-bash-common process))
-      process)))
+    (let* ((process (get-buffer-process (current-buffer)))
+           (command (when process (file-name-nondirectory (car (process-command process))))))
+      (when (and command (bash-completion-starts-with command "bash"))
+        (unless (process-get process 'setup-done)
+          (bash-completion--setup-bash-common process))
+        process))))
 
 (defun bash-completion-get-process ()
   "Setup and return a bash completion process.

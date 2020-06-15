@@ -24,9 +24,7 @@ running in term mode.  Also, term mode is not available in
 shell-command prompts.
 
 Bash completion can also be run programatically, outside of a
-shell-mode command, by setting
-`bash-completion-use-separate-processes` to a non-nil value (which is
-the default) and by calling
+shell-mode command by calling
 `bash-completion-dynamic-complete-nocomint`.
 
 ## INSTALLATION
