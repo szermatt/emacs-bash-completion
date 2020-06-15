@@ -1345,6 +1345,11 @@ and would like bash completion in Emacs to take these changes into account."
       (setq no-timeout (accept-process-output process timeout nil t)))
     no-timeout))
 
+(when (< emacs-major-version 26)
+  ;; comint-last-prompt was not available prior to Emacs 26.1, so we
+  ;; always fallback to comint-prompt-regexp.
+  (defvar comint-last-prompt nil))
+
 (defun bash-completion--get-prompt-regexp ()
   (if comint-last-prompt
       (let ((start (car comint-last-prompt))
