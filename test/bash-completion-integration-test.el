@@ -33,49 +33,66 @@
 (require 'dired)
 (require 'ert)
 
-(defmacro bash-completion_test-harness (bashrc &rest body)
+(defmacro bash-completion_test-harness (bashrc use-separate-process &rest body)
   `(let ((test-env-dir (bash-completion_test-setup-env ,bashrc)))
      (let ((bash-completion-processes nil)
            (bash-completion-nospace nil)
            (bash-completion-start-files nil)
-           (bash-completion-use-separate-processes t)
+           (bash-completion-use-separate-processes ,use-separate-process)
            (bash-completion-args
             (list "--noediting"
                   "--noprofile"
                   "--rcfile" (expand-file-name "bashrc" test-env-dir)))
+           (explicit-shell-file-name bash-completion-prog)
+           (explicit-args-var (intern
+                               (concat "explicit-"
+                                       (file-name-nondirectory bash-completion-prog)
+                                       "-args")))
+           (old-explicit-args)
+           (shell-mode-hook nil)
+           (comint-mode-hook nil)
            (kill-buffer-query-functions '())
            (minibuffer-message-timeout 0)
            (default-directory test-env-dir))
+       ;; Set explicit-<executable name>-args for shell-mode.
+       (when (boundp explicit-args-var)
+         (setq old-explicit-args (symbol-value explicit-args-var)))
+       (set explicit-args-var bash-completion-args)
+
        ;; Give Emacs time to process any input or process state
        ;; change from bash-completion-reset.
        (while (accept-process-output nil 0.1))
        (unwind-protect
            (progn ,@body)
          (progn
+           (set explicit-args-var old-explicit-args)
            (bash-completion_test-teardown-env test-env-dir)
            (bash-completion-reset-all))))))
 
-(defmacro bash-completion_test-with-shell-harness (bashrc &rest body)
+(defmacro bash-completion_test-with-shell-harness (bashrc use-separate-process &rest body)
   `(bash-completion_test-harness
     ,bashrc
+    ,use-separate-process
     (let ((shell-buffer))
       (unwind-protect
 	  (progn
 	    (setq shell-buffer (shell (generate-new-buffer-name
 				       "*bash-completion_test-with-shell*")))
-	    ;; accept process output until there's nothing left
-	    (while (accept-process-output nil 0.6))
-	    ;; do a completion and return the result
+            (bash-completion--wait-for-prompt (get-buffer-process shell-buffer)
+                                              (bash-completion--get-prompt-regexp)
+                                              3.0)
 	    (with-current-buffer shell-buffer
-              (let ((comint-dynamic-complete-functions '(bash-completion-dynamic-complete))
-                    (bash-major-version (process-get (bash-completion-get-process)
-                                                     'bash-major-version)))
+              (let ((comint-dynamic-complete-functions '(bash-completion-dynamic-complete)))
                 (progn ,@body))))
-        (progn ;; finally
-          (when (and shell-buffer (buffer-live-p shell-buffer))
+        (when shell-buffer
+          (when (and (buffer-live-p shell-buffer)
+                     (get-buffer-process shell-buffer))
             (kill-process (get-buffer-process shell-buffer)))
-          (when shell-buffer 
-            (kill-buffer shell-buffer)))))))
+          (kill-buffer shell-buffer))))))
+
+(defun bash-completion_test-bash-major-version ()
+  "Return the major version of the bash process."
+  (process-get (bash-completion-get-process) 'bash-major-version))
 
 (defun bash-completion_test-complete (complete-me)
   (goto-char (point-max))
@@ -112,11 +129,18 @@ for testing completion."
 (ert-deftest bash-completion-integration-setenv-test ()
   (bash-completion_test-harness
    ""
+   t ; use-separate-process
    (bash-completion-send "echo $EMACS_BASH_COMPLETE")
    (with-current-buffer (bash-completion-buffer)
      (should (equal "t\n" (buffer-string))))))
 
-(ert-deftest bash-completion-integration-completion-test ()
+(ert-deftest bash-completion-integration-separate-processes-test ()
+  (bash-completion_test-completion-test t))
+
+(ert-deftest bash-completion-integration-single-process-test ()
+  (bash-completion_test-completion-test nil))
+
+(defun bash-completion_test-completion-test (use-separate-process)
   (bash-completion_test-with-shell-harness
    (concat ; .bashrc
     "function somefunction { echo ok; }\n"
@@ -126,7 +150,8 @@ for testing completion."
     "}\n"
     "complete -F _dummy_complete -o filenames somefunction\n"
     "complete -F _dummy_complete -o default -o filenames someotherfunction\n")
-
+   use-separate-process
+   
    ;; complete bash builtin
    (should (equal "readonly "
                   (bash-completion_test-complete "reado")))
@@ -141,7 +166,7 @@ for testing completion."
                   (bash-completion_test-complete "somefunction so"))) ;
    ;; function returns nothing, -o default, so fallback to default 
    (should (equal "someotherfunction some/"
-                  (bash-completion_test-complete "someotherfunction so")))
+                   (bash-completion_test-complete "someotherfunction so")))
    ;; wordbreak completion
    (should (equal "export SOMEPATH=some/directory:some/other/"
                   (bash-completion_test-complete
@@ -160,7 +185,8 @@ for testing completion."
     "  if [[ ${COMP_WORDS[COMP_CWORD]} == du ]]; then COMPREPLY=(dummy); fi\n"
     "}\n"
     "complete -D -F _default\n")
-   (when (>= bash-major-version 4)
+   t ; use-separate-process
+   (when (>= (bash-completion_test-bash-major-version) 4)
      (should (equal "dosomething dummy "
                     (bash-completion_test-complete "dosomething du")))
      (should (equal "dosomethingelse du"
@@ -189,7 +215,8 @@ for testing completion."
     "}\n"
     "complete -F _sometimes_nospace sometimes_nospace\n"
     "complete -F _sometimes_not_nospace -o nospace sometimes_not_nospace\n")
-   (when (>= bash-major-version 4)
+   t ; use-separate-process
+   (when (>= (bash-completion_test-bash-major-version) 4)
      (should (equal
               "sometimes_nospace dummy "
               (bash-completion_test-complete "sometimes_nospace du")))
