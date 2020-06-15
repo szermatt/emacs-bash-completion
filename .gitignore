@@ -1,3 +1,4 @@
 *.elc
+README.html
 .cask
 test/.set-bash-prog.el

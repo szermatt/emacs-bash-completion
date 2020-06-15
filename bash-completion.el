@@ -54,6 +54,7 @@
 ;;
 ;; 1. copy bash-completion.el into a directory that's on Emacs load-path
 ;; 2. add this into your .emacs file:
+;;   (setq bash-completion-use-separate-processes nil)
 ;;   (autoload 'bash-completion-dynamic-complete \"bash-completion\"
 ;;     \"BASH completion hook\")
 ;;   (add-hook 'shell-dynamic-complete-functions
@@ -62,7 +63,14 @@
 ;;   or simpler, but forces you to load this file at startup:
 ;;
 ;;   (require 'bash-completion)
+;;   (setq bash-completion-use-separate-processes nil)
 ;;   (bash-completion-setup)
+;; 
+;;   NOTE: Setting `bash-completion-use-separate-processes` to nil on new
+;;   installations is recommended. It might become the default in future
+;;   versions of `bash-completion.el. See the section
+;;   [bash-completion-use-separate-processes](#bash-completion-use-separate-processes)
+;;   for more details.
 ;;
 ;; 3. reload your .emacs (M-x `eval-buffer') or restart
 ;;
@@ -77,42 +85,57 @@
 ;; and then adding this to your .bashrc:
 ;;   . /etc/bash_completion
 ;;
-;; Right after enabling programmable bash completion, and whenever you
-;; make changes to you .bashrc, call `bash-completion-reset' to make
-;; sure bash completion takes your new settings into account.
-;;
-;; Loading /etc/bash_completion often takes time, and is not necessary
-;; in shell mode, since completion is done by a separate process, not
-;; the process shell-mode process.
-;;
-;; To turn off bash completion when running from emacs but keep it on
-;; for processes started by bash-completion.el, add this to your .bashrc:
-;; if [[ ( -z "$INSIDE_EMACS" || "$EMACS_BASH_COMPLETE" = "t" ) &&\
-;;      -f /etc/bash_completion ]]; then
-;;   . /etc/bash_completion
-;; fi
-;;
-;; Emacs sets the environment variable INSIDE_EMACS to the processes
-;; started from it. Processes started by bash-completion.el have
-;; the environment variable EMACS_BASH_COMPLETE set to t.
-;;
-;; CAVEATS
-;;
-;; Using a separate process for doing the completion has several
+;; CAVEAT
+;; 
+;; TL;DR Set `bash-completion-use-separate-processes` to `nil` and avoid
+;; the issues and complications described in this section.
+;; 
+;; When `bash-completion-use-separate-processes` is `t`, completion runs
+;; in a separate process from the shell process. 
+;; 
+;; This might be useful in some cases, as it allows interrupting slow
+;; completions, when necessary.
+;; 
+;; However using a separate process for doing the completion has several
 ;; important disadvantages:
+;; 
 ;; - bash completion is slower than standard emacs completion
+;; - it relies on directory tracking working correctly on Emacs
 ;; - the first completion can take a long time, since a new bash process
 ;;   needs to be started and initialized
 ;; - the separate process is not aware of any changes made to bash
 ;;   in the current buffer.
 ;;   In a standard terminal, you could do:
-;;     $ alias myalias=ls
-;;     $ myal<TAB>
+;; 
+;;         $ alias myalias=ls
+;;         $ myal<TAB>
+;; 
 ;;   and bash would propose the new alias.
 ;;   Bash-completion.el cannot do that, as it is not aware of anything
 ;;   configured in the current shell. To make bash-completion.el aware
 ;;   of a new alias, you need to add it to .bashrc and restart the
 ;;   completion process using `bash-completion-reset'.
+;; 
+;; When using separate processes, right after enabling programmable bash
+;; completion, and whenever you make changes to you .bashrc, call
+;; `bash-completion-reset' to make sure bash completion takes your new
+;; settings into account.
+;; 
+;; Loading /etc/bash_completion often takes time, and is not necessary
+;; in shell mode, since completion is done by a separate process, not
+;; the process shell-mode process.
+;; 
+;; To turn off bash completion when running from emacs but keep it on
+;; for processes started by bash-completion.el, add this to your .bashrc:
+;; 
+;;     if [[ ( -z "$INSIDE_EMACS" || "$EMACS_BASH_COMPLETE" = "t" ) &&\
+;;          -f /etc/bash_completion ]]; then
+;;       . /etc/bash_completion
+;;     fi
+;; 
+;; Emacs sets the environment variable INSIDE_EMACS to the processes
+;; started from it. Processes started by bash-completion.el have
+;; the environment variable EMACS_BASH_COMPLETE set to t.
 ;;
 ;; COMPATIBILITY
 ;;
