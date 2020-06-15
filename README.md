@@ -51,7 +51,7 @@ shell-mode command by calling
 
   NOTE: Setting `bash-completion-use-separate-processes` to nil on new
   installations is recommended. It might become the default in future
-  versions of `bash-completion.el. See the section
+  versions of `bash-completion.el`. See the section
   [bash-completion-use-separate-processes](#bash-completion-use-separate-processes)
   for more details.
 
@@ -80,8 +80,9 @@ and then adding this to your .bashrc:
 TL;DR Set `bash-completion-use-separate-processes` to `nil` and avoid
 the issues and complications described in this section.
 
-When `bash-completion-use-separate-processes` is `t`, completion runs
-in a separate process from the shell process. 
+When `bash-completion-use-separate-processes` is `t`, completion
+always runs in a separate process from the shell process, even when 
+called from a shell process running bash.
 
 This might be useful in some cases, as it allows interrupting slow
 completions, when necessary.
