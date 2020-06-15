@@ -372,7 +372,8 @@ garbage
 
 (ert-deftest bash-completion-generate-line-test ()
   ;; no custom completion
-  (let ((default-directory "/test"))
+  (let ((default-directory "/test")
+        (bash-completion-use-separate-processes t))
     (should
      (equal (concat "cd >/dev/null 2>&1 /test"
                     " ; compgen -o default -- worl 2>/dev/null")
@@ -501,7 +502,8 @@ garbage
 (defun bash-completion-test-send (buffer-content)
   "Run `bash-completion-send' on BUFFER-CONTENT.
 Return (const return-value new-buffer-content)"
-  (let ((process 'process))
+  (let ((process 'process)
+        (bash-completion-use-separate-processes t))
     (cl-letf (((symbol-function 'process-buffer)
                (lambda (process)
                  (unless (eq process 'process)
@@ -934,6 +936,7 @@ before calling `bash-completion-dynamic-complete-nocomint'.
 "
   `(let ((default-directory "/tmp/test")
          (bash-completion-alist '())
+         (bash-completion-use-separate-processes t)
          (wordbreaks "@><=;|&(:")
          (bash-major-version 3)
          (bash-completion-nospace nil))

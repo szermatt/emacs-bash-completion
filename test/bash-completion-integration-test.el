@@ -38,6 +38,7 @@
      (let ((bash-completion-processes nil)
            (bash-completion-nospace nil)
            (bash-completion-start-files nil)
+           (bash-completion-use-separate-processes t)
            (bash-completion-args
             (list "--noediting"
                   "--noprofile"
