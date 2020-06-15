@@ -1281,6 +1281,21 @@ completion candidates."
      " 2>/dev/null")))
 
 ;;;###autoload
+(defun bash-completion-refresh ()
+  "Refresh the completion table.
+
+This can be called after changing the completion table on BASH,
+with the builtin complete.
+
+This is only useful when `bash-completion-use-separate-processes'
+is t."
+  (interactive)
+  (let* ((process (bash-completion-get-process))
+         (buffer (bash-completion--get-buffer process)))
+    (bash-completion-send "complete -p" process)
+    (process-put process 'complete-p (bash-completion-build-alist buffer))))
+  
+;;;###autoload
 (defun bash-completion-reset ()
   "Force the next completion command to start with a fresh BASH process.
 
