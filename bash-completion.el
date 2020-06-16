@@ -153,6 +153,7 @@
 
 (require 'comint)
 (require 'cl-lib)
+(require 'shell)
 
 ;;; ---------- Customization
 (defgroup bash-completion nil
@@ -1172,6 +1173,19 @@ is set to t."
                   (bash-completion-kill process)
                 (error nil)))))))))
 
+(defun bash-completion--current-shell ()
+  "Figure out what the shell associated with the current buffer is."
+  (let ((prog (or
+               (if (derived-mode-p 'shell-mode)
+                   (or explicit-shell-file-name
+                       (getenv "ESHELL")
+                       shell-file-name))
+               (let ((process (get-buffer-process (current-buffer))))
+                 (when process
+                   (car (process-command process)))))))
+    (when prog
+      (file-name-nondirectory prog))))
+
 (defun bash-completion--get-same-process ()
   "Return the BASH process associated with the current buffer.
 
@@ -1181,8 +1195,8 @@ Completion will fallback to creating a separate process
 completion in these cases."
   (when (derived-mode-p 'comint-mode)
     (let* ((process (get-buffer-process (current-buffer)))
-           (command (when process (file-name-nondirectory (car (process-command process))))))
-      (when (and command (bash-completion-starts-with command "bash"))
+           (shell (if process (bash-completion--current-shell))))
+      (when (and shell (bash-completion-starts-with shell "bash"))
         (unless (process-get process 'setup-done)
           (bash-completion--setup-bash-common process))
         process))))
