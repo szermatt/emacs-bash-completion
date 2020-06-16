@@ -87,7 +87,8 @@
              (bash-completion--wait-for-prompt (get-buffer-process shell-buffer)
                                                (bash-completion--get-prompt-regexp)
                                                3.0)
-             (let ((comint-dynamic-complete-functions '(bash-completion-dynamic-complete)))
+             (let ((comint-dynamic-complete-functions '(bash-completion-dynamic-complete))
+                   (completion-at-point-functions '(comint-completion-at-point t)))
                (progn ,@body))))
        (when shell-buffer
          (when (and (buffer-live-p shell-buffer)
@@ -100,12 +101,20 @@
   (process-get (bash-completion--get-process) 'bash-major-version))
 
 (defun bash-completion_test-complete (complete-me)
+  "Complete COMPLETE-ME and returns the resulting string."
   (goto-char (point-max))
   (delete-region (line-beginning-position) (line-end-position))
   (insert complete-me)
   (completion-at-point)
   (buffer-substring-no-properties
-   (comint-line-beginning-position) (point)))
+   (line-beginning-position) (point)))
+
+(defun bash-completion_test-candidates (complete-me)
+  "Complete COMPLETE-ME and returns the candidates."
+  (goto-char (point-max))
+  (delete-region (line-beginning-position) (line-end-position))
+  (insert complete-me)
+  (nth 2 (bash-completion-dynamic-complete-nocomint)))
 
 (defun bash-completion_test-setup-env (bashrc)
   "Sets up a directory that contains a bashrc file other files
@@ -309,5 +318,20 @@ for testing completion."
                 "sometimes_not_nospace dummyo"
                 (bash-completion_test-complete "sometimes_not_nospace dum")))))))
 
+(ert-deftest bash-completion-integration-bash-4-complex-completion ()
+  (bash-completion_test-with-shell-harness
+   (concat ; .bashrc
+    "function _myprog {\n"
+    "  COMPREPLY=( \"ba${COMP_WORDS[$COMP_CWORD]}ta\" )\n"
+    "  COMPREPLY+=( \"ba${COMP_WORDS[$COMP_CWORD]}to\" )\n"
+    "}\n"
+    "complete -F _myprog myprog\n")
+   nil ; use-separate-process
+   ;; The default completion engine doesn't support replacing the word
+   ;; to complete with candidates and will ignore all candidates, but
+   ;; other completions engines do support it, so it's worth returning
+   ;; them - but we can't use bash-completion_test-complete.
+   (should (equal '("batitita" "batitito")
+                  (bash-completion_test-candidates "myprog blah titi")))))
 
 ;;; bash-completion-integration-test.el ends here

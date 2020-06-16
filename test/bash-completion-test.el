@@ -660,14 +660,14 @@ Return (const return-value new-buffer-content)"
                    :wordbreaks "@><=;|&(:")
                   nil)))
 
-  ;; just append
-  (should (equal "hello\\ world"
+  ;; just replace
+  (should (equal "something\\ else"
 		 (bash-completion-fix
-                  " world"
+                  "something else"
                   (bash-completion--make
                    :cword 1
-                   :stub "hello"
-                   :unparsed-stub "hello"
+                   :stub "something"
+                   :unparsed-stub "something"
                    :wordbreaks "")
                   nil)))
 
