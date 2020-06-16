@@ -84,9 +84,8 @@
 	   (setq shell-buffer (shell (generate-new-buffer-name
 				      "*bash-completion_test-with-shell*")))
 	   (with-current-buffer shell-buffer
-             (bash-completion--wait-for-prompt (get-buffer-process shell-buffer)
-                                               (bash-completion--get-prompt-regexp)
-                                               3.0)
+             (bash-completion--wait-for-regexp
+              (get-buffer-process shell-buffer) comint-prompt-regexp 3.0)
              (let ((comint-dynamic-complete-functions '(bash-completion-dynamic-complete))
                    (completion-at-point-functions '(comint-completion-at-point t)))
                (progn ,@body))))

@@ -1418,24 +1418,12 @@ and would like bash completion in Emacs to take these changes into account."
       (ansi-color-filter-region begin (point))
       "")))
 
-(defun bash-completion--wait-for-prompt (process prompt-regexp timeout)
+(defun bash-completion--wait-for-regexp (process prompt-regexp timeout &optional limit)
   (let ((no-timeout t))
     (while (and no-timeout
-                (not (re-search-backward prompt-regexp nil t)))
+                (not (re-search-backward prompt-regexp limit t)))
       (setq no-timeout (accept-process-output process timeout nil t)))
     no-timeout))
-
-(when (< emacs-major-version 26)
-  ;; comint-last-prompt was not available prior to Emacs 26.1, so we
-  ;; always fallback to comint-prompt-regexp.
-  (defvar comint-last-prompt nil))
-
-(defun bash-completion--get-prompt-regexp ()
-  (if comint-last-prompt
-      (let ((start (car comint-last-prompt))
-            (end (cdr comint-last-prompt)))
-        (regexp-quote (buffer-substring-no-properties start end)))
-    comint-prompt-regexp))
 
 (defun bash-completion-send (commandline &optional process timeout)
   "Send a command to the bash completion process.
@@ -1458,9 +1446,7 @@ result of the command in the bash completion process buffer or in
 Return the status code of the command, as a number."
   (let ((process (or process (bash-completion--get-process)))
         (timeout (or timeout bash-completion-process-timeout))
-        (prompt-regexp (if bash-completion-use-separate-processes
-                           "\t-?[[:digit:]]+\v"
-                         (bash-completion--get-prompt-regexp)))
+        (prompt-regexp comint-prompt-regexp)
         (comint-preoutput-filter-functions
          (if bash-completion-use-separate-processes
              comint-preoutput-filter-functions
@@ -1474,15 +1460,29 @@ Return the status code of the command, as a number."
                (concat
                 commandline
                 (unless bash-completion-use-separate-processes
-                  "; echo -e \"\v$?\"; history -d $((HISTCMD - 1))")
+                  "; echo \"--\v$?\"; history -d $((HISTCMD - 1))")
                 "\n"))
-      (unless (bash-completion--wait-for-prompt process prompt-regexp timeout)
-        (error (concat
-                "Timeout while waiting for an answer from "
-                "bash-completion process.\nProcess output: <<<EOF\n%sEOF")
-               (buffer-string)))
-      (unless bash-completion-use-separate-processes
-        (search-backward "\v"))
+      (if bash-completion-use-separate-processes
+          (unless (bash-completion--wait-for-regexp process "\t-?[[:digit:]]+\v" timeout)
+            (error (concat
+                    "Timeout while waiting for an answer from "
+                    "bash-completion process with regexp %s.\nProcess output: <<<EOF\n%sEOF")
+                   prompt-regexp
+                   (buffer-string)))
+        (unless (bash-completion--wait-for-regexp process "--\v" timeout)
+          (error (concat
+                  "Timeout while waiting for process status\n"
+                  "Process output: <<<EOF\n%sEOF")
+                 (buffer-string)))
+        (let ((search-limit (point)))
+          (goto-char (point-max))
+          (unless (bash-completion--wait-for-regexp process prompt-regexp timeout search-limit)
+            (error (concat
+                    "Timeout while waiting for an answer from "
+                    "bash-completion process with regexp %s.\nProcess output: <<<EOF\n%sEOF")
+                   prompt-regexp
+                   (buffer-string)))
+          (goto-char search-limit)))
       (let ((status-code (string-to-number
                           (buffer-substring-no-properties
                            (1+ (point))
