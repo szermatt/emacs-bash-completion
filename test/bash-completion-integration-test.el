@@ -221,7 +221,7 @@ for testing completion."
 (ert-deftest bash-completion-integration-space ()
   (bash-completion_test-with-shell-harness
    ""
-   nil
+   t ; bash-completion-use-separate-processes
    (bash-completion_test-test-spaces)))
 
 (ert-deftest bash-completion-integration-space-and-prog-completion ()
@@ -231,7 +231,7 @@ for testing completion."
              (not (zerop (length bash-completion_test-setup-completion))))
     (bash-completion_test-with-shell-harness
      (concat "source " bash-completion_test-setup-completion "\n")
-     nil
+     t ; bash-completion-use-separate-processes
      (bash-completion_test-test-spaces))))
   
 (defun bash-completion_test-test-spaces ()
@@ -326,7 +326,7 @@ for testing completion."
     "  COMPREPLY+=( \"ba${COMP_WORDS[$COMP_CWORD]}to\" )\n"
     "}\n"
     "complete -F _myprog myprog\n")
-   nil ; use-separate-process
+   t ; bash-completion-use-separate-processes
    ;; The default completion engine doesn't support replacing the word
    ;; to complete with candidates and will ignore all candidates, but
    ;; other completions engines do support it, so it's worth returning
