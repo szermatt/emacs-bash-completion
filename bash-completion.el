@@ -628,21 +628,34 @@ Returns a completion struct."
          (start (or (car (bash-completion-tokenize-get-range first-token)) comp-pos))
          (end (or (cdr (bash-completion-tokenize-get-range last-token)) comp-pos))
          (words (bash-completion-strings-from-tokens line-tokens))
-         (stub-start) (unparsed-stub) (parsed-stub))
+         (rebuilt-line) (stub-start) (unparsed-stub) (parsed-stub))
+    ;; Note about rebuilt-line: When using readline, line and words
+    ;; would be passed unquoted to the functions. This doesn't work,
+    ;; however, when called from Emacs as when readline 'compgen -f'
+    ;; behaves differently and does not unquote the string it's
+    ;; passed. This is why words and the last word of the line are
+    ;; passed unquoted. This makes the standard bash completion
+    ;; scripts work - possibly at the cost of more inconsistencies
+    ;; with other scripts.
     (if (or (> comp-pos end) (= start end))
         (setq stub-start comp-pos
               unparsed-stub ""
               parsed-stub ""
-              words (append words '("")))
+              words (append words '(""))
+              rebuilt-line (buffer-substring-no-properties start comp-pos))
       (if (< bash-major-version 4)
           (setq last-token (car (last (bash-completion-tokenize
-                                       comp-start comp-pos wordbreaks)))))
+                                       start comp-pos wordbreaks)))))
       (setq stub-start (car (bash-completion-tokenize-get-range last-token))
             parsed-stub (bash-completion-tokenize-get-str last-token)
-            unparsed-stub (buffer-substring-no-properties stub-start comp-pos)))
+            unparsed-stub (buffer-substring-no-properties stub-start comp-pos)
+            rebuilt-line (concat
+                          (buffer-substring-no-properties
+                           start (car (cdr (assq 'range (car (last line-tokens))))))
+                          (cdr (assq 'str (car (last line-tokens)))))))
     (bash-completion--make
-     :line (buffer-substring-no-properties start comp-pos)
-     :point (- comp-pos start)
+     :line rebuilt-line
+     :point (length rebuilt-line)
      :cword (- (length words) 1)
      :words words
      :stub-start stub-start

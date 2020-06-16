@@ -1,6 +1,7 @@
 CASK ?= cask
 EMACS ?= emacs
 BASH ?= bash
+BASH_COMPLETION ?= /etc/bash_completion
 
 setup_bash=test/.set-bash-prog.el
 
@@ -36,5 +37,6 @@ clean-elc:
 
 setup_bash:
 	@echo '(setq bash-completion-prog "${BASH}")' >$(setup_bash)
+	@echo '(setq bash-completion_test-setup-completion "${BASH_COMPLETION}")' >>$(setup_bash)
 .PHONY: setup_bash
 

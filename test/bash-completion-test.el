@@ -264,8 +264,8 @@ The return value is the one returned by BODY."
   ;; with escaped quote
   (should (equal
            (bash-completion--make
-            :line "cd /vcr/shows/Dexter\\'s"
-            :point 23
+            :line "cd /vcr/shows/Dexter's"
+            :point 22
             :cword 1
             :words '("cd" "/vcr/shows/Dexter's")
             :stub-start 4
@@ -279,8 +279,8 @@ The return value is the one returned by BODY."
   ;; with escaped quote, bash 4
   (should (equal
            (bash-completion--make
-            :line "cd /vcr/shows/Dexter\\'s"
-            :point 23
+            :line "cd /vcr/shows/Dexter's"
+            :point 22
             :cword 1
             :words '("cd" "/vcr/shows/Dexter's")
             :stub-start 4
@@ -294,8 +294,8 @@ The return value is the one returned by BODY."
   ;; with double quote
   (should (equal
            (bash-completion--make
-            :line "cd \"/vcr/shows/Dexter's"
-            :point 23
+            :line "cd /vcr/shows/Dexter's"
+            :point 22
             :cword 1
             :words '("cd" "/vcr/shows/Dexter's")
             :stub-start 4
@@ -310,8 +310,8 @@ The return value is the one returned by BODY."
   ;; with single quote
   (should (equal
            (bash-completion--make
-            :line "cd '/vcr/shows/Dexter'\\''s"
-            :point 26
+            :line "cd /vcr/shows/Dexter's"
+            :point 22
             :cword 1
             :words '("cd" "/vcr/shows/Dexter's")
             :stub-start 4

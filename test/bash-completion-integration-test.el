@@ -33,6 +33,8 @@
 (require 'dired)
 (require 'ert)
 
+(defvar bash-completion_test-setup-completion "/etc/bash_completion")
+
 (defmacro bash-completion_test-harness (bashrc use-separate-process &rest body)
   `(let ((test-env-dir (bash-completion_test-setup-env ,bashrc)))
      (let ((bash-completion-processes nil)
@@ -206,6 +208,41 @@ for testing completion."
       ;; make sure a separate process was used; in case /bin/sh is
       ;; actually bash, the test could otherwise work just fine.
       (should (not (null (cdr (assq nil bash-completion-processes)))))))))
+
+(ert-deftest bash-completion-integration-space ()
+  (bash-completion_test-with-shell-harness
+   ""
+   nil
+   (bash-completion_test-test-spaces)))
+
+(ert-deftest bash-completion-integration-space-and-prog-completion ()
+  ;; Recent version of bash completion define a completion for ls. This
+  ;; test makes sure that it works.
+  (when (and bash-completion_test-setup-completion
+             (not (zerop (length bash-completion_test-setup-completion))))
+    (bash-completion_test-with-shell-harness
+     (concat "source " bash-completion_test-setup-completion "\n")
+     nil
+     (bash-completion_test-test-spaces))))
+  
+(defun bash-completion_test-test-spaces ()
+   (make-directory "my dir1/my dir2" 'parents)
+   (with-temp-buffer (write-file "my dir1/other"))
+
+   (should (equal "ls my\\ dir1/" (bash-completion_test-complete "ls my")))
+   (should (equal "ls my\\ dir1/my\\ dir2/" (bash-completion_test-complete "ls my\\ dir1/my")))
+   (should (equal "ls my\\ dir1/other " (bash-completion_test-complete "ls my\\ dir1/o")))
+   (should (equal "cp my\\ dir1/a my\\ dir1/" (bash-completion_test-complete "cp my\\ dir1/a my\\ dir")))
+
+   (should (equal "ls \"my dir1/" (bash-completion_test-complete "ls \"my")))
+   (should (equal "ls \"my dir1/my dir2/" (bash-completion_test-complete "ls \"my dir1/my")))
+   (should (equal "ls \"my dir1/other\" " (bash-completion_test-complete "ls \"my dir1/o")))
+   (should (equal "cp \"my dir1/a\" \"my dir1/" (bash-completion_test-complete "cp \"my dir1/a\" \"my dir")))
+
+   (should (equal "ls 'my dir1/" (bash-completion_test-complete "ls 'my")))
+   (should (equal "ls 'my dir1/my dir2/" (bash-completion_test-complete "ls 'my dir1/my")))
+   (should (equal "ls 'my dir1/other' " (bash-completion_test-complete "ls 'my dir1/o")))
+   (should (equal "cp 'my dir1/a' 'my dir1/" (bash-completion_test-complete "cp 'my dir1/a' 'my dir"))))
 
 (ert-deftest bash-completion-integration-bash-4-default-completion ()
   (bash-completion_test-with-shell-harness
