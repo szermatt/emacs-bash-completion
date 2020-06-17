@@ -1350,18 +1350,18 @@ completion candidates."
 
 ;;;###autoload
 (defun bash-completion-refresh ()
-  "Refresh the completion table.
+  "Force a refresh the completion table.
 
 This can be called after changing the completion table on BASH,
-with the builtin complete.
+or after starting a new BASH job.
 
 This is only useful when `bash-completion-use-separate-processes'
 is t."
   (interactive)
-  (let* ((process (bash-completion--get-process))
-         (buffer (bash-completion--get-buffer process)))
-    (bash-completion-send "complete -p" process)
-    (process-put process 'complete-p (bash-completion-build-alist buffer))))
+  (let* ((process (bash-completion--get-process)))
+    (unless process
+      (error "Bash completion not available on current buffer."))
+    (bash-completion--setup-bash-common process)))
   
 ;;;###autoload
 (defun bash-completion-reset ()

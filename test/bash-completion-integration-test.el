@@ -108,6 +108,15 @@
   (buffer-substring-no-properties
    (line-beginning-position) (point)))
 
+(defun bash-completion_test-send (command)
+  "Execute COMMAND in a shell buffer."
+  (goto-char (point-max))
+  (delete-region (line-beginning-position) (line-end-position))
+  (insert command)
+  (comint-send-input)
+  (bash-completion--wait-for-regexp
+   (get-buffer-process (current-buffer)) comint-prompt-regexp 3.0))
+
 (defun bash-completion_test-candidates (complete-me)
   "Complete COMPLETE-ME and returns the candidates."
   (goto-char (point-max))
@@ -356,4 +365,20 @@ for testing completion."
    (should (equal "dummy 1 Yooo "
                   (bash-completion_test-complete "dummy 1 Y")))))
 
+(ert-deftest bash-completion-integration-refresh-test ()
+  (bash-completion_test-with-shell-harness
+   (concat ; .bashrc
+    "function _dummy { COMPREPLY=(Yooo); }\n"
+    "function dummy { echo $1; }\n"
+    "complete -F _dummy dummy\n")
+   nil ; use-separate-process
+   (should (equal "dummy 1 Yooo "
+                  (bash-completion_test-complete "dummy 1 Y")))
+   (bash-completion_test-send "function _dummy2 { COMPREPLY=(Yaaa); }")
+   (bash-completion_test-send "complete -F _dummy2 dummy")
+   (bash-completion-refresh)
+   (should (equal "dummy 1 Yaaa "
+                  (bash-completion_test-complete "dummy 1 Y")))))
+
+   
 ;;; bash-completion-integration-test.el ends here
