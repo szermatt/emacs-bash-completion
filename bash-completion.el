@@ -958,7 +958,6 @@ for directory name detection to work."
         (wordbreaks (bash-completion--wordbreaks comp))
         (suffix "")
         (rest) ; the part between the prefix and the suffix
-        (whole)
         (rebuilt))
 
     ;; build rest by removing parsed-prefix from str
@@ -990,34 +989,33 @@ for directory name detection to work."
      ;; Bypass the whole prefix/suffix logic and replace the string
      ;; being completed with the string provided by the completion
      ;; logic.
-     (t (setq whole str)))
+     (t (setq unparsed-prefix ""
+              parsed-prefix ""
+              rest str)))
     
-    (if whole
-        (bash-completion-escape-candidate whole nil)
-      
-      ;; build suffix
-      (let ((last-char (bash-completion-last-char rest))
-            (close-quote-str (if open-quote (char-to-string open-quote) ""))
-            (final-space-str (if nospace "" " ")))
-        (cond
-         ((eq ?\  last-char)
-          (setq rest (substring rest 0 -1))
-          (setq suffix (concat close-quote-str final-space-str)))
-         ((or (bash-completion--find-last last-char wordbreaks)
-              (eq ?/ last-char))
-          (setq suffix ""))
-         ((file-accessible-directory-p
-           (bash-completion--expand-file-name (bash-completion-unescape
-                                               open-quote (concat parsed-prefix rest))))
-          (setq suffix "/"))
-         (single
-          (setq suffix (concat close-quote-str final-space-str)))
-         (t (setq suffix close-quote-str))))
-      
-      ;; put everything back together
-      (concat unparsed-prefix
-              (bash-completion-escape-candidate rest open-quote)
-              suffix))))
+    ;; build suffix
+    (let ((last-char (bash-completion-last-char rest))
+          (close-quote-str (if open-quote (char-to-string open-quote) ""))
+          (final-space-str (if nospace "" " ")))
+      (cond
+       ((eq ?\  last-char)
+        (setq rest (substring rest 0 -1))
+        (setq suffix (concat close-quote-str final-space-str)))
+       ((or (bash-completion--find-last last-char wordbreaks)
+            (eq ?/ last-char))
+        (setq suffix ""))
+       ((file-accessible-directory-p
+         (bash-completion--expand-file-name (bash-completion-unescape
+                                             open-quote (concat parsed-prefix rest))))
+        (setq suffix "/"))
+       (single
+        (setq suffix (concat close-quote-str final-space-str)))
+       (t (setq suffix close-quote-str))))
+    
+    ;; put everything back together
+    (concat unparsed-prefix
+            (bash-completion-escape-candidate rest open-quote)
+            suffix)))
 
 (defun bash-completion-escape-candidate (completion-candidate open-quote)
   "Escapes COMPLETION-CANDIDATE.
