@@ -966,6 +966,8 @@ before calling `bash-completion-dynamic-complete-nocomint'.
                           wordbreaks)
                          ((and (eq 'process process) (eq 'bash-major-version prop))
                           bash-major-version)
+                         ((and (eq 'process process) (eq 'completion-ignore-case prop))
+                          completion-ignore-case)
                          (t (error "unexpected call")))))
                      ((symbol-function 'bash-completion-buffer) (lambda () --process-buffer))
                      ((symbol-function 'process-buffer) (lambda (p) --process-buffer))

@@ -439,6 +439,14 @@ returned."
                    (buffer-substring-no-properties
                     (point-min) (point-max))))
     (process-put process 'bash-major-version bash-major-version)
+
+    (bash-completion-send "bind -v 2>/dev/null" process)
+    (process-put process 'completion-ignore-case 
+                 (with-current-buffer (bash-completion--get-buffer process)
+                   (save-excursion
+                     (goto-char (point-min))
+                     (search-forward "completion-ignore-case on" nil 'noerror))))
+
     (process-put process 'setup-done t)))
 
 ;;; ---------- Inline functions
@@ -564,6 +572,14 @@ Returns (list stub-start stub-end completions) with
                     (process-get process 'bash-major-version)))
              (stub-start (bash-completion--stub-start comp))
              (use-separate-processes bash-completion-use-separate-processes))
+
+        ;; This sets completion-ignore-case which matters for the
+        ;; caller, as it needs to know how to post-process the
+        ;; results.
+        (let ((ignore-case (process-get process 'completion-ignore-case)))
+          (unless (eq completion-ignore-case ignore-case)
+            (setq completion-ignore-case ignore-case)))
+        
         (bash-completion--customize comp process)
         (list
          stub-start

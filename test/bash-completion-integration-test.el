@@ -45,6 +45,7 @@
             (list "--noediting"
                   "--noprofile"
                   "--rcfile" (expand-file-name "bashrc" test-env-dir)))
+           (completion-ignore-case nil)
            (explicit-shell-file-name bash-completion-prog)
            (explicit-args-var (intern
                                (concat "explicit-"
@@ -386,5 +387,38 @@ for testing completion."
    (should (equal "dummy 1 Yaaa "
                   (bash-completion_test-complete "dummy 1 Y")))))
 
-   
+(ert-deftest bash-completion-integration-case-insensitive-test ()
+  (bash-completion_test-harness
+   (concat ; .bashrc
+    "INPUTRC=test-inputrc\n")
+   nil ; use-separate-process
+   (with-temp-file "test-inputrc"
+     (insert "set completion-ignore-case on\n"))
+   (make-directory "Uppercase")
+   (bash-completion_test-with-shell
+    (when (>= (bash-completion_test-bash-major-version) 4)
+      ;; Case insensitive completion is done by compgen which, under
+      ;; bash 4, respects the case sensitivity settings set in
+      ;; .inputrc.
+      (should (equal "ls some/" (bash-completion_test-complete "ls so")))
+      (should (equal "ls some/" (bash-completion_test-complete "ls So")))
+      (should (equal "ls Uppercase/" (bash-completion_test-complete "ls Up")))
+      (should (equal "ls Uppercase/" (bash-completion_test-complete "ls up")))
+      (should completion-ignore-case)))))
+
+(ert-deftest bash-completion-integration-case-sensitive-test ()
+  (bash-completion_test-harness
+   (concat ; .bashrc
+    "INPUTRC=test-inputrc\n")
+   nil ; use-separate-process
+   (with-temp-file "test-inputrc"
+     (insert "set completion-ignore-case off\n"))
+   (make-directory "Uppercase")
+   (bash-completion_test-with-shell
+    (should (equal "ls some/" (bash-completion_test-complete "ls so")))
+    (should (equal "ls So" (bash-completion_test-complete "ls So")))
+    (should (equal "ls Uppercase/" (bash-completion_test-complete "ls Up")))
+    (should (equal "ls up" (bash-completion_test-complete "ls up")))
+    (should (not completion-ignore-case)))))
+
 ;;; bash-completion-integration-test.el ends here
