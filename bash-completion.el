@@ -379,6 +379,7 @@ returned."
 (defun bash-completion--setup-bash-common (process)
   "Setup PROCESS to be ready for completion."
   (let (bash-major-version)
+    (bash-completion-send "set +o vi" process)
     (bash-completion-send "complete -p" process)
     (process-put process 'complete-p
                  (bash-completion-build-alist (bash-completion--get-buffer process)))
@@ -1460,7 +1461,7 @@ Return the status code of the command, as a number."
                (concat
                 commandline
                 (unless bash-completion-use-separate-processes
-                  "; echo \"--\v$?\"; history -d $((HISTCMD - 1))")
+                  "; echo -e \"--\\v$?\"; history -d $((HISTCMD - 1))")
                 "\n"))
       (if bash-completion-use-separate-processes
           (unless (bash-completion--wait-for-regexp process "\t-?[[:digit:]]+\v" timeout)

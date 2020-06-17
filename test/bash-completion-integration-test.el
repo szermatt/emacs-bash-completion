@@ -333,4 +333,27 @@ for testing completion."
    (should (equal '("batitita" "batitito")
                   (bash-completion_test-candidates "myprog blah titi")))))
 
+(ert-deftest bash-completion-integration-vioption-single-process-test ()
+  (bash-completion_test--with-bash-option "set -o vi" nil))
+
+(ert-deftest bash-completion-integration-vioption-multi-processes-test ()
+  (bash-completion_test--with-bash-option "set -o vi" t))
+  
+(ert-deftest bash-completion-integration-emacsoption-single-process-test ()
+  (bash-completion_test--with-bash-option "set -o emacs" nil))
+
+(ert-deftest bash-completion-integration-emacsoption-multi-process-test ()
+  (bash-completion_test--with-bash-option "set -o emacs" t))
+
+(defun bash-completion_test--with-bash-option (turn-on-option use-separate-process)
+  (bash-completion_test-with-shell-harness
+   (concat ; .bashrc
+    turn-on-option "\n"
+    "function _dummy { COMPREPLY=(Yooo); }\n"
+    "function dummy { echo $1; }\n"
+    "complete -F _dummy dummy\n")
+   use-separate-process
+   (should (equal "dummy 1 Yooo "
+                  (bash-completion_test-complete "dummy 1 Y")))))
+
 ;;; bash-completion-integration-test.el ends here
