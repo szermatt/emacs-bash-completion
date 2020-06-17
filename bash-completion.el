@@ -425,6 +425,14 @@ returned."
           " return $ret; "
           "}")
          process))
+    
+    ;; some bash completion functions use quote_readline
+    ;; to double-quote strings - which compgen understands
+    ;; but only in some environment. disable this dreadful
+    ;; business to get a saner way of handling spaces.
+    ;; Noticed in bash_completion v1.872.
+    (bash-completion-send "function quote_readline { echo \"$1\"; }" process)
+    
     (bash-completion-send "echo -n ${COMP_WORDBREAKS}" process)
     (process-put process 'wordbreaks
                  (with-current-buffer (bash-completion--get-buffer process)
@@ -1167,12 +1175,6 @@ is set to t."
                 "export -n MAIL\n"
                 "export -n MAILPATH\n"
                 "unset HISTFILE\n"
-                ;; some bash completion functions use quote_readline
-                ;; to double-quote strings - which compgen understands
-                ;; but only in some environment. disable this dreadful
-                ;; business to get a saner way of handling spaces.
-                ;; Noticed in bash_completion v1.872.
-                "function quote_readline { echo \"$1\"; }\n"
                 ;; User's profiles can turn line editing back on,
                 ;; so make sure it's off
                 "set +o emacs\n"
