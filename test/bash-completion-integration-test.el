@@ -262,6 +262,12 @@ for testing completion."
    (should (equal "cp 'my dir1/a' 'my dir1/" (bash-completion_test-complete "cp 'my dir1/a' 'my dir"))))
 
 (ert-deftest bash-completion-integration-bash-4-default-completion ()
+  (bash-completion_test-bash-4-default-completion t))
+
+(ert-deftest bash-completion-integration-bash-4-default-completion-single-process ()
+  (bash-completion_test-bash-4-default-completion nil))
+
+(defun bash-completion_test-bash-4-default-completion (use-separate-process)
   (bash-completion_test-with-shell-harness
    (concat ; .bashrc
     "function _default {\n"
@@ -274,7 +280,7 @@ for testing completion."
     "  if [[ ${COMP_WORDS[COMP_CWORD]} == du ]]; then COMPREPLY=(dummy); fi\n"
     "}\n"
     "complete -D -F _default\n")
-   t ; use-separate-process
+   use-separate-process
    (when (>= (bash-completion_test-bash-major-version) 4)
      (should (equal "dosomething dummy "
                     (bash-completion_test-complete "dosomething du")))
