@@ -638,17 +638,6 @@ Return (const return-value new-buffer-content)"
                    :compgen-args '("-o" "nospace"))
                   nil)))
 
-  ;; unexpand home and escape
-  (should (equal "~/a/hello\\ world"
-		 (bash-completion-fix
-                  (expand-file-name "~/a/hello world")
-                  (bash-completion--make
-                   :cword 1
-                   :stub "~/a/he"
-                   :unparsed-stub "~/a/he"
-                   :wordbreaks "")
-                  nil)))
-
   ;; match after wordbreak and escape
   (should (equal "a:b:c:hello\\ world"
 		 (bash-completion-fix
@@ -674,7 +663,7 @@ Return (const return-value new-buffer-content)"
   ;; append / for home
   (should (equal "~/"
                  (bash-completion-fix
-                  (expand-file-name "~")
+                  "~"
                   (bash-completion--make
                    :cword 1
                    :stub "~"

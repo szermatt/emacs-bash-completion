@@ -65,12 +65,16 @@
        ;; Give Emacs time to process any input or process state
        ;; change from bash-completion-reset.
        (while (accept-process-output nil 0.1))
-       (unwind-protect
-           (progn ,@body)
-         (progn
-           (set explicit-args-var old-explicit-args)
-           (bash-completion_test-teardown-env test-env-dir)
-           (bash-completion-reset-all))))))
+       (let ((realhome (getenv "HOME")))
+         (unwind-protect
+             (progn
+               (setenv "HOME" test-env-dir)
+               ,@body)
+           (progn
+             (setenv "HOME" realhome)
+             (set explicit-args-var old-explicit-args)
+             (bash-completion_test-teardown-env test-env-dir)
+             (bash-completion-reset-all)))))))
 
 (defmacro bash-completion_test-with-shell-harness (bashrc use-separate-process &rest body)
   `(bash-completion_test-harness
@@ -341,11 +345,9 @@ for testing completion."
     "}\n"
     "complete -F _myprog myprog\n")
    t ; bash-completion-use-separate-processes
-   (let ((completion-in-region-function 'completion--in-region)
-         (completion-styles '(basic partial-completion substring emacs22)))
-     (should (equal
-              "myprog blah batitita "
-              (bash-completion_test-complete "myprog blah titi"))))))
+   (should (equal
+            "myprog blah batitita "
+            (bash-completion_test-complete "myprog blah titi")))))
 
 (ert-deftest bash-completion-integration-vioption-single-process-test ()
   (bash-completion_test--with-bash-option "set -o vi" nil))
@@ -409,7 +411,13 @@ for testing completion."
       (should (equal "ls \"Another Uppercase/" (bash-completion_test-complete "ls \"ano")))
       (should (equal "ls 'Another Uppercase/" (bash-completion_test-complete "ls 'Ano")))
       (should (equal "ls 'Another Uppercase/" (bash-completion_test-complete "ls 'ano")))
-      (should completion-ignore-case)))))
+
+      ;; When doing case-insensitive search, bash-completion.el cannot
+      ;; keep the exact same quotes, so it just puts the quote, if
+      ;; any, at the beginning, just after the tilde part.
+      (should (equal "ls \"Another Uppercase/" (bash-completion_test-complete "ls ano\"t")))
+      (should (equal "ls 'Another Uppercase/" (bash-completion_test-complete "ls ano't")))
+      (should (equal "ls ~/\"Another Uppercase/" (bash-completion_test-complete "ls ~/ano\"t")))))))      
 
 (ert-deftest bash-completion-integration-case-sensitive-test ()
   (bash-completion_test-harness
@@ -427,18 +435,12 @@ for testing completion."
     (should (not completion-ignore-case)))))
 
 (ert-deftest bash-completion-integration-tilde-test ()
-  (bash-completion_test-harness
-   "HOME=$PWD\n"
+  (bash-completion_test-with-shell-harness
+   ""
    nil ; use-separate-process
-   (let ((realhome (getenv "HOME")))
-     (unwind-protect
-         (progn
-           (setenv "HOME" test-env-dir)
-           (bash-completion_test-with-shell
-            (should (equal "ls some/" (bash-completion_test-complete "ls so")))
-            (should (equal "ls ~/some/" (bash-completion_test-complete "ls ~/so")))
-            (should (equal "ls \"~/some/" (bash-completion_test-complete "ls \"~/so")))
-            (should (equal "ls '~/some/" (bash-completion_test-complete "ls '~/so")))))
-       (setenv "HOME" realhome)))))
+   (should (equal "ls some/" (bash-completion_test-complete "ls so")))
+   (should (equal "ls ~/some/" (bash-completion_test-complete "ls ~/so")))
+   (should (equal "ls \"~/some/" (bash-completion_test-complete "ls \"~/so")))
+   (should (equal "ls '~/some/" (bash-completion_test-complete "ls '~/so")))))
 
 ;;; bash-completion-integration-test.el ends here

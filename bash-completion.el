@@ -441,12 +441,6 @@ returned."
     (process-put process 'bash-major-version bash-major-version)
 
     (bash-completion-send "bind -v 2>/dev/null" process)
-    (process-put process 'completion-ignore-case 
-                 (with-current-buffer (bash-completion--get-buffer process)
-                   (save-excursion
-                     (goto-char (point-min))
-                     (search-forward "completion-ignore-case on" nil 'noerror))))
-
     (process-put process 'setup-done t)))
 
 ;;; ---------- Inline functions
@@ -522,10 +516,6 @@ When doing completion outside of a comint buffer, call
         (if message-timer
             (cancel-timer message-timer)))))
 
-(defalias 'bash-completion--completion-table-with-cache
-  (if (fboundp 'completion-table-with-cache)
-      'completion-table-with-cache 'completion-table-dynamic))
-
 (defun bash-completion--complete (comp process)
   (condition-case err
       (bash-completion-comm comp process)
@@ -570,26 +560,16 @@ Returns (list stub-start stub-end completions) with
                     comp-start comp-pos
                     (process-get process 'wordbreaks)
                     (process-get process 'bash-major-version)))
-             (stub-start (bash-completion--stub-start comp))
-             (use-separate-processes bash-completion-use-separate-processes))
+             (stub-start (bash-completion--stub-start comp)))
 
-        ;; This sets completion-ignore-case which matters for the
-        ;; caller, as it needs to know how to post-process the
-        ;; results.
-        (let ((ignore-case (process-get process 'completion-ignore-case)))
-          (unless (eq completion-ignore-case ignore-case)
-            (setq completion-ignore-case ignore-case)))
-        
         (bash-completion--customize comp process)
         (list
          stub-start
          comp-pos
          (if dynamic-table
              (bash-completion--completion-table-with-cache
-              (lambda (_)
-                (let ((bash-completion-use-separate-processes
-                       use-separate-processes))
-                  (bash-completion--complete comp process))))
+              comp process
+              bash-completion-use-separate-processes)
            (bash-completion--complete comp process)))))))
 
 (defun bash-completion--find-last (elt array)
@@ -981,18 +961,6 @@ for directory name detection to work."
      ((bash-completion-starts-with str parsed-prefix)
       (setq rest (substring str (length parsed-prefix))))
 
-     ;; unexpand the home directory expanded by bash automatically
-     ((and (bash-completion-starts-with parsed-prefix "~")
-           (bash-completion-starts-with str (bash-completion--expand-file-name "~" t)))
-      (setq rest (substring (concat "~" (substring str (length (bash-completion--expand-file-name "~" t))))
-                            (length parsed-prefix))))
-
-     ((bash-completion-starts-with parsed-prefix str)
-      ;; completion is a substring of prefix something's gone
-      ;; wrong. Treat it as one (useless) candidate.
-      (setq unparsed-prefix "")
-      (setq rest str))
-
      ;; completion sometimes only applies to the last word, as
      ;; defined by COMP_WORDBREAKS. This detects and works around
      ;; this feature.
@@ -1005,6 +973,13 @@ for directory name detection to work."
      ;; Bypass the whole prefix/suffix logic and replace the string
      ;; being completed with the string provided by the completion
      ;; logic.
+     ((string-match "^~.*?\\($\\|/\\)" str)
+      (setq parsed-prefix (substring str 0 (match-end 0))
+            unparsed-prefix
+            (concat (substring str 0 (match-end 0))
+                    (if open-quote (char-to-string open-quote) ""))
+            rest (substring str (match-end 0))))
+     
      (t
       (setq parsed-prefix ""
             unparsed-prefix (if open-quote (char-to-string open-quote) "")
@@ -1562,6 +1537,36 @@ Return the parsed value, as a string or nil."
              nil 'noerror)
         (prog1 (match-string 1)
           (delete-region (match-beginning 0) (match-end 0)))))))
+
+(defun bash-completion--completion-table-with-cache (comp process use-separate-process)
+  "Build a dynamic completion table for COMP using PROCESS.
+
+The result is a function that works like one built by
+`completion-table-with-cache' with the difference that the
+completions, built by `bash-completion--complete' are complete
+and that completion style doesn't necessarily use substring
+completion."
+  (let ((last-str) (last-result))
+    (lambda (str predicate action)
+      (if (or (eq (car-safe action) 'boundaries)
+              (eq action 'metadata))
+          nil
+        (let ((result (if (equal str last-str)
+                          last-result
+                        (let ((bash-completion-use-separate-processes
+                               use-separate-process))
+                          (bash-completion--complete comp process)))))
+          (setq last-str str
+                last-result result)
+          ;; The below passes an empty string to try-completion,
+          ;; all-completions and test-completion to not let them do
+          ;; any further filtering.
+          (funcall
+           (cond
+            ((null action) 'try-completion)
+            ((eq action t) 'all-completions)
+            (t 'test-completion))
+           "" result predicate))))))
 
 (provide 'bash-completion)
 
