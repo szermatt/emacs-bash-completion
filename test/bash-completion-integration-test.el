@@ -333,21 +333,19 @@ for testing completion."
                 "sometimes_not_nospace dummyo"
                 (bash-completion_test-complete "sometimes_not_nospace dum")))))))
 
-(ert-deftest bash-completion-integration-bash-4-complex-completion ()
+(ert-deftest bash-completion-integration-bash-4-substring-completion ()
   (bash-completion_test-with-shell-harness
    (concat ; .bashrc
     "function _myprog {\n"
     "  COMPREPLY=( \"ba${COMP_WORDS[$COMP_CWORD]}ta\" )\n"
-    "  COMPREPLY+=( \"ba${COMP_WORDS[$COMP_CWORD]}to\" )\n"
     "}\n"
     "complete -F _myprog myprog\n")
    t ; bash-completion-use-separate-processes
-   ;; The default completion engine doesn't support replacing the word
-   ;; to complete with candidates and will ignore all candidates, but
-   ;; other completions engines do support it, so it's worth returning
-   ;; them - but we can't use bash-completion_test-complete.
-   (should (equal '("batitita" "batitito")
-                  (bash-completion_test-candidates "myprog blah titi")))))
+   (let ((completion-in-region-function 'completion--in-region)
+         (completion-styles '(basic partial-completion substring emacs22)))
+     (should (equal
+              "myprog blah batitita "
+              (bash-completion_test-complete "myprog blah titi"))))))
 
 (ert-deftest bash-completion-integration-vioption-single-process-test ()
   (bash-completion_test--with-bash-option "set -o vi" nil))
