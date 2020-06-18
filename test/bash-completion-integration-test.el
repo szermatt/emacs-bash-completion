@@ -395,6 +395,7 @@ for testing completion."
    (with-temp-file "test-inputrc"
      (insert "set completion-ignore-case on\n"))
    (make-directory "Uppercase")
+   (make-directory "Another Uppercase")
    (bash-completion_test-with-shell
     (when (>= (bash-completion_test-bash-major-version) 4)
       ;; Case insensitive completion is done by compgen which, under
@@ -404,6 +405,12 @@ for testing completion."
       (should (equal "ls some/" (bash-completion_test-complete "ls So")))
       (should (equal "ls Uppercase/" (bash-completion_test-complete "ls Up")))
       (should (equal "ls Uppercase/" (bash-completion_test-complete "ls up")))
+      (should (equal "ls Another\\ Uppercase/" (bash-completion_test-complete "ls Ano")))
+      (should (equal "ls Another\\ Uppercase/" (bash-completion_test-complete "ls ano")))
+      (should (equal "ls \"Another Uppercase/" (bash-completion_test-complete "ls \"Ano")))
+      (should (equal "ls \"Another Uppercase/" (bash-completion_test-complete "ls \"ano")))
+      (should (equal "ls 'Another Uppercase/" (bash-completion_test-complete "ls 'Ano")))
+      (should (equal "ls 'Another Uppercase/" (bash-completion_test-complete "ls 'ano")))
       (should completion-ignore-case)))))
 
 (ert-deftest bash-completion-integration-case-sensitive-test ()

@@ -1005,10 +1005,11 @@ for directory name detection to work."
      ;; Bypass the whole prefix/suffix logic and replace the string
      ;; being completed with the string provided by the completion
      ;; logic.
-     (t (setq unparsed-prefix ""
-              parsed-prefix ""
-              rest str)))
-    
+     (t
+      (setq parsed-prefix ""
+            unparsed-prefix (if open-quote (char-to-string open-quote) "")
+            rest str)))
+
     ;; build suffix
     (let ((last-char (bash-completion-last-char rest))
           (close-quote-str (if open-quote (char-to-string open-quote) ""))
