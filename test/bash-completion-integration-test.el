@@ -428,4 +428,19 @@ for testing completion."
     (should (equal "ls up" (bash-completion_test-complete "ls up")))
     (should (not completion-ignore-case)))))
 
+(ert-deftest bash-completion-integration-tilde-test ()
+  (bash-completion_test-harness
+   "HOME=$PWD\n"
+   nil ; use-separate-process
+   (let ((realhome (getenv "HOME")))
+     (unwind-protect
+         (progn
+           (setenv "HOME" test-env-dir)
+           (bash-completion_test-with-shell
+            (should (equal "ls some/" (bash-completion_test-complete "ls so")))
+            (should (equal "ls ~/some/" (bash-completion_test-complete "ls ~/so")))
+            (should (equal "ls \"~/some/" (bash-completion_test-complete "ls \"~/so")))
+            (should (equal "ls '~/some/" (bash-completion_test-complete "ls '~/so")))))
+       (setenv "HOME" realhome)))))
+
 ;;; bash-completion-integration-test.el ends here
