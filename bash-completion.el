@@ -529,15 +529,35 @@ When doing completion outside of a comint buffer, call
 
 ;;;###autoload
 (defun bash-completion-dynamic-complete-nocomint
-    (&optional comp-start comp-pos dynamic-table)
+    (comp-start &optional comp-pos dynamic-table)
   "Return completion information for bash command at an arbitrary position.
 
 The bash command to be completed begins at COMP-START in the
-current buffer. COMP-POS is the point where completion should
-happen.
+current buffer. This must specify where the current command
+starts, usually right after the prompt. 
 
-This function is meant to be usable even in non comint buffers.
-It is meant to be called directly from any completion engine.
+COMP-POS is the point where completion should happen, usually
+just (point). Note that a bash command can span across multiple
+line, so COMP-START is not necessarily on the same line as
+COMP-POS.
+
+This function does not assume that the current buffer is a shell
+or even comint buffer. It can safely be called from any buffer
+where a bash command appears, including `completion-at-point'.
+
+If DYNAMIC-TABLE is passed a non-nil value, the resulting
+collection will be a function that fetches the result lazily,
+when it's called.
+
+When calling from `completion-at-point', make sure to pass a
+non-nil value to DYNAMIC-TABLE. This isn't just an optimization:
+returning a function instead of a list tells Emacs it should
+avoids post-filtering the results and possibly discarding useful
+completion from bash.
+
+When calling from another completion engine, make sure to treat
+the returned completion as reliable and not post-process them
+further.
 
 Returns (list stub-start stub-end completions) with
  - stub-start, the position at which the completed region starts

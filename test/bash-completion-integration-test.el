@@ -204,7 +204,9 @@ for testing completion."
    "function somefunction { echo ok; }\n"
    nil ; use-separate-process=nil will be ignored
    (with-temp-buffer
-     (let ((completion-at-point-functions '(bash-completion-dynamic-complete-nocomint)))
+     (let ((completion-at-point-functions
+            (list (lambda () (bash-completion-dynamic-complete-nocomint
+                              (line-beginning-position) (point) t)))))
        ;; complete bash builtin
        (should (equal "readonly "
                       (bash-completion_test-complete "reado")))
