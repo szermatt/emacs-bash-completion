@@ -568,8 +568,7 @@ Returns (list stub-start stub-end completions) with
          comp-pos
          (if dynamic-table
              (bash-completion--completion-table-with-cache
-              comp process
-              bash-completion-use-separate-processes)
+              comp process)
            (bash-completion--complete comp process)))))))
 
 (defun bash-completion--find-last (elt array)
@@ -1538,7 +1537,7 @@ Return the parsed value, as a string or nil."
         (prog1 (match-string 1)
           (delete-region (match-beginning 0) (match-end 0)))))))
 
-(defun bash-completion--completion-table-with-cache (comp process use-separate-process)
+(defun bash-completion--completion-table-with-cache (comp process)
   "Build a dynamic completion table for COMP using PROCESS.
 
 The result is a function that works like one built by
@@ -1546,16 +1545,23 @@ The result is a function that works like one built by
 completions, built by `bash-completion--complete' are complete
 and that completion style doesn't necessarily use substring
 completion."
-  (let ((last-str) (last-result))
+  (let ((last-str) (last-result)
+        (calling-buffer (current-buffer))
+        (dir default-directory)
+        (use-separate-process bash-completion-use-separate-processes)
+        (nospace bash-completion-nospace))
     (lambda (str predicate action)
       (if (or (eq (car-safe action) 'boundaries)
               (eq action 'metadata))
           nil
-        (let ((result (if (equal str last-str)
-                          last-result
-                        (let ((bash-completion-use-separate-processes
-                               use-separate-process))
-                          (bash-completion--complete comp process)))))
+        (let ((result
+               (if (equal str last-str)
+                   last-result
+                 (let ((bash-completion-use-separate-processes use-separate-process)
+                       (bash-completion-nospace nospace)
+                       (default-directory dir))
+                   (with-current-buffer calling-buffer
+                     (bash-completion--complete comp process))))))
           (setq last-str str
                 last-result result)
           ;; The below passes an empty string to try-completion,
