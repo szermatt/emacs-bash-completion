@@ -62,7 +62,7 @@ After that reload your .emacs (M-x `eval-buffer') or restart.
 ### Completion at point
 
 Additionally, you can enable bash completion in any buffer that contains bash 
-commands. To do that, call `bash-completion-dynamic-complete-nocomint' from a 
+commands. To do that, call `bash-completion-dynamic-complete-nocomint` from a 
 function added to `completion-at-point-functions`. 
 
 The tricky part is figuring out where the bash command starts, because that 
