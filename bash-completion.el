@@ -4,7 +4,7 @@
 
 ;; Author: Stephane Zermatten <szermatt@gmx.net>
 ;; Maintainer: Stephane Zermatten <szermatt@gmail.com>
-;; Version: 2.1.1
+;; Version: 3.0.0
 ;; Keywords: shell bash bash-completion
 ;; URL: http://github.com/szermatt/emacs-bash-completion
 ;; Package-Requires: ((emacs "24.1"))
