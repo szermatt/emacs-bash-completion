@@ -128,6 +128,12 @@ Emacs sets the environment variable INSIDE_EMACS to the processes
 started from it. Local processes started by bash-completion.el have
 the environment variable EMACS_BASH_COMPLETE set to t.
 
+## CONTRIBUTING
+
+To report bugs, features or even to ask questions, please open an [issue](https://github.com/szermatt/emacs-bash-completion/issues). To contribute code or documentation, please open a [pull request](https://github.com/szermatt/emacs-bash-completion/pulls). 
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for more details. 
+
 ## COMPATIBILITY
 
 bash-completion.el is known to work with Bash 3 and 4, on Emacs,
