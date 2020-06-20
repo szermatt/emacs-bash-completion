@@ -6,7 +6,7 @@ If you're having issue with completion, please include enough
 information to reproduce the issue, this usually includes:
 * the version of Emacs you're using `emacs -version`
 * the version of Bash you're using `bash -version`
-* the bash completion script, it's version and where to download it from
+* the bash completion script, its version and where to download it from
 
 ## Suggesting features
 
