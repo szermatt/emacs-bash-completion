@@ -441,6 +441,12 @@ returned."
     (process-put process 'bash-major-version bash-major-version)
 
     (bash-completion-send "bind -v 2>/dev/null" process)
+    (process-put process 'completion-ignore-case 
+                 (with-current-buffer (bash-completion--get-buffer process)
+                   (save-excursion
+                     (goto-char (point-min))
+                     (and (search-forward "completion-ignore-case on" nil 'noerror) t))))
+
     (process-put process 'setup-done t)))
 
 ;;; ---------- Inline functions
@@ -1584,15 +1590,12 @@ completion."
                      (bash-completion--complete comp process))))))
           (setq last-str str
                 last-result result)
-          ;; The below passes an empty string to try-completion,
-          ;; all-completions and test-completion to not let them do
-          ;; any further filtering.
-          (funcall
-           (cond
-            ((null action) 'try-completion)
-            ((eq action t) 'all-completions)
-            (t 'test-completion))
-           "" result predicate))))))
+          (let ((filtered-result (if predicate (mapcar predicate result) result))
+                (completion-ignore-case (process-get process 'completion-ignore-case)))
+            (cond
+             ((null action) (try-completion "" filtered-result))
+             ((eq action t) filtered-result)
+             (t (test-completion "" filtered-result)))))))))
 
 (provide 'bash-completion)
 

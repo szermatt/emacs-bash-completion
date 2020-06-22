@@ -46,6 +46,9 @@
                   "--noprofile"
                   "--rcfile" (expand-file-name "bashrc" test-env-dir)))
            (completion-ignore-case nil)
+           (completion-in-region-function 'completion--in-region)
+           (completion-cycle-threshold 20)
+           (completion-styles '(basic partial-completion substring emacs22))
            (explicit-shell-file-name bash-completion-prog)
            (explicit-args-var (intern
                                (concat "explicit-"
@@ -398,6 +401,8 @@ for testing completion."
      (insert "set completion-ignore-case on\n"))
    (make-directory "Uppercase")
    (make-directory "Another Uppercase")
+   (make-directory "libs")
+   (make-directory "Library")
    (bash-completion_test-with-shell
     (when (>= (bash-completion_test-bash-major-version) 4)
       ;; Case insensitive completion is done by compgen which, under
@@ -407,6 +412,10 @@ for testing completion."
       (should (equal "ls some/" (bash-completion_test-complete "ls So")))
       (should (equal "ls Uppercase/" (bash-completion_test-complete "ls Up")))
       (should (equal "ls Uppercase/" (bash-completion_test-complete "ls up")))
+      
+      (should (equal "ls libs/" (bash-completion_test-complete "ls li")))
+      (should (equal "ls libs/" (bash-completion_test-complete "ls Li")))
+
       (should (equal "ls Another\\ Uppercase/" (bash-completion_test-complete "ls Ano")))
       (should (equal "ls Another\\ Uppercase/" (bash-completion_test-complete "ls ano")))
       (should (equal "ls \"Another Uppercase/" (bash-completion_test-complete "ls \"Ano")))
