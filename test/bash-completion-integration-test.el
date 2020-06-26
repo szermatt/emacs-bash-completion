@@ -92,8 +92,7 @@
 	   (setq shell-buffer (shell (generate-new-buffer-name
 				      "*bash-completion_test-with-shell*")))
 	   (with-current-buffer shell-buffer
-             (bash-completion--wait-for-regexp
-              (get-buffer-process shell-buffer) comint-prompt-regexp 3.0)
+             (bash-completion_test-wait-for-prompt)
              (let ((comint-dynamic-complete-functions '(bash-completion-dynamic-complete))
                    (completion-at-point-functions '(comint-completion-at-point t)))
                (progn ,@body))))
@@ -116,14 +115,24 @@
   (buffer-substring-no-properties
    (line-beginning-position) (point)))
 
-(defun bash-completion_test-send (command)
+(defun bash-completion_test-send (command &optional complete)
   "Execute COMMAND in a shell buffer."
   (goto-char (point-max))
-  (delete-region (line-beginning-position) (line-end-position))
-  (insert command)
-  (comint-send-input)
+  (let ((command-start (point)))
+    (delete-region (line-beginning-position) (line-end-position))
+    (insert command)
+    (when complete (completion-at-point))
+    (comint-send-input)
+    (bash-completion_test-wait-for-prompt command-start)))
+
+(defun bash-completion_test-wait-for-prompt (&optional limit)
   (bash-completion--wait-for-regexp
-   (get-buffer-process (current-buffer)) comint-prompt-regexp 3.0))
+   (get-buffer-process shell-buffer) comint-prompt-regexp 3.0 limit))
+
+(defun bash-completion_test-buffer-string (&optional start end)
+  (delete-trailing-whitespace (point-min) (point-max))
+  (untabify (point-min) (point-max))
+  (buffer-substring-no-properties (or start (point-min)) (or end (point-max))))
 
 (defun bash-completion_test-candidates (complete-me)
   "Complete COMPLETE-ME and returns the candidates."
@@ -143,8 +152,12 @@ for testing completion."
     (prog1
         test-env-dir
       (with-temp-file (expand-file-name "bashrc" test-env-dir)
+        (insert "export PATH=/bin\n")
         (insert (format "cd '%s'\n" test-env-dir))
-        (insert bashrc))
+        (insert bashrc)
+        (insert "\n")
+        (insert "HISTFILE=/dev/null\n")
+        (insert "history -c\n"))
       (let ((default-directory test-env-dir))
         (make-directory "some/directory" 'parents)
         (make-directory "some/other/directory" 'parents)))))
@@ -453,5 +466,66 @@ for testing completion."
    (should (equal "ls ~/some/" (bash-completion_test-complete "ls ~/so")))
    (should (equal "ls \"~/some/" (bash-completion_test-complete "ls \"~/so")))
    (should (equal "ls '~/some/" (bash-completion_test-complete "ls '~/so")))))
+
+(ert-deftest bash-completion-integration-prompt-command ()
+  "Tests PROMPT_COMMAND storage and recovery in single-process mode."
+  (bash-completion_test-with-shell-harness
+   "prompt_count=0
+function _prompt {
+  PS1=\"[$prompt_count]:$? $ \"
+  prompt_count=$(( $prompt_count + 1 ))
+}
+PROMPT_COMMAND=_prompt
+"
+   nil ; use-separate-process
+   (bash-completion_test-send "ls -1 so" 'complete)
+   (bash-completion_test-send "tru" 'complete)
+   (bash-completion_test-send "fals" 'complete)
+   (should (equal
+            (bash-completion_test-buffer-string)
+            "[0]:0 $ ls -1 some/
+directory
+other
+[1]:0 $ true
+[2]:0 $ false
+[3]:1 $ "))))
+
+(ert-deftest bash-completion-integration-ps1 ()
+  "Tests PS1 storage and recovery in single-process mode."
+  (bash-completion_test-with-shell-harness
+   "PS1='$? $ '"
+   nil ; use-separate-process
+   (bash-completion_test-send "ls -1 so" 'complete)
+   (bash-completion_test-send "tru" 'complete)
+   (bash-completion_test-send "fals" 'complete)
+   (should (equal
+            (bash-completion_test-buffer-string)
+            "0 $ ls -1 some/
+directory
+other
+0 $ true
+0 $ false
+1 $ "))))
+
+(ert-deftest bash-completion-integration-prompt-history ()
+  "Tests that history is not polluted by completion."
+  (bash-completion_test-with-shell-harness
+   "PS1='$ '"
+   nil ; use-separate-process
+   (bash-completion_test-send "ls -1 so" 'complete)
+   (bash-completion_test-send "tru" 'complete)
+   (bash-completion_test-send "fals" 'complete)
+   (let ((history-start (line-beginning-position)))
+     (bash-completion_test-send "history")
+     (untabify (point-min) (point-max))
+     (delete-trailing-whitespace (point-min) (point-max))
+     (should (equal
+              (bash-completion_test-buffer-string history-start)
+              "history
+    1  ls -1 some/
+    2  true
+    3  false
+    4  history
+$ ")))))
 
 ;;; bash-completion-integration-test.el ends here

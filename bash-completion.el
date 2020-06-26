@@ -1263,11 +1263,12 @@ function __emacs_complete_prompt {
   PROMPT_COMMAND=__emacs_complete_recover_prompt
 }; \
 function __emacs_complete_recover_prompt {
+  local r=$?
   PS1=\"${__emacs_complete_ps1}\"
   PROMPT_COMMAND=\"${__emacs_complete_pc}\"
   unset __emacs_complete_ps1 __emacs_complete_pc
   if [[ -n \"$PROMPT_COMMAND\" ]]; then
-    eval \"$PROMPT_COMMAND\"
+    (exit $r); eval \"$PROMPT_COMMAND\"
   fi
 }" process)
           (bash-completion--setup-bash-common process))
