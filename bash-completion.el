@@ -379,7 +379,6 @@ returned."
 (defun bash-completion--setup-bash-common (process)
   "Setup PROCESS to be ready for completion."
   (let (bash-major-version)
-    (bash-completion-send "set +o vi" process)
     (bash-completion-send "complete -p" process)
     (process-put process 'complete-p
                  (bash-completion-build-alist (bash-completion--get-buffer process)))
@@ -389,11 +388,11 @@ returned."
             (string-to-number (buffer-substring-no-properties
                                (point-min) (point-max)))))
     (bash-completion-send
-     (concat "function __bash_complete_wrapper {"
+     (concat "function __emacs_complete_wrapper {"
              (if (>= bash-major-version 4)
                  " COMP_TYPE=9; COMP_KEY=9; _EMACS_COMPOPT=\"\";"
                "")
-             " eval $__BASH_COMPLETE_WRAPPER;"
+             " eval $__EMACS_COMPLETE_WRAPPER;"
              " n=$?;"
              " if [[ $n = 124 ]]; then"
              (bash-completion--side-channel-data
@@ -1195,7 +1194,7 @@ is set to t."
                 "set +o emacs\n"
                 "set +o vi\n"))
 
-              (bash-completion-send "PROMPT_COMMAND='';PS1='\t$?\v'" process bash-completion-initial-timeout)
+              (bash-completion-send "PROMPT_COMMAND='' PS1='\t$?\v'" process bash-completion-initial-timeout)
               (bash-completion--setup-bash-common process)
               (push (cons remote process) bash-completion-processes)
               (setq cleanup nil)
@@ -1234,6 +1233,43 @@ completion in these cases."
            (shell (if process (bash-completion--current-shell))))
       (when (and shell (bash-completion-starts-with shell "bash"))
         (unless (process-get process 'setup-done)
+          ;; The following disables the emacs and vi options. This
+          ;; cannot be done by bash-completion-send as these options
+          ;; interfere with bash-completion-send detecting the end
+          ;; of a command. It disables prompt to avoid interference
+          ;; from commands run by prompts.
+          (comint-send-string
+           process
+           "set +o emacs; set +o vi; \
+if [[ -z \"$__emacs_complete_ps1\" ]]; then \
+  __emacs_complete_ps1=\"$PS1\"\
+  __emacs_complete_pc=\"$PROMPT_COMMAND\"; \
+fi; \
+PS1='' PROMPT_COMMAND=''; history -d $((HISTCMD - 1))\n")
+          
+          ;; The following is a bootstrap command for
+          ;; bash-completion-send itself.
+          (bash-completion-send
+            "function __emacs_complete_post_command { 
+  if [[ -z \"$__emacs_complete_ps1\" ]]; then
+    __emacs_complete_ps1=\"$PS1\"
+    __emacs_complete_pc=\"$PROMPT_COMMAND\"
+  fi
+  PROMPT_COMMAND=__emacs_complete_prompt
+  history -d $((HISTCMD - 1))
+}; \
+function __emacs_complete_prompt {
+  PS1='\t$?\v'
+  PROMPT_COMMAND=__emacs_complete_recover_prompt
+}; \
+function __emacs_complete_recover_prompt {
+  PS1=\"${__emacs_complete_ps1}\"
+  PROMPT_COMMAND=\"${__emacs_complete_pc}\"
+  unset __emacs_complete_ps1 __emacs_complete_pc
+  if [[ -n \"$__emacs_complete_pc\" ]]; then
+    eval \"$__emacs_complete_pc\"
+  fi
+}" process)
           (bash-completion--setup-bash-common process))
         process))))
 
@@ -1339,8 +1375,8 @@ completion candidates."
               (function (or (member "-F" args) (member "-C" args)))
               (function-name (car (cdr function))))
          (setcar function "-F")
-         (setcar (cdr function) "__bash_complete_wrapper")
-         (format "__BASH_COMPLETE_WRAPPER=%s compgen %s -- %s"
+         (setcar (cdr function) "__emacs_complete_wrapper")
+         (format "__EMACS_COMPLETE_WRAPPER=%s compgen %s -- %s"
                  (bash-completion-quote
                   (format "COMP_LINE=%s; COMP_POINT=%s; COMP_CWORD=%s; COMP_WORDS=( %s ); %s %s %s %s"
                           (bash-completion-quote (bash-completion--line comp))
@@ -1373,10 +1409,11 @@ or after starting a new BASH job.
 This is only useful when `bash-completion-use-separate-processes'
 is t."
   (interactive)
-  (let* ((process (bash-completion--get-process)))
+  (let* ((process (get-buffer-process (current-buffer))))
     (unless process
-      (error "Bash completion not available on current buffer."))
-    (bash-completion--setup-bash-common process)))
+      (error "No process is available in this buffer."))
+    (process-put process 'setup-done nil)
+    (bash-completion--get-process)))
   
 ;;;###autoload
 (defun bash-completion-reset ()
@@ -1464,49 +1501,29 @@ result of the command in the bash completion process buffer or in
 Return the status code of the command, as a number."
   (let ((process (or process (bash-completion--get-process)))
         (timeout (or timeout bash-completion-process-timeout))
-        (prompt-regexp comint-prompt-regexp)
         (comint-preoutput-filter-functions
          (if bash-completion-use-separate-processes
              comint-preoutput-filter-functions
            '(bash-completion--output-filter)))
         (send-string (if bash-completion-use-separate-processes
                          #'process-send-string
-                       #'comint-send-string)))
+                       #'comint-send-string))
+        (post-command (if bash-completion-use-separate-processes
+                          "\n"
+                        "; __emacs_complete_post_command;\n")))
     (with-current-buffer (bash-completion--get-buffer process)
       (erase-buffer)
-      (funcall send-string process
-               (concat
-                commandline
-                (unless bash-completion-use-separate-processes
-                  "; echo -e \"--\\v$?\"; history -d $((HISTCMD - 1))")
-                "\n"))
-      (if bash-completion-use-separate-processes
-          (unless (bash-completion--wait-for-regexp process "\t-?[[:digit:]]+\v" timeout)
-            (error (concat
-                    "Timeout while waiting for an answer from "
-                    "bash-completion process with regexp %s.\nProcess output: <<<EOF\n%sEOF")
-                   prompt-regexp
-                   (buffer-string)))
-        (unless (bash-completion--wait-for-regexp process "--\v" timeout)
-          (error (concat
-                  "Timeout while waiting for process status\n"
-                  "Process output: <<<EOF\n%sEOF")
-                 (buffer-string)))
-        (let ((search-limit (point)))
-          (goto-char (point-max))
-          (unless (bash-completion--wait-for-regexp process prompt-regexp timeout search-limit)
-            (error (concat
-                    "Timeout while waiting for an answer from "
-                    "bash-completion process with regexp %s.\nProcess output: <<<EOF\n%sEOF")
-                   prompt-regexp
-                   (buffer-string)))
-          (goto-char search-limit)))
+      (funcall send-string process (concat commandline post-command))
+      (unless (bash-completion--wait-for-regexp process "\t-?[[:digit:]]+\v" timeout)
+        (error (concat
+                "Timeout while waiting for an answer from "
+                "%s bash-completion process.\nProcess output: <<<EOF\n%sEOF")
+               (if bash-completion-use-separate-processes "separate" "single")
+               (buffer-string)))
       (let ((status-code (string-to-number
                           (buffer-substring-no-properties
                            (1+ (point))
-                           (if bash-completion-use-separate-processes
-                               (1- (line-end-position))
-                             (line-end-position))))))
+                           (1- (line-end-position))))))
         (delete-region (point) (point-max))
         (if (string=
              "124"

@@ -403,11 +403,11 @@ garbage
     (should (equal
              (concat
               "cd >/dev/null 2>&1 /test ; "
-              "__BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg blah worl'\\''; "
+              "__EMACS_COMPLETE_WRAPPER='COMP_LINE='\\''zorg blah worl'\\''; "
               "COMP_POINT=12; COMP_CWORD=2; "
               "COMP_WORDS=( zorg blah worl ); "
               "__zorg zorg worl blah' "
-              "compgen -F __bash_complete_wrapper -- worl 2>/dev/null")
+              "compgen -F __emacs_complete_wrapper -- worl 2>/dev/null")
              (bash-completion-generate-line
               (bash-completion--make
                :line "zorg blah worl"
@@ -422,12 +422,12 @@ garbage
     (should (equal
              (concat
               "cd >/dev/null 2>&1 /test ; "
-              "__BASH_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; "
+              "__EMACS_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; "
               "COMP_POINT=7; "
               "COMP_CWORD=1; "
               "COMP_WORDS=( zorg worl ); "
               "__zorg zorg worl zorg' "
-              "compgen -F __bash_complete_wrapper -- worl 2>/dev/null")
+              "compgen -F __emacs_complete_wrapper -- worl 2>/dev/null")
              (bash-completion-generate-line
               (bash-completion--make
                :line "zorg worl"
