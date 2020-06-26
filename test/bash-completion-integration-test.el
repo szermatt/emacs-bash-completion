@@ -152,6 +152,8 @@ for testing completion."
     (prog1
         test-env-dir
       (with-temp-file (expand-file-name "bashrc" test-env-dir)
+        ;; Disable ZSH warning under MacOS Catalina
+        (insert "export BASH_SILENCE_DEPRECATION_WARNING=1") 
         (insert "export PATH=/bin\n")
         (insert (format "cd '%s'\n" test-env-dir))
         (insert bashrc)
