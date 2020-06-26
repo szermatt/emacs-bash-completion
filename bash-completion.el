@@ -1266,8 +1266,8 @@ function __emacs_complete_recover_prompt {
   PS1=\"${__emacs_complete_ps1}\"
   PROMPT_COMMAND=\"${__emacs_complete_pc}\"
   unset __emacs_complete_ps1 __emacs_complete_pc
-  if [[ -n \"$__emacs_complete_pc\" ]]; then
-    eval \"$__emacs_complete_pc\"
+  if [[ -n \"$PROMPT_COMMAND\" ]]; then
+    eval \"$PROMPT_COMMAND\"
   fi
 }" process)
           (bash-completion--setup-bash-common process))
