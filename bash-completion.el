@@ -521,17 +521,6 @@ When doing completion outside of a comint buffer, call
         (if message-timer
             (cancel-timer message-timer)))))
 
-(defun bash-completion--complete (comp process)
-  (condition-case err
-      (bash-completion-comm comp process)
-    (error (if (not bash-completion-use-separate-processes)
-               ;; try again with a separate process
-               (let* ((bash-completion-use-separate-processes t)
-                      (process (bash-completion--get-process)))
-                 (bash-completion-comm comp process))
-             ;; re-throw the error
-             (signal (car err) (cdr err))))))
-
 ;;;###autoload
 (defun bash-completion-dynamic-complete-nocomint
     (comp-start &optional comp-pos dynamic-table)
@@ -594,7 +583,7 @@ Returns (list stub-start stub-end completions) with
          (if dynamic-table
              (bash-completion--completion-table-with-cache
               comp process)
-           (bash-completion--complete comp process)))))))
+           (bash-completion-comm comp process)))))))
 
 (defun bash-completion--find-last (elt array)
   "Return the position of the last instance of ELT in array or nil."
@@ -1586,7 +1575,7 @@ Return the parsed value, as a string or nil."
 
 The result is a function that works like one built by
 `completion-table-with-cache' with the difference that the
-completions, built by `bash-completion--complete' are complete
+completions, built by `bash-completion-comm' are complete
 and that completion style doesn't necessarily use substring
 completion."
   (let ((last-str) (last-result)
@@ -1605,7 +1594,7 @@ completion."
                        (bash-completion-nospace nospace)
                        (default-directory dir))
                    (with-current-buffer calling-buffer
-                     (bash-completion--complete comp process))))))
+                     (bash-completion-comm comp process))))))
           (setq last-str str
                 last-result result)
           (let ((filtered-result (if predicate (mapcar predicate result) result))
