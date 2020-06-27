@@ -330,7 +330,7 @@ Bash processes.")
   open-quote     ; quote open at stub end: nil, ?' or ?\""
   compgen-args   ; compgen arguments for this command (list of strings)
   wordbreaks     ; value of COMP_WORDBREAKS active for this completion
-  compopt        ; options forced with compopt nil or `(nospace . ,bool)
+  compopt        ; options forced with compopt, same format as compgen-args
 )
 
 (defun bash-completion--type (comp)
@@ -346,20 +346,28 @@ customized, usually by `bash-completion--customize'.
    ((bash-completion--compgen-args comp) 'custom)
    (t 'default)))
 
-(defun bash-completion--nospace (comp)
-  "Returns the value of the nospace option to use for COMP.
+(defun bash-completion--option (comp optname)
+  "Returns the value of a compopt option OPTNAME to use for COMP.
 
-The option can be:
- - set globally, by setting `bash-completion-nospace' to t
- - set for a customized completion, in bash, with
-   '-o' 'nospace'."
-  (let ((cell))
-    (cond
-     (bash-completion-nospace t) ; set globally
-     ((setq cell (assq 'nospace (bash-completion--compopt comp)))
-      (cdr cell))
-     (t (bash-completion--has-compgen-option
-         (bash-completion--compgen-args comp) "nospace")))))
+The option can be passed to the complete builtin or set later in
+the completion script using compopt."
+  (bash-completion--has-compgen-option
+   (append (bash-completion--compgen-args comp)
+           (bash-completion--compopt comp))
+   optname))
+
+(defun bash-completion--has-compgen-option (compgen-args optname)
+  "Check whether COMPGEN-ARGS has OPTNAME set. 
+
+COMPGEN-ARGS is a list of options for the complete builtin."
+  (let ((last-arg nil) (result nil))
+    (dolist (arg compgen-args)
+      (when (equal optname arg)
+        (cond
+         ((equal last-arg "-o") (setq result t))
+         ((equal last-arg "+o") (setq result nil))))
+      (setq last-arg arg))
+    result))
 
 (defun bash-completion--command (comp)
   "Return the current command for the completion, if there is one."
@@ -390,7 +398,7 @@ returned."
     (bash-completion-send
      (concat "function __emacs_complete_wrapper {"
              (if (>= bash-major-version 4)
-                 " COMP_TYPE=9; COMP_KEY=9; _EMACS_COMPOPT=\"\";"
+                 " COMP_TYPE=9; COMP_KEY=9; declare -A _EMACS_COMPOPT=( );"
                "")
              " eval $__EMACS_COMPLETE_WRAPPER;"
              " n=$?;"
@@ -400,10 +408,12 @@ returned."
              "  return 1; "
              " fi; "
              (when (>= bash-major-version 4)
-               (concat " if [[ -n \"${_EMACS_COMPOPT}\" ]]; then"
-                       (bash-completion--side-channel-data
-                        "compopt" "${_EMACS_COMPOPT}")
-                       " fi;"))
+               (concat " local opt;"
+                       " local allopts='';"
+                       " for opt in \"${!_EMACS_COMPOPT[@]}\"; do"
+                       "   allopts=\"$allopts ${_EMACS_COMPOPT[$opt]} $opt\";"
+                       " done; "
+                       (bash-completion--side-channel-data "compopt" "${allopts}")))
              " return $n;"
              "}")
      process)
@@ -413,13 +423,15 @@ returned."
           "function compopt {"
           " command compopt \"$@\" 2>/dev/null;"
           " ret=$?; "
-          " if [[ $ret == 1 && \"$*\" = *\"-o nospace\"* ]]; then"
-          "  _EMACS_COMPOPT='-o nospace';"
-          "  return 0;"
-          " fi;"
-          " if [[ $ret == 1 && \"$*\" = *\"+o nospace\"* ]]; then"
-          "  _EMACS_COMPOPT='+o nospace';"
-          "  return 0;"
+          " if [[ $ret == 1 ]]; then"
+          "   local s='';"
+          "   local arg;"
+          "   for arg in \"${@}\"; do"
+          "     if [[ -n \"$s\" && \"$arg\" =~ ^[a-z]+$ ]]; then"
+          "       _EMACS_COMPOPT[$arg]=$s;"
+          "     fi;"
+          "     if [[ \"$arg\" =~ [+-]o$ ]]; then s=${arg}; else s=''; fi;"
+          "   done;"
           " fi;"
           " return $ret; "
           "}")
@@ -924,17 +936,14 @@ for directory name detection to work.
 Post-processing includes escaping special characters, adding a /
 to directory names, replacing STUB with UNPARSED-STUB in the
 result. See `bash-completion-fix' for more details."
-  (let ((output) (candidates) (pwd))
+  (let ((output) (candidates) (compopt) (pwd))
     (with-current-buffer buffer
       (setq pwd (bash-completion--parse-side-channel-data "pwd"))
-      (let ((compopt (bash-completion--parse-side-channel-data "compopt")))
-        (cond
-         ((string= "-o nospace" compopt)
-          (setf (bash-completion--compopt comp) '((nospace . t))))
-         ((string= "+o nospace" compopt)
-          (setf (bash-completion--compopt comp) '((nospace . nil))))))
+      (setq compopt (bash-completion--parse-side-channel-data "compopt"))
       (setq output (buffer-string)))
     (setq candidates (delete-dups (split-string output "\n" t)))
+    (setf (bash-completion--compopt comp)
+          (if compopt (delete "" (split-string compopt " "))))
     (let ((default-directory (if pwd
                                  (concat (file-remote-p default-directory) pwd)
                                default-directory)))
@@ -967,12 +976,12 @@ for directory name detection to work."
   (let ((parsed-prefix (bash-completion--stub comp))
         (unparsed-prefix (bash-completion--unparsed-stub comp))
         (open-quote (bash-completion--open-quote comp))
-        (nospace (bash-completion--nospace comp))
+        (nospace (or bash-completion-nospace
+                     (bash-completion--option comp "nospace")))
         (wordbreaks (bash-completion--wordbreaks comp))
         (suffix "")
         (rest) ; the part between the prefix and the suffix
         (rebuilt))
-
     ;; build rest by removing parsed-prefix from str
     (cond
      ((bash-completion-starts-with str parsed-prefix)
@@ -1538,16 +1547,6 @@ Return the status code of the command, as a number."
     (if (and remote local-part-only)
         (file-remote-p expanded 'localname)
       expanded)))
-
-(defun bash-completion--has-compgen-option (compgen-args option-name)
-  "Check whether COMPGEN-ARGS contains -o OPTION-NAME."
-  (let ((rest compgen-args) (found))
-    (while (and (not found)
-                (setq rest (cdr (member "-o" rest))))
-      (when (string= option-name (car rest))
-        (setq found t))
-      (setq rest (cdr rest)))
-    found))
 
 (defun bash-completion--side-channel-data (name value)
   "Return an echo command that outputs NAME=VALUE as side-channel data.

@@ -1251,4 +1251,13 @@ before calling `bash-completion-dynamic-complete-nocomint'.
    (should (equal "value" (bash-completion--parse-side-channel-data "name*")))
    (should (equal "test" (buffer-string)))))
 
+(ert-deftest bash-completion--has-compgen-option-test ()
+  (should (equal t (bash-completion--has-compgen-option
+                    '("+o" "nospace" "-o" "nospace" "-o" "filenames") "nospace")))
+  (should (equal nil (bash-completion--has-compgen-option
+                      '("-o" "nospace" "+o" "nospace" "-o" "filenames") "nospace")))
+  (should (equal t (bash-completion--has-compgen-option
+                    '("ignoreme" "-o" "nospace") "nospace")))
+  (should (equal t (bash-completion--has-compgen-option
+                    '("-o" "nospace" "+o" "nospace" "-o" "filenames") "filenames"))))
 ;;; bash-completion_test.el ends here
