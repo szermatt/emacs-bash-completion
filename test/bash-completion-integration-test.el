@@ -538,4 +538,25 @@ $ ")))))
    (let ((default-directory "/does-not-exist/"))
      (should (equal "ls some/" (bash-completion_test-complete "ls so"))))))
 
+(ert-deftest bash-completion-integration-tramp-single-process ()
+  (bash-completion_test-harness
+   ""  ; .bashrc
+   nil ; use-separate-process
+   (let ((default-directory (concat "/sg:localhost:" default-directory)))
+     (bash-completion_test-with-shell
+      (should (file-remote-p default-directory))
+      (let ((default-directory "/does-not-exist/"))
+        (should (equal "ls some/"
+                       (bash-completion_test-complete "ls so"))))))))
+
+(ert-deftest bash-completion-integration-tramp-separate-process ()
+  (bash-completion_test-harness
+   ""  ; .bashrc
+   t ; use-separate-process
+   (let ((default-directory (concat "/sg:localhost:" default-directory)))
+     (bash-completion_test-with-shell
+      (should (file-remote-p default-directory))
+      (should (equal "ls some/"
+                     (bash-completion_test-complete "ls so")))))))
+
 ;;; bash-completion-integration-test.el ends here
