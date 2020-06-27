@@ -312,7 +312,7 @@ for testing completion."
      (should (equal "dosomethingelse du"
                       (bash-completion_test-complete "dosomethingelse du"))))))
 
-(ert-deftest bash-completion-integration-bash-4-compopt ()
+(ert-deftest bash-completion-integration-bash-4-nospace-compopt ()
   (bash-completion_test-with-shell-harness
    (concat ; .bashrc
     "function _sometimes_nospace {\n"
@@ -356,6 +356,64 @@ for testing completion."
        (should (equal
                 "sometimes_not_nospace dummyo"
                 (bash-completion_test-complete "sometimes_not_nospace dum")))))))
+
+(ert-deftest bash-completion-integration-filenames-option-test ()
+  (bash-completion_test-with-shell-harness
+   (concat ; .bashrc
+    "function _dummy {\n"
+    "  if [[ ${COMP_WORDS[COMP_CWORD]} == so ]]; then COMPREPLY=(some); fi\n"
+    "}\n"
+    "complete -F _dummy -o filenames dummyf\n"
+    "complete -F _dummy dummy\n"
+    "complete -o default dummyd\n")
+   nil ; use-separate-process
+   (should (equal "dummy some "
+                  (bash-completion_test-complete "dummy so")))
+   (should (equal "dummyf some/"
+                  (bash-completion_test-complete "dummyf so")))
+   (should (equal "dummyd some/"
+                  (bash-completion_test-complete "dummyd so")))))
+
+(ert-deftest bash-completion-integration-fallback-test ()
+  "Treat fallbacks to default or dirnames as filenames."
+  (bash-completion_test-with-shell-harness
+   (concat ; .bashrc
+    "function _dummy {\n"
+    "  if [[ ${COMP_WORDS[COMP_CWORD]} == so ]]; then COMPREPLY=(some); fi\n"
+    "}\n"
+    "complete -F _dummy -o dirnames dummy\n"
+    "complete -F _dummy -o default dummyd\n")
+   nil ; use-separate-process
+   (should (equal "dummy some "
+                  (bash-completion_test-complete "dummy so")))
+   (should (equal "dummy some/"
+                  (bash-completion_test-complete "dummy som")))
+   (should (equal "dummyd some "
+                  (bash-completion_test-complete "dummyd so")))
+   (should (equal "dummyd some/"
+                  (bash-completion_test-complete "dummyd som")))))
+
+(ert-deftest bash-completion-integration-bash-4-filenames-compopt ()
+  (bash-completion_test-with-shell-harness
+   (concat ; .bashrc
+    "function _sometimes_filenames {\n"
+    "  if [[ ${COMP_WORDS[COMP_CWORD]} == so ]]; then\n"
+    "    COMPREPLY=(some)\n"
+    "  fi\n"
+    "  if [[ ${COMP_WORDS[COMP_CWORD]} == som ]]; then\n"
+    "    COMPREPLY=(some)\n"
+    "    compopt -o filenames\n"
+    "  fi\n"
+    "}\n"
+    "complete -F _sometimes_filenames completeme\n")
+   nil ; use-separate-process
+   (when (>= (bash-completion_test-bash-major-version) 4)
+     (should (equal
+              "completeme some "
+              (bash-completion_test-complete "completeme so")))
+     (should (equal
+              "completeme some/"
+              (bash-completion_test-complete "completeme som"))))))
 
 (ert-deftest bash-completion-integration-bash-4-substring-completion ()
   (bash-completion_test-with-shell-harness

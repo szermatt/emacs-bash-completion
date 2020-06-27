@@ -356,6 +356,12 @@ the completion script using compopt."
            (bash-completion--compopt comp))
    optname))
 
+(defun bash-completion--set-option (comp optname)
+  "Force option OPTNAME in COMP."
+  (cl-callf append
+      (bash-completion--compopt comp)
+    (list "-o" optname)))
+
 (defun bash-completion--has-compgen-option (compgen-args optname)
   "Check whether COMPGEN-ARGS has OPTNAME set. 
 
@@ -408,7 +414,14 @@ returned."
              "  return 1; "
              " fi; "
              (when (>= bash-major-version 4)
-               (concat " local opt;"
+               ;; Output options captured by compopt. This enables
+               ;; filenames if nothing was found, as compgen might
+               ;; then fallback to file or directory completion and
+               ;; then add its own.
+               (concat " if [[ ${#COMPREPLY[@]} == 0 ]]; then "
+                       "   _EMACS_COMPOPT[filenames]=-o;"
+                       " fi;"
+                       " local opt;"
                        " local allopts='';"
                        " for opt in \"${!_EMACS_COMPOPT[@]}\"; do"
                        "   allopts=\"$allopts ${_EMACS_COMPOPT[$opt]} $opt\";"
@@ -942,8 +955,10 @@ result. See `bash-completion-fix' for more details."
       (setq compopt (bash-completion--parse-side-channel-data "compopt"))
       (setq output (buffer-string)))
     (setq candidates (delete-dups (split-string output "\n" t)))
-    (setf (bash-completion--compopt comp)
-          (if compopt (delete "" (split-string compopt " "))))
+    (if compopt 
+        (cl-callf append
+            (bash-completion--compopt comp)
+          (split-string compopt " ")))
     (let ((default-directory (if pwd
                                  (concat (file-remote-p default-directory) pwd)
                                default-directory)))
@@ -1022,9 +1037,11 @@ for directory name detection to work."
        ((or (bash-completion--find-last last-char wordbreaks)
             (eq ?/ last-char))
         (setq suffix ""))
-       ((file-accessible-directory-p
-         (bash-completion--expand-file-name (bash-completion-unescape
-                                             open-quote (concat parsed-prefix rest))))
+       ((and
+         (bash-completion--option comp "filenames")
+         (file-accessible-directory-p
+          (bash-completion--expand-file-name (bash-completion-unescape
+                                              open-quote (concat parsed-prefix rest)))))
         (setq suffix "/"))
        (single
         (setq suffix (concat close-quote-str final-space-str)))
@@ -1366,9 +1383,11 @@ completion candidates."
        (bash-completion--side-channel-data "pwd" "${PWD}"))
      (cond
       ((eq 'command completion-type)
+       (bash-completion--set-option comp "filenames")
        (concat "compgen -b -c -a -A function -- " quoted-stub))
 
       ((eq 'default completion-type)
+       (bash-completion--set-option comp "filenames")
        (concat "compgen -o default -- " quoted-stub))
 
       ((and (eq 'custom completion-type) (or (member "-F" compgen-args)
@@ -1396,6 +1415,7 @@ completion candidates."
                  quoted-stub)))
       ((eq 'custom completion-type)
        ;; simple custom completion
+       (bash-completion--set-option comp "filenames")
        (format "compgen %s -- %s"
                (bash-completion-join compgen-args)
                quoted-stub))

@@ -668,7 +668,8 @@ Return (const return-value new-buffer-content)"
                    :cword 1
                    :stub "~"
                    :unparsed-stub "~"
-                   :wordbreaks "")
+                   :wordbreaks ""
+                   :compopt '("-o" "filenames"))
                   nil)))
 
   (cl-letf (((symbol-function 'file-accessible-directory-p)
@@ -683,7 +684,7 @@ Return (const return-value new-buffer-content)"
                        :stub "some"
                        :unparsed-stub "some"
                        :wordbreaks ""
-                       :compgen-args '(filenames))
+                       :compgen-args '("-o" "filenames"))
                       nil)))))
 
   ;; append a space for initial command that is not a directory
@@ -1254,6 +1255,9 @@ before calling `bash-completion-dynamic-complete-nocomint'.
 (ert-deftest bash-completion--has-compgen-option-test ()
   (should (equal t (bash-completion--has-compgen-option
                     '("+o" "nospace" "-o" "nospace" "-o" "filenames") "nospace")))
+  (should (equal t (bash-completion--has-compgen-option '() "nospace" t)))
+  (should (equal nil (bash-completion--has-compgen-option
+                      '("+o" "nospace") "nospace" t)))
   (should (equal nil (bash-completion--has-compgen-option
                       '("-o" "nospace" "+o" "nospace" "-o" "filenames") "nospace")))
   (should (equal t (bash-completion--has-compgen-option
