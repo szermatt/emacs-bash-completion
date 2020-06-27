@@ -530,4 +530,12 @@ other
     4  history
 $ ")))))
 
+(ert-deftest bash-completion-integration-bad-directory-tracking ()
+  "When using single-process, bad directory tracking shouldn't be a problem."
+  (bash-completion_test-with-shell-harness
+   ""  ; .bashrc
+   nil ; use-separate-process
+   (let ((default-directory "/does-not-exist/"))
+     (should (equal "ls some/" (bash-completion_test-complete "ls so"))))))
+
 ;;; bash-completion-integration-test.el ends here

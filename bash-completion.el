@@ -924,8 +924,9 @@ for directory name detection to work.
 Post-processing includes escaping special characters, adding a /
 to directory names, replacing STUB with UNPARSED-STUB in the
 result. See `bash-completion-fix' for more details."
-  (let ((output) (candidates))
+  (let ((output) (candidates) (pwd))
     (with-current-buffer buffer
+      (setq pwd (bash-completion--parse-side-channel-data "pwd"))
       (let ((compopt (bash-completion--parse-side-channel-data "compopt")))
         (cond
          ((string= "-o nospace" compopt)
@@ -934,13 +935,16 @@ result. See `bash-completion-fix' for more details."
           (setf (bash-completion--compopt comp) '((nospace . nil))))))
       (setq output (buffer-string)))
     (setq candidates (delete-dups (split-string output "\n" t)))
-    (if (eq 1 (length candidates))
-        (list (bash-completion-fix (car candidates) comp t))
-      ;; multiple candidates
-      (let ((result (list)))
-        (dolist (completion candidates)
-          (push (bash-completion-fix completion comp nil) result))
-        (delete-dups (nreverse result))))))
+    (let ((default-directory (if pwd
+                                 (concat (file-remote-p default-directory) pwd)
+                               default-directory)))
+      (if (eq 1 (length candidates))
+          (list (bash-completion-fix (car candidates) comp t))
+        ;; multiple candidates
+        (let ((result (list)))
+          (dolist (completion candidates)
+            (push (bash-completion-fix completion comp nil) result))
+          (delete-dups (nreverse result)))))))
 
 (defun bash-completion-fix (str comp single)
   "Fix completion candidate in STR for COMP
@@ -1350,7 +1354,7 @@ completion candidates."
     (concat
      (if bash-completion-use-separate-processes
          (bash-completion-cd-command-prefix)
-       "")
+       (bash-completion--side-channel-data "pwd" "${PWD}"))
      (cond
       ((eq 'command completion-type)
        (concat "compgen -b -c -a -A function -- " quoted-stub))
