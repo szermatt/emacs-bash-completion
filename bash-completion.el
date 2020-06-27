@@ -1238,18 +1238,18 @@ if [[ -z \"$__emacs_complete_ps1\" ]]; then \
   __emacs_complete_ps1=\"$PS1\"\
   __emacs_complete_pc=\"$PROMPT_COMMAND\"; \
 fi; \
-PS1='' PROMPT_COMMAND=''; history -d $((HISTCMD - 1))\n")
+PS1='' PROMPT_COMMAND=''; history &>/dev/null -d $((HISTCMD - 1))\n")
           
           ;; The following is a bootstrap command for
           ;; bash-completion-send itself.
           (bash-completion-send
-            "function __emacs_complete_post_command { 
+            "function __emacs_complete_pre_command { 
   if [[ -z \"$__emacs_complete_ps1\" ]]; then
     __emacs_complete_ps1=\"$PS1\"
     __emacs_complete_pc=\"$PROMPT_COMMAND\"
   fi
   PROMPT_COMMAND=__emacs_complete_prompt
-  history -d $((HISTCMD - 1))
+  history &>/dev/null -d $((HISTCMD - 1))
 }; \
 function __emacs_complete_prompt {
   PS1='\t$?\v'
@@ -1263,7 +1263,7 @@ function __emacs_complete_recover_prompt {
   if [[ -n \"$PROMPT_COMMAND\" ]]; then
     (exit $r); eval \"$PROMPT_COMMAND\"
   fi
-}" process)
+}; __emacs_complete_pre_command" process)
           (bash-completion--setup-bash-common process))
         process))))
 
@@ -1502,12 +1502,11 @@ Return the status code of the command, as a number."
         (send-string (if bash-completion-use-separate-processes
                          #'process-send-string
                        #'comint-send-string))
-        (post-command (if bash-completion-use-separate-processes
-                          "\n"
-                        "; __emacs_complete_post_command;\n")))
+        (pre-command (unless bash-completion-use-separate-processes
+                        "__emacs_complete_pre_command; ")))
     (with-current-buffer (bash-completion--get-buffer process)
       (erase-buffer)
-      (funcall send-string process (concat commandline post-command))
+      (funcall send-string process (concat pre-command commandline "\n"))
       (unless (bash-completion--wait-for-regexp process "\t-?[[:digit:]]+\v" timeout)
         (error (concat
                 "Timeout while waiting for an answer from "
