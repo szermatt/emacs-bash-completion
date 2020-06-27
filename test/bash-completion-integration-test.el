@@ -538,4 +538,22 @@ $ ")))))
    (let ((default-directory "/does-not-exist/"))
      (should (equal "ls some/" (bash-completion_test-complete "ls so"))))))
 
+(ert-deftest bash-completion-integration-caching ()
+  "Make sure caching works and that completion is only executed once."
+  (bash-completion_test-with-shell-harness
+   (concat ; .bashrc
+    "PS1='$ '\n"
+    "dummycount=0;\n"
+    "function _dummy {\n"
+    "  dummycount=$(( $dummycount + 1 ))\n"
+    "  COMPREPLY=(libra library librarian)\n"
+    "}\n"
+    "function dummy { echo count: ${dummycount}.; }\n"
+    "complete -F _dummy dummy\n")
+   nil ; use-separate-process
+   (bash-completion_test-send "dummy libr" 'complete)
+   (should (string-match
+            (regexp-quote "$ dummy libra\ncount: 1.")
+            (bash-completion_test-buffer-string)))))
+
 ;;; bash-completion-integration-test.el ends here

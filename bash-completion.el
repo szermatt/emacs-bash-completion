@@ -1578,28 +1578,25 @@ Return the parsed value, as a string or nil."
 
 The result is a function that works like one built by
 `completion-table-with-cache' with the difference that the
-completions, built by `bash-completion-comm' are complete
-and that completion style doesn't necessarily use substring
-completion."
-  (let ((last-str) (last-result)
+completions, built by `bash-completion-comm' are not filtered
+using the current Emacs completion style."
+  (let ((last-result)
         (calling-buffer (current-buffer))
         (dir default-directory)
         (use-separate-process bash-completion-use-separate-processes)
         (nospace bash-completion-nospace))
-    (lambda (str predicate action)
+    (lambda (_str predicate action)
       (if (or (eq (car-safe action) 'boundaries)
               (eq action 'metadata))
           nil
         (let ((result
-               (if (equal str last-str)
-                   last-result
-                 (let ((bash-completion-use-separate-processes use-separate-process)
-                       (bash-completion-nospace nospace)
-                       (default-directory dir))
-                   (with-current-buffer calling-buffer
-                     (bash-completion-comm comp process))))))
-          (setq last-str str
-                last-result result)
+               (or last-result
+                   (let ((bash-completion-use-separate-processes use-separate-process)
+                         (bash-completion-nospace nospace)
+                         (default-directory dir))
+                     (with-current-buffer calling-buffer
+                       (bash-completion-comm comp process))))))
+          (setq last-result result)
           (let ((filtered-result (if predicate (mapcar predicate result) result))
                 (completion-ignore-case (process-get process 'completion-ignore-case)))
             (cond
