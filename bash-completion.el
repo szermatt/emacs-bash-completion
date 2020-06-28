@@ -302,6 +302,9 @@ Bash processes.")
 (defconst bash-completion-special-chars "[^-0-9a-zA-Z_./\n=]"
   "Regexp of characters that must be escaped or quoted.")
 
+(defconst bash-completion--ps1 "'\t$?\v'"
+  "Value for the special PS1 prompt set for completions, quoted.")
+
 (eval-when-compile
   (unless (or (and (= emacs-major-version 24) (>= emacs-minor-version 3))
               (>= emacs-major-version 25))
@@ -395,15 +398,14 @@ returned."
              " eval $__EMACS_COMPLETE_WRAPPER;"
              " n=$?;"
              " if [[ $n = 124 ]]; then"
-             (bash-completion--side-channel-data
-              "wrapped-status" "124")
+             (bash-completion--side-channel-data "wrapped-status" "124")
              "  return 1; "
              " fi; "
              (when (>= bash-major-version 4)
-               (concat " if [[ -n \"${_EMACS_COMPOPT}\" ]]; then"
-                       (bash-completion--side-channel-data
-                        "compopt" "${_EMACS_COMPOPT}")
-                       " fi;"))
+               (concat
+                " if [[ -n \"${_EMACS_COMPOPT}\" ]]; then"
+                (bash-completion--side-channel-data "compopt" "${_EMACS_COMPOPT}")
+                " fi;"))
              " return $n;"
              "}")
      process)
@@ -1176,18 +1178,20 @@ is set to t."
                 ;; bash if the current version of bash does not
                 ;; support these options, the commands will fail
                 ;; silently and be ignored.
-                "shopt -u checkjobs\n"
-                "shopt -u mailwarn\n"
-                "export MAILCHECK=-1\n"
-                "export -n MAIL\n"
-                "export -n MAILPATH\n"
-                "unset HISTFILE\n"
+                "shopt -u checkjobs;"
+                "shopt -u mailwarn;"
+                "export MAILCHECK=-1;"
+                "export -n MAIL;"
+                "export -n MAILPATH;"
+                "unset HISTFILE;"
                 ;; User's profiles can turn line editing back on,
                 ;; so make sure it's off
-                "set +o emacs\n"
+                "set +o emacs;"
                 "set +o vi\n"))
 
-              (bash-completion-send "PROMPT_COMMAND='' PS1='\t$?\v'" process bash-completion-initial-timeout)
+              (bash-completion-send
+               (concat "PROMPT_COMMAND='' PS1=" bash-completion--ps1) 
+               process bash-completion-initial-timeout)
               (bash-completion--setup-bash-common process)
               (push (cons remote process) bash-completion-processes)
               (setq cleanup nil)
@@ -1233,37 +1237,43 @@ completion in these cases."
           ;; from commands run by prompts.
           (comint-send-string
            process
-           "set +o emacs; set +o vi; \
-if [[ -z \"$__emacs_complete_ps1\" ]]; then \
-  __emacs_complete_ps1=\"$PS1\"\
-  __emacs_complete_pc=\"$PROMPT_COMMAND\"; \
-fi; \
-PS1='' PROMPT_COMMAND=''; history &>/dev/null -d $((HISTCMD - 1))\n")
+           (concat
+            "set +o emacs;"
+            "set +o vi;"
+            "if [[ -z \"$__emacs_complete_ps1\" ]]; then"
+            "  __emacs_complete_ps1=\"$PS1\";"
+            "  __emacs_complete_pc=\"$PROMPT_COMMAND\";"
+            "fi;"
+            "PS1='' PROMPT_COMMAND='';"
+            "history &>/dev/null -d $((HISTCMD - 1))\n"))
           
           ;; The following is a bootstrap command for
           ;; bash-completion-send itself.
           (bash-completion-send
-            "function __emacs_complete_pre_command { 
-  if [[ -z \"$__emacs_complete_ps1\" ]]; then
-    __emacs_complete_ps1=\"$PS1\"
-    __emacs_complete_pc=\"$PROMPT_COMMAND\"
-  fi
-  PROMPT_COMMAND=__emacs_complete_prompt
-  history &>/dev/null -d $((HISTCMD - 1))
-}; \
-function __emacs_complete_prompt {
-  PS1='\t$?\v'
-  PROMPT_COMMAND=__emacs_complete_recover_prompt
-}; \
-function __emacs_complete_recover_prompt {
-  local r=$?
-  PS1=\"${__emacs_complete_ps1}\"
-  PROMPT_COMMAND=\"${__emacs_complete_pc}\"
-  unset __emacs_complete_ps1 __emacs_complete_pc
-  if [[ -n \"$PROMPT_COMMAND\" ]]; then
-    (exit $r); eval \"$PROMPT_COMMAND\"
-  fi
-}; __emacs_complete_pre_command" process)
+           (concat
+            "function __emacs_complete_pre_command {"
+            "  if [[ -z \"$__emacs_complete_ps1\" ]]; then"
+            "    __emacs_complete_ps1=\"$PS1\";"
+            "    __emacs_complete_pc=\"$PROMPT_COMMAND\";"
+            "  fi;"
+            "  PROMPT_COMMAND=__emacs_complete_prompt;"
+            "  history &>/dev/null -d $((HISTCMD - 1));"
+            "};"
+            "function __emacs_complete_prompt {"
+            "  PS1=" bash-completion--ps1 ";"
+            "  PROMPT_COMMAND=__emacs_complete_recover_prompt;"
+            "};"
+            "function __emacs_complete_recover_prompt {"
+            "  local r=$?;"
+            "  PS1=\"${__emacs_complete_ps1}\";"
+            "  PROMPT_COMMAND=\"${__emacs_complete_pc}\";"
+            "  unset __emacs_complete_ps1 __emacs_complete_pc;"
+            "  if [[ -n \"$PROMPT_COMMAND\" ]]; then"
+            "    (exit $r); eval \"$PROMPT_COMMAND\";"
+            "  fi;"
+            "};"
+            "__emacs_complete_pre_command")
+           process)
           (bash-completion--setup-bash-common process))
         process))))
 
