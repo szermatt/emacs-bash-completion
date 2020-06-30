@@ -35,7 +35,6 @@ prompts, such as the prompt started by `compile`, add the hook
 For example:
 
 ```elisp
-        (setq bash-completion-use-separate-processes nil)
         (autoload 'bash-completion-dynamic-complete
           "bash-completion"
           "BASH completion hook")
@@ -46,18 +45,22 @@ For example:
 or simpler, but forces you to load bash-completion at startup:
 
 ```elisp
-        (setq bash-completion-use-separate-processes nil)
         (require 'bash-completion)
         (bash-completion-setup)
 ```
 
-  NOTE: Setting `bash-completion-use-separate-processes` to nil on new
-  installations is recommended. It might become the default in future
-  versions of `bash-completion.el`. See the section
-  [bash-completion-use-separate-processes](#bash-completion-use-separate-processes)
-  for more details.
-  
 After that reload your .emacs (M-x `eval-buffer') or restart.
+
+When called from a bash shell buffer,
+`bash-completion-dynamic-complete` communicates with the current shell
+to reproduce, as closely as possible the normal bash auto-completion,
+available on full terminals.
+
+When called from non-shell buffers, such as the prompt of M-x compile,
+`bash-completion-dynamic-complete` creates a separate bash process
+just for doing completion. Such processes have the environment
+variable `EMACS_BASH_COMPLETE` set to `t`, to help distinguish them
+from normal shell processes.
 
 ### Completion at point
 
@@ -91,42 +94,6 @@ and bind `bash-completion-from-eshell` to a custom shortcut.
    (save-excursion (eshell-bol) (point))
    (point) t))
 ```
-
-## bash-completion-use-separate-processes
-
-TL;DR Set `bash-completion-use-separate-processes` to `nil` and avoid
-the issues and complications described in this section.
-
-When `bash-completion-use-separate-processes` is `t`, completion
-always runs in a separate process from the shell process. When it is 
-nil and when using shell-mode, bash-completion can use the same 
-bash process as shell mode, when it is available.
-
-Running a separate process just for completion has several downsides:
-
-- it relies on directory tracking working correctly on Emacs
-- the first completion can take a long time, since a new bash process
-  needs to be started and initialized
-- the separate process is not aware of any changes made to bash
-  in the current buffer.
-  In a standard terminal, you could do:
-
-        $ alias myalias=ls
-        $ myal<TAB>
-
-  and bash would propose the new alias.
-  
-  Bash-completion.el can only do that if completion and shell are
-  running in the same process. 
-
-When using separate processes, right after enabling programmable bash
-completion, and whenever you make changes to you .bashrc, call
-`bash-completion-reset` to make sure bash completion takes your new
-settings into account.
-
-Emacs sets the environment variable INSIDE_EMACS to the processes
-started from it. Local processes started by bash-completion.el have
-the environment variable EMACS_BASH_COMPLETE set to t.
 
 ## CONTRIBUTING
 
