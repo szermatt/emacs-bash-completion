@@ -14,7 +14,7 @@ Bash completion for Emacs:
 - works on remote shells, through TRAMP.
 
 A simpler and more complete alternative to bash-completion.el is to
-run a bash shell in a buffer in term mode(M-x `ansi-term').
+run a bash shell in a buffer in term mode (`M-x ansi-term`).
 Unfortunately, many Emacs editing features are not available when
 running in term mode.  Also, term mode is not available in
 shell-command prompts.
@@ -49,7 +49,7 @@ or simpler, but forces you to load bash-completion at startup:
         (bash-completion-setup)
 ```
 
-After that reload your .emacs (M-x `eval-buffer') or restart.
+After that reload your .emacs (`M-x eval-buffer`) or restart.
 
 When called from a bash shell buffer,
 `bash-completion-dynamic-complete` communicates with the current shell
@@ -65,20 +65,25 @@ from normal shell processes.
 ### Completion at point
 
 Additionally, you can enable bash completion in any buffer that contains bash 
-commands. To do that, call `bash-completion-dynamic-complete-nocomint` from a 
-function added to `completion-at-point-functions`. 
+commands. To do that, call 
+```elisp
+(bash-completion-dynamic-complete-nocomint COMP-START COMP-POS DYNAMIC-TABLE)
+``` 
+from a function added to `completion-at-point-functions`. 
 
-The tricky part is figuring out where the bash command starts, because that 
-depends on  the mode of the calling buffer and might, in some cases, span 
+The trickiest part is setting COMP-START to where the bash command starts;
+It depends on the mode of the calling buffer and might, in some cases, span 
 multiple lines.
 
-In any cases, when calling from `completion-at-point', make sure to pass a
-non-nil value to DYNAMIC-TABLE argument. This isn't just an optimization:
-returning a function instead of a list tells Emacs it should avoids 
-post-filtering the results and possibly discarding useful completion from 
-bash.
+COMP-POS is usually the current position of the cursor.
 
-Here's, for example, a function to to do bash completion from an 
+When calling from `completion-at-point`, make sure to pass a non-nil value 
+to the DYNAMIC-TABLE argument so it returns a function instead of a list
+of strings. This isn't just an optimization: returning a function instead 
+of a list tells Emacs it should avoids post-filtering the results and 
+possibly discarding useful completion from bash.
+
+For example, here's a function to to do bash completion from an 
 eshell buffer. To try it out, add the function below to your init file
 and bind `bash-completion-from-eshell` to a custom shortcut.
 
