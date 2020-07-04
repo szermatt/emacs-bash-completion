@@ -376,7 +376,7 @@ garbage
         (bash-completion-use-separate-processes t))
     (should
      (equal (concat "cd >/dev/null 2>&1 /test"
-                    " ; compgen -o default -- worl 2>/dev/null")
+                    " && compgen -o default -- worl 2>/dev/null")
             (bash-completion-generate-line
              (bash-completion--make
               :line "hello worl"
@@ -388,7 +388,7 @@ garbage
 
     ;; custom completion no function or command
     (should (equal
-             "cd >/dev/null 2>&1 /test ; compgen -A -G '*.txt' -- worl 2>/dev/null"
+             "cd >/dev/null 2>&1 /test && compgen -A -G '*.txt' -- worl 2>/dev/null"
              (bash-completion-generate-line
               (bash-completion--make
                :line "zorg worl"
@@ -402,7 +402,7 @@ garbage
     ;; custom completion function
     (should (equal
              (concat
-              "cd >/dev/null 2>&1 /test ; "
+              "cd >/dev/null 2>&1 /test && "
               "__EMACS_COMPLETE_WRAPPER='COMP_LINE='\\''zorg blah worl'\\''; "
               "COMP_POINT=12; COMP_CWORD=2; "
               "COMP_WORDS=( zorg blah worl ); "
@@ -421,7 +421,7 @@ garbage
     ;; custom completion command
     (should (equal
              (concat
-              "cd >/dev/null 2>&1 /test ; "
+              "cd >/dev/null 2>&1 /test && "
               "__EMACS_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; "
               "COMP_POINT=7; "
               "COMP_CWORD=1; "
@@ -440,7 +440,7 @@ garbage
 
     ;; command completion
     (should (equal
-             "cd >/dev/null 2>&1 /test ; compgen -b -c -a -A function -- worl 2>/dev/null"
+             "cd >/dev/null 2>&1 /test && compgen -b -c -a -A function -- worl 2>/dev/null"
              (bash-completion-generate-line
               (bash-completion--make
                :line "worl"
@@ -552,13 +552,13 @@ Return (const return-value new-buffer-content)"
 		   (bash-completion-cd-command-prefix))))
 
   ;; current dir
-  (should (equal "cd >/dev/null 2>&1 /tmp/x ; "
+  (should (equal "cd >/dev/null 2>&1 /tmp/x && "
 		 (let ((default-directory "/tmp/x"))
 		   (bash-completion-cd-command-prefix))))
 
   ;; expand tilde
   (should (equal
-	   (concat "cd >/dev/null 2>&1 " (expand-file-name "~/x") " ; ")
+	   (concat "cd >/dev/null 2>&1 " (expand-file-name "~/x") " && ")
 	   (let ((default-directory "~/x"))
 	     (bash-completion-cd-command-prefix)))))
 
@@ -978,7 +978,7 @@ before calling `bash-completion-dynamic-complete-nocomint'.
    (should (equal
             (list 7 9 '("hell" "hello1" "hello2"))
             (bash-completion-dynamic-complete-nocomint 3 (point))))
-   (should (equal "cd >/dev/null 2>&1 /tmp/test ; compgen -o default -- he 2>/dev/null"
+   (should (equal "cd >/dev/null 2>&1 /tmp/test && compgen -o default -- he 2>/dev/null"
                   (pop --captured-commands)))))
 
 (ert-deftest bash-completion-simple-dynamic-table-test ()
@@ -1098,7 +1098,7 @@ before calling `bash-completion-dynamic-complete-nocomint'.
             (nth 2(bash-completion-dynamic-complete-nocomint 3 (point)))))
    (should (equal
             (concat
-             "cd >/dev/null 2>&1 /tmp/test ; "
+             "cd >/dev/null 2>&1 /tmp/test && "
              "compgen -o default -- 'Documents/Modes d'\\''emplois/' 2>/dev/null")
             (pop --captured-commands)))))
 
@@ -1133,7 +1133,7 @@ before calling `bash-completion-dynamic-complete-nocomint'.
    (should (equal
             '("bin/" "bind")
             (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point)))))
-   (should (equal (concat "cd >/dev/null 2>&1 /tmp/test ; "
+   (should (equal (concat "cd >/dev/null 2>&1 /tmp/test && "
                           "compgen -b -c -a -A function -- b 2>/dev/null")
                   (pop --captured-commands)))))
 
@@ -1144,7 +1144,7 @@ before calling `bash-completion-dynamic-complete-nocomint'.
    (should (equal
             '("some\\ command ")
             (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point)))))
-   (should (equal (concat "cd >/dev/null 2>&1 /tmp/test ; "
+   (should (equal (concat "cd >/dev/null 2>&1 /tmp/test && "
                           "compgen -b -c -a -A function -- 'some c' 2>/dev/null")
                   (pop --captured-commands)))))
 

@@ -1251,7 +1251,7 @@ Return a bash command-line for going to default-directory or \"\"."
     (if dir
         (concat "cd >/dev/null 2>&1 "
                 (bash-completion-quote (bash-completion--expand-file-name dir t))
-                " ; ")
+                " && ")
       "")))
 
 (defun bash-completion-build-alist (buffer)
