@@ -1199,7 +1199,7 @@ completion in these cases."
             "  __emacs_complete_pc=\"$PROMPT_COMMAND\";"
             "fi;"
             "PS1='' PROMPT_COMMAND='';"
-            "history &>/dev/null -d $((HISTCMD - 1))\n"))
+            "history &>/dev/null -d $((HISTCMD - 1)) || true\n"))
           
           ;; The following is a bootstrap command for
           ;; bash-completion-send itself.
@@ -1211,7 +1211,7 @@ completion in these cases."
             "    __emacs_complete_pc=\"$PROMPT_COMMAND\";"
             "  fi;"
             "  PROMPT_COMMAND=__emacs_complete_prompt;"
-            "  history &>/dev/null -d $((HISTCMD - 1));"
+            "  history &>/dev/null -d $((HISTCMD - 1)) || true;"
             "};"
             "function __emacs_complete_prompt {"
             "  PS1=" bash-completion--ps1 ";"
