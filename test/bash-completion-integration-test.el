@@ -34,9 +34,11 @@
 (require 'ert)
 
 (defvar bash-completion_test-setup-completion "/etc/bash_completion")
+(defconst bash-completion_test-start-mark "====START====")
 
 (defmacro bash-completion_test-harness (bashrc use-separate-process &rest body)
-  `(let ((test-env-dir (bash-completion_test-setup-env ,bashrc)))
+  `(let ((test-env-dir (bash-completion_test-setup-env
+                        (concat ,bashrc "\necho " bash-completion_test-start-mark "\n"))))
      (let ((bash-completion-processes nil)
            (bash-completion-nospace nil)
            (bash-completion-start-files nil)
@@ -127,12 +129,17 @@
 
 (defun bash-completion_test-wait-for-prompt (&optional limit)
   (bash-completion--wait-for-regexp
-   (get-buffer-process shell-buffer) comint-prompt-regexp 3.0 limit))
+   (get-buffer-process shell-buffer) "^.*$ " 3.0 limit))
 
 (defun bash-completion_test-buffer-string (&optional start end)
   (delete-trailing-whitespace (point-min) (point-max))
   (untabify (point-min) (point-max))
-  (buffer-substring-no-properties (or start (point-min)) (or end (point-max))))
+  (buffer-substring-no-properties
+   (or start
+       (save-excursion
+         (goto-char (point-min))
+         (1+ (search-forward bash-completion_test-start-mark end))))
+   (or end (point-max))))
 
 (defun bash-completion_test-candidates (complete-me)
   "Complete COMPLETE-ME and returns the candidates."
