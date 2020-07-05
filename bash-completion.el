@@ -253,7 +253,7 @@ explanation.")
 Mapping between remote paths as returned by `file-remote-p' and
 Bash processes.")
 
-(defconst bash-completion-special-chars "[^-0-9a-zA-Z_./\n=]"
+(defconst bash-completion-special-chars "[ -$&-*,:-<>?[-^`{-}]"
   "Regexp of characters that must be escaped or quoted.")
 
 (defconst bash-completion--ps1 "'\t$?\v'"
