@@ -145,7 +145,6 @@ The return value is the one returned by BODY."
     (should (equal
              (bash-completion--make
               :line "a hello world"
-              :point 13
               :cword 2
               :words '("a" "hello" "world")
               :stub-start 9
@@ -160,7 +159,6 @@ The return value is the one returned by BODY."
   (should (equal
            (bash-completion--make
             :line "a hello "
-            :point 8
             :cword 2
             :words '("a" "hello" "")
             :stub-start 9
@@ -175,7 +173,6 @@ The return value is the one returned by BODY."
   (should (equal
            (bash-completion--make
             :line "make -"
-            :point 6
             :cword 1
             :words '("make" "-")
             :stub-start 27
@@ -190,7 +187,6 @@ The return value is the one returned by BODY."
   (should (equal
            (bash-completion--make
             :line "sort -"
-            :point 6
             :cword 1
             :words '("sort" "-")
             :stub-start 20
@@ -205,7 +201,6 @@ The return value is the one returned by BODY."
   (should (equal
            (bash-completion--make
             :line "find -name '*.txt' -exec echo {} ';' -"
-            :point 38
             :cword 7
             :words '("find" "-name" "*.txt" "-exec" "echo" "{}" ";" "-")
             :stub-start 38
@@ -220,7 +215,6 @@ The return value is the one returned by BODY."
   (should (equal
            (bash-completion--make
             :line "ZORG=t"
-            :point 6
             :cword 0
             :words '("ZORG=t")
             :stub-start 24
@@ -235,7 +229,6 @@ The return value is the one returned by BODY."
   (should (equal
            (bash-completion--make
             :line "export PATH=/bin:/usr/bi"
-            :point 24
             :cword 1
             :words '("export" "PATH=/bin:/usr/bi")
             :stub-start 18
@@ -250,7 +243,6 @@ The return value is the one returned by BODY."
   (should (equal
            (bash-completion--make
             :line "export PATH=/bin:/usr/bi"
-            :point 24
             :cword 5
             :words '("export" "PATH" "=" "/bin" ":" "/usr/bi")
             :stub-start 18
@@ -265,7 +257,6 @@ The return value is the one returned by BODY."
   (should (equal
            (bash-completion--make
             :line "cd /vcr/shows/Dexter's"
-            :point 22
             :cword 1
             :words '("cd" "/vcr/shows/Dexter's")
             :stub-start 4
@@ -280,7 +271,6 @@ The return value is the one returned by BODY."
   (should (equal
            (bash-completion--make
             :line "cd /vcr/shows/Dexter's"
-            :point 22
             :cword 1
             :words '("cd" "/vcr/shows/Dexter's")
             :stub-start 4
@@ -295,7 +285,6 @@ The return value is the one returned by BODY."
   (should (equal
            (bash-completion--make
             :line "cd /vcr/shows/Dexter's"
-            :point 22
             :cword 1
             :words '("cd" "/vcr/shows/Dexter's")
             :stub-start 4
@@ -311,7 +300,6 @@ The return value is the one returned by BODY."
   (should (equal
            (bash-completion--make
             :line "cd /vcr/shows/Dexter's"
-            :point 22
             :cword 1
             :words '("cd" "/vcr/shows/Dexter's")
             :stub-start 4
@@ -327,7 +315,6 @@ The return value is the one returned by BODY."
   (should (equal
            (bash-completion--make
             :line ""
-            :point 0
             :cword 0
             :words '("")
             :stub-start 2
@@ -380,7 +367,6 @@ garbage
             (bash-completion-generate-line
              (bash-completion--make
               :line "hello worl"
-              :point 7
               :words '("hello" "worl")
               :stub "worl"
               :unparsed-stub "worl"
@@ -392,7 +378,6 @@ garbage
              (bash-completion-generate-line
               (bash-completion--make
                :line "zorg worl"
-               :point 7
                :words '("zorg" "worl")
                :stub "worl"
                :unparsed-stub "worl"
@@ -404,14 +389,13 @@ garbage
              (concat
               "cd >/dev/null 2>&1 /test && "
               "__EMACS_COMPLETE_WRAPPER='COMP_LINE='\\''zorg blah worl'\\''; "
-              "COMP_POINT=12; COMP_CWORD=2; "
+              "COMP_POINT=$(( 1 + ${#COMP_LINE} )); COMP_CWORD=2; "
               "COMP_WORDS=( zorg blah worl ); "
               "__zorg zorg worl blah' "
               "compgen -F __emacs_complete_wrapper -- worl 2>/dev/null")
              (bash-completion-generate-line
               (bash-completion--make
                :line "zorg blah worl"
-               :point 12
                :words '("zorg" "blah" "worl")
                :cword 2
                :stub "worl"
@@ -423,7 +407,7 @@ garbage
              (concat
               "cd >/dev/null 2>&1 /test && "
               "__EMACS_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; "
-              "COMP_POINT=7; "
+              "COMP_POINT=$(( 1 + ${#COMP_LINE} )); "
               "COMP_CWORD=1; "
               "COMP_WORDS=( zorg worl ); "
               "__zorg zorg worl zorg' "
@@ -431,7 +415,6 @@ garbage
              (bash-completion-generate-line
               (bash-completion--make
                :line "zorg worl"
-               :point 7
                :words '("zorg" "worl")
                :cword 1
                :stub "worl"
@@ -444,7 +427,6 @@ garbage
              (bash-completion-generate-line
               (bash-completion--make
                :line "worl"
-               :point 7
                :words '("worl")
                :cword 0
                :stub "worl"

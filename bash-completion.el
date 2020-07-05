@@ -276,7 +276,6 @@ Bash processes.")
                           (:conc-name bash-completion--)
                           (:copier nil))
   line           ; the relevant command (string)
-  point          ; 0-based position of the cursor in line (number)
   words          ; line split into words, unescaped (list of strings)
   cword          ; 0-based index of the word to be completed in words (number)
   unparsed-stub  ; unparsed version of the thing we are completing,
@@ -629,7 +628,6 @@ Returns a completion struct."
                           (cdr (assq 'str (car (last line-tokens)))))))
     (bash-completion--make
      :line rebuilt-line
-     :point (length rebuilt-line)
      :cword (- (length words) 1)
      :words words
      :stub-start stub-start
@@ -1336,9 +1334,8 @@ completion candidates."
          (setcar (cdr function) "__emacs_complete_wrapper")
          (format "__EMACS_COMPLETE_WRAPPER=%s compgen %s -- %s"
                  (bash-completion-quote
-                  (format "COMP_LINE=%s; COMP_POINT=%s; COMP_CWORD=%s; COMP_WORDS=( %s ); %s %s %s %s"
+                  (format "COMP_LINE=%s; COMP_POINT=$(( 1 + ${#COMP_LINE} )); COMP_CWORD=%s; COMP_WORDS=( %s ); %s %s %s %s"
                           (bash-completion-quote (bash-completion--line comp))
-                          (bash-completion--point comp)
                           (bash-completion--cword comp)
                           (bash-completion-join (bash-completion--words comp))
                           (bash-completion-quote function-name)
