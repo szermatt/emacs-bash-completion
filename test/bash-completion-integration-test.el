@@ -142,11 +142,16 @@
    (or end (point-max))))
 
 (defun bash-completion_test-candidates (complete-me)
-  "Complete COMPLETE-ME and returns the candidates."
+  "Complete COMPLETE-ME and returns the candidates.
+
+The result is sorted to avoid hardcoding arbitrary order in the test."
   (goto-char (point-max))
   (delete-region (line-beginning-position) (line-end-position))
   (insert complete-me)
-  (nth 2 (bash-completion-dynamic-complete-nocomint)))
+  (sort 
+   (nth 2 (bash-completion-dynamic-complete-nocomint
+           (line-beginning-position) (point) nil))
+   'string<))
 
 (defun bash-completion_test-setup-env (bashrc)
   "Sets up a directory that contains a bashrc file other files
@@ -223,6 +228,23 @@ for testing completion."
    (should (equal "export SOMEPATH=some/directory:some/other/"
                   (bash-completion_test-complete
                    "export SOMEPATH=some/directory:some/oth")))))
+
+(ert-deftest bash-completion-integration-multiple-completions-test ()
+  (bash-completion_test-multiple-completions-test ""))
+
+(ert-deftest bash-completion-integration-multiple-completions-prog-test ()
+  (bash-completion_test-multiple-completions-test
+   (concat "source " bash-completion_test-setup-completion "\n")))
+
+(defun bash-completion_test-multiple-completions-test (bashrc)
+  (bash-completion_test-with-shell-harness
+   bashrc
+   nil ; use-separate-process
+   (should (equal '("some/directory/" "some/other/")
+                  (sort (bash-completion_test-candidates "ls some/") 'string<)))
+   (should (equal '("some/directory/") (bash-completion_test-candidates "ls some/d")))
+   (should (equal '("some/directory/") (bash-completion_test-candidates "ls some/di")))
+   (should (equal '() (bash-completion_test-candidates "ls some/do")))))
 
 (ert-deftest bash-completion-integration-nocomint-test ()
   (bash-completion_test-harness
