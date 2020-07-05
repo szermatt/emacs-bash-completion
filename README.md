@@ -1,8 +1,8 @@
 # bash-completion for Emacs [![test](https://github.com/szermatt/emacs-bash-completion/workflows/test/badge.svg)](https://github.com/szermatt/emacs-bash-completion/actions) [![melpa](https://melpa.org/packages/bash-completion-badge.svg)](https://melpa.org/#/bash-completion) [![melpa-stable](https://stable.melpa.org/packages/bash-completion-badge.svg)](https://stable.melpa.org/#/bash-completion)
 
 
-bash-completion.el defines dynamic completion hooks for shell-mode,
-shell-command prompts and that are based on bash completion.
+bash-completion.el defines dynamic completion hooks for shell-mode
+and shell-command prompts that is based on bash completion.
 
 Bash completion for Emacs:
 
@@ -30,7 +30,7 @@ You can do that manually, or by installing it from
 To enable bash completion in shell buffers as well as in command
 prompts, such as the prompt started by `compile`, add the hook
 `bash-completion-dynamic-complete` to
-`shell-dynamic-complete-fuctions`.
+`shell-dynamic-complete-functions`.
 
 For example:
 
