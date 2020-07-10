@@ -187,6 +187,15 @@ ignored."
   :type '(float)
   :group 'bash-completion)
 
+(defcustom bash-completion-command-timeout 30
+  "Number of seconds to wait for an answer from programmable
+completion functions.
+
+Programmable completion functions might take an arbitrary long
+time to run, so this should be long."
+  :type '(float)
+  :group 'bash-completion)
+
 (defcustom bash-completion-message-delay 0.4
   "Time to wait before displaying a message while waiting for results.
 
@@ -851,8 +860,13 @@ COMP_CWORD) and calls compgen.
 
 The result is a list of candidates, which might be empty."
   (let* ((buffer (bash-completion--get-buffer process))
+         (cmd-timeout (if (eq 'custom (bash-completion--type comp))
+                          bash-completion-command-timeout
+                        bash-completion-process-timeout))
          (completion-status))
-    (setq completion-status (bash-completion-send (bash-completion-generate-line comp) process))
+    (setq completion-status (bash-completion-send
+                             (bash-completion-generate-line comp)
+                             process cmd-timeout))
     (when (eq 124 completion-status)
       ;; Special 'retry-completion' exit status, typically returned by
       ;; functions bound by complete -D. Presumably, the function has
@@ -861,7 +875,9 @@ The result is a list of candidates, which might be empty."
       (bash-completion-send "complete -p" process)
       (process-put process 'complete-p (bash-completion-build-alist buffer))
       (bash-completion--customize comp process 'nodefault)
-      (setq completion-status (bash-completion-send (bash-completion-generate-line comp) process)))
+      (setq completion-status (bash-completion-send
+                               (bash-completion-generate-line comp)
+                               process cmd-timeout)))
     (when (eq 0 completion-status)
       (bash-completion-extract-candidates comp buffer))))
 
@@ -1541,7 +1557,8 @@ The result is a function that works like one built by
 `completion-table-with-cache' with the difference that the
 completions, built by `bash-completion-comm' are not filtered
 using the current Emacs completion style."
-  (let ((last-result)
+  (let ((last-result nil)
+        (last-error nil)
         (calling-buffer (current-buffer))
         (dir default-directory)
         (use-separate-process bash-completion-use-separate-processes)
@@ -1550,13 +1567,18 @@ using the current Emacs completion style."
       (if (or (eq (car-safe action) 'boundaries)
               (eq action 'metadata))
           nil
+        (when last-error (signal (car last-error) (cdr last-error)))
         (let ((result
                (or last-result
                    (let ((bash-completion-use-separate-processes use-separate-process)
                          (bash-completion-nospace nospace)
                          (default-directory dir))
                      (with-current-buffer calling-buffer
-                       (bash-completion-comm comp process))))))
+                       (condition-case err
+                           (bash-completion-comm comp process)
+                         (error
+                          (setq last-error err)
+                          (signal (car err) (cdr err)))))))))
           (setq last-result result)
           (let ((filtered-result (if predicate (mapcar predicate result) result))
                 (completion-ignore-case (process-get process 'completion-ignore-case)))
