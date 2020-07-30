@@ -1580,7 +1580,12 @@ using the current Emacs completion style."
                           (setq last-error err)
                           (signal (car err) (cdr err)))))))))
           (setq last-result result)
-          (let ((filtered-result (if predicate (mapcar predicate result) result))
+          (let ((filtered-result (if predicate
+                                     (delq nil (mapcar
+                                                (lambda (elt)
+                                                  (when (funcall predicate elt) elt))
+                                                result))
+                                   result))
                 (completion-ignore-case (process-get process 'completion-ignore-case)))
             (cond
              ((null action) (try-completion "" filtered-result))
