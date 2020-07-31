@@ -181,6 +181,16 @@ for testing completion."
         (delete-directory test-env-dir 'recursive)
       (dired-delete-file test-env-dir 'always))))
 
+(defun bash-completion_test-equal-any-order (expected actual)
+  "Compare a sorted list of string EXPECTED with ACTUAL.
+
+Ignore the order of the strings in ACTUAL.
+
+This is necessary, because the order of some results isn't stable
+across Emacs version."
+  (let ((actual (copy-tree actual)))
+    (equal expected (sort actual 'string<))))
+
 (ert-deftest bash-completion-integration-setenv-test ()
   (bash-completion_test-harness
    ""
@@ -238,8 +248,9 @@ for testing completion."
   (bash-completion_test-with-shell-harness
    bashrc
    nil ; use-separate-process
-   (should (equal '("some/directory/" "some/other/")
-                  (sort (bash-completion_test-candidates "ls some/") 'string<)))
+   (should (bash-completion_test-equal-any-order
+            '("some/directory/" "some/other/")
+            (bash-completion_test-candidates "ls some/")))
    (should (equal '("some/directory/") (bash-completion_test-candidates "ls some/d")))
    (should (equal '("some/directory/") (bash-completion_test-candidates "ls some/di")))
    (should (equal '() (bash-completion_test-candidates "ls some/do")))))
@@ -598,7 +609,8 @@ $ ")))))
      ;; https://www.gnu.org/software/emacs/manual/html_node/elisp/Programmed-Completion.html
      
      ;; all-completion
-     (should (equal '("some/file/" "some/filled/") (funcall compfunc-some "some/" nil t)))
+     (should (bash-completion_test-equal-any-order
+              '("some/file/" "some/filled/") (funcall compfunc-some "some/" nil t)))
      (should (equal '("some/filled/") (funcall compfunc-some "some/fill" nil t)))
      (should (equal nil (funcall compfunc-some "other" nil t)))
      (should (equal '("some/filled/") (funcall compfunc-one "some/fill" nil t)))
@@ -609,8 +621,9 @@ $ ")))))
                              (lambda (c) (string= c "some/file/")) t)))
      (should (equal nil
                     (funcall compfunc-some "some/" (lambda (c) nil) t)))
-     (should (equal '("some/file/" "some/filled/")
-                    (funcall compfunc-some "some/" (lambda (c) t) t)))
+     (should (bash-completion_test-equal-any-order
+              '("some/file/" "some/filled/")
+              (funcall compfunc-some "some/" (lambda (c) t) t)))
 
      ;; try-completion
      (should (equal "some/filled/" (funcall compfunc-one "some/fill" nil nil)))
@@ -667,8 +680,8 @@ $ ")))))
 (ert-deftest bash-completion_test-dynamic-table-nonprefix ()
   (bash-completion_test-with-shell-harness
    (concat "function _myprog {\n"
-           "  COMPREPLY=( \"ba${COMP_WORDS[$COMP_CWORD]}tai\" \n"
-           "              \"ba${COMP_WORDS[$COMP_CWORD]}dai\"  )\n"
+           "  COMPREPLY=( \"ba${COMP_WORDS[$COMP_CWORD]}dai\" \n"
+           "              \"ba${COMP_WORDS[$COMP_CWORD]}tai\"  )\n"
            "}\n"
            "complete -F _myprog myprog\n")
    nil ; use-separate-process
@@ -683,8 +696,10 @@ $ ")))))
      ;; text string, so the first time all-completion is called with
      ;; the current word, all completions are returned, even the one
      ;; that don't match the string as prefix.
-     (should (equal '("babeetai" "babeedai") (funcall compfunc-nonprefix "bee" nil t)))
-     (should (equal '("babeetai" "babeedai") (funcall compfunc-nonprefix "babee" nil t)))
+     (should (bash-completion_test-equal-any-order
+              '("babeedai" "babeetai") (funcall compfunc-nonprefix "bee" nil t)))
+     (should (bash-completion_test-equal-any-order
+              '("babeedai" "babeetai") (funcall compfunc-nonprefix "babee" nil t)))
      (should (equal '("babeetai") (funcall compfunc-nonprefix "babeet" nil t)))
 
      ;; all-completion with predicate
