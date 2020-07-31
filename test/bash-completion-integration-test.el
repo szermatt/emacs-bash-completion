@@ -141,17 +141,15 @@
          (1+ (search-forward bash-completion_test-start-mark end))))
    (or end (point-max))))
 
-(defun bash-completion_test-candidates (complete-me)
+(defun bash-completion_test-candidates (complete-me &optional dynamic-table)
   "Complete COMPLETE-ME and returns the candidates.
 
 The result is sorted to avoid hardcoding arbitrary order in the test."
   (goto-char (point-max))
   (delete-region (line-beginning-position) (line-end-position))
   (insert complete-me)
-  (sort 
-   (nth 2 (bash-completion-dynamic-complete-nocomint
-           (line-beginning-position) (point) nil))
-   'string<))
+  (nth 2 (bash-completion-dynamic-complete-nocomint
+          (line-beginning-position) (point) dynamic-table)))
 
 (defun bash-completion_test-setup-env (bashrc)
   "Sets up a directory that contains a bashrc file other files
@@ -584,5 +582,143 @@ $ ")))))
    (should (string-match
             (regexp-quote "$ dummy libra\ncount: 1.")
             (bash-completion_test-buffer-string)))))
+
+(ert-deftest bash-completion_test-dynamic-table ()
+  (bash-completion_test-with-shell-harness
+   ""
+   nil ; use-separate-process
+   (let ((default-directory test-env-dir))
+     (make-directory "some/file" 'parents)
+     (make-directory "some/filled" 'parents))
+   (let ((compfunc-some (bash-completion_test-candidates "ls some/f" 'dynamic-table))
+         (compfunc-one (bash-completion_test-candidates "ls some/fill" 'dynamic-table)))
+
+     ;; Behavior of the completion function should match the one
+     ;; described in:
+     ;; https://www.gnu.org/software/emacs/manual/html_node/elisp/Programmed-Completion.html
+     
+     ;; all-completion
+     (should (equal '("some/file/" "some/filled/") (funcall compfunc-some "some/" nil t)))
+     (should (equal '("some/filled/") (funcall compfunc-some "some/fill" nil t)))
+     (should (equal nil (funcall compfunc-some "other" nil t)))
+     (should (equal '("some/filled/") (funcall compfunc-one "some/fill" nil t)))
+
+     ;; all-completion with predicate
+     (should (equal '("some/file/")
+                    (funcall compfunc-some "some/"
+                             (lambda (c) (string= c "some/file/")) t)))
+     (should (equal nil
+                    (funcall compfunc-some "some/" (lambda (c) nil) t)))
+     (should (equal '("some/file/" "some/filled/")
+                    (funcall compfunc-some "some/" (lambda (c) t) t)))
+
+     ;; try-completion
+     (should (equal "some/filled/" (funcall compfunc-one "some/fill" nil nil)))
+     (should (equal "some/fil" (funcall compfunc-some "some/" nil nil)))
+     (should (equal t (funcall compfunc-some "some/file/" nil nil)))
+     (should (equal t (funcall compfunc-one "some/filled/" nil nil)))
+
+     ;; try-completion with predicate
+     (should (equal "some/file/"
+                    (funcall compfunc-some "some/"
+                             (lambda (c) (string= c "some/file/")) nil)))
+     
+     ;; test-completion
+     (should (equal nil (funcall compfunc-some "some/" nil 'lambda)))
+     (should (equal t (funcall compfunc-some "some/file/" nil 'lambda)))
+     (should (equal t (funcall compfunc-some "some/filled/" nil 'lambda)))
+     (should (equal nil (funcall compfunc-one "some/fill" nil 'lambda)))
+     (should (equal t (funcall compfunc-one "some/filled/" nil 'lambda)))
+
+     ;; test-completion with predicate
+     (should (equal nil (funcall compfunc-some "some/" nil 'lambda)))
+     (should (equal nil (funcall compfunc-some "some/file/"
+                                 (lambda (c) (string= c "some/filled/")) 'lambda)))
+     (should (equal t (funcall compfunc-some "some/filled/"
+                               (lambda (c) (string= c "some/filled/")) 'lambda)))
+
+     ;; completion-boundaries (not supported)
+     (should (equal nil (funcall compfunc-some "some/" nil '(boundaries . "/"))))
+     (should (equal nil (funcall compfunc-one "some/fill" nil '(boundaries . "/"))))
+
+     ;; metadata (not supported)
+     (should (equal nil (funcall compfunc-some "some/" nil 'metadata)))
+     (should (equal nil (funcall compfunc-one "some/fill" nil 'metadata)))
+
+     ;; some unknown value
+     (should (equal nil (funcall compfunc-some "some/" nil 'unknown)))
+     (should (equal nil (funcall compfunc-one "some/fill" nil 'unknown))))))
+
+(ert-deftest bash-completion_test-dynamic-table-no-results ()
+  (bash-completion_test-with-shell-harness
+   ""
+   nil ; use-separate-process
+   (let ((compfunc-none (bash-completion_test-candidates "ls none/" 'dynamic-table)))
+
+     ;; all-completion
+     (should (equal nil (funcall compfunc-none "none/" nil t)))
+
+     ;; try-completion
+     (should (equal nil (funcall compfunc-none "none/" nil nil)))
+
+     ;; test-completion
+     (should (equal nil (funcall compfunc-none "none/" nil 'lambda))))))
+
+(ert-deftest bash-completion_test-dynamic-table-nonprefix ()
+  (bash-completion_test-with-shell-harness
+   (concat "function _myprog {\n"
+           "  COMPREPLY=( \"ba${COMP_WORDS[$COMP_CWORD]}tai\" \n"
+           "              \"ba${COMP_WORDS[$COMP_CWORD]}dai\"  )\n"
+           "}\n"
+           "complete -F _myprog myprog\n")
+   nil ; use-separate-process
+   (let ((compfunc-nonprefix (bash-completion_test-candidates
+                              "myprog bee" 'dynamic-table)))
+     
+     ;; all-completion
+     ;;
+     ;; all-completion doesn't strictly follow spec when the
+     ;; completion doesn't start with the word completed. The goal is
+     ;; for the completion to be displayed unless the user edited the
+     ;; text string, so the first time all-completion is called with
+     ;; the current word, all completions are returned, even the one
+     ;; that don't match the string as prefix.
+     (should (equal '("babeetai" "babeedai") (funcall compfunc-nonprefix "bee" nil t)))
+     (should (equal '("babeetai" "babeedai") (funcall compfunc-nonprefix "babee" nil t)))
+     (should (equal '("babeetai") (funcall compfunc-nonprefix "babeet" nil t)))
+
+     ;; all-completion with predicate
+     (should (equal '("babeetai") (funcall compfunc-nonprefix "bee"
+                                           (lambda (c) (equal "babeetai" c))
+                                           t)))
+
+     ;; try-completion
+     ;;
+     ;; try-completion behaves in a way that's consistent with
+     ;; all-completion: as long as it's passed the same string that's
+     ;; completed, it won't filter the results.
+     (should (equal "babee" (funcall compfunc-nonprefix "bee" nil nil)))
+     (should (equal "babee" (funcall compfunc-nonprefix "bab" nil nil)))
+     (should (equal "babeetai" (funcall compfunc-nonprefix "babeet" nil nil)))
+     (should (equal t (funcall compfunc-nonprefix "babeetai" nil nil)))
+
+     ;; try-completion with predicate
+     (should (equal "babeetai" (funcall compfunc-nonprefix "bee"
+                                        (lambda (c) (equal "babeetai" c)) nil)))
+     (should (equal "babeetai" (funcall compfunc-nonprefix "bab"
+                                        (lambda (c) (equal "babeetai" c)) nil)))
+     
+     ;; test-completion
+     ;;
+     ;; test-completion works according to spec.
+     (should (equal nil (funcall compfunc-nonprefix "bee" nil 'lambda)))
+     (should (equal nil (funcall compfunc-nonprefix "bab" nil 'lambda)))
+     (should (equal t (funcall compfunc-nonprefix "babeetai" nil 'lambda)))
+     
+     ;; test-completion with predicate
+     (should (equal t (funcall compfunc-nonprefix "babeetai"
+                               (lambda (c) (equal "babeetai" c)) 'lambda)))
+     (should (equal nil (funcall compfunc-nonprefix "babeetai"
+                                 (lambda (c) (equal "babeedai" c)) 'lambda))))))
 
 ;;; bash-completion-integration-test.el ends here

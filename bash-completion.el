@@ -1563,10 +1563,9 @@ using the current Emacs completion style."
         (dir default-directory)
         (use-separate-process bash-completion-use-separate-processes)
         (nospace bash-completion-nospace))
-    (lambda (_str predicate action)
-      (if (or (eq (car-safe action) 'boundaries)
-              (eq action 'metadata))
-          nil
+    (lambda (str predicate action)
+      (when (or (null action) (eq action t) (eq action 'lambda))
+        nil
         (when last-error (signal (car last-error) (cdr last-error)))
         (let ((result
                (or last-result
@@ -1580,17 +1579,21 @@ using the current Emacs completion style."
                           (setq last-error err)
                           (signal (car err) (cdr err)))))))))
           (setq last-result result)
-          (let ((filtered-result (if predicate
-                                     (delq nil (mapcar
-                                                (lambda (elt)
-                                                  (when (funcall predicate elt) elt))
-                                                result))
-                                   result))
-                (completion-ignore-case (process-get process 'completion-ignore-case)))
+          (let ((completion-ignore-case (process-get process 'completion-ignore-case))
+                (completion-string (if (equal str
+                                              (bash-completion--unparsed-stub comp)) "" str)))
             (cond
-             ((null action) (try-completion "" filtered-result))
-             ((eq action t) filtered-result)
-             (t (test-completion "" filtered-result)))))))))
+             ((null action) (try-completion completion-string result predicate))
+             ((and (eq action t) (equal "" completion-string) predicate)
+              (delq nil (mapcar
+                         (lambda (elt)
+                           (when (funcall predicate elt) elt))
+                         result)))
+             ((and (eq action t) (equal "" completion-string))
+              result)
+             ((eq action t)
+              (all-completions completion-string result predicate))
+             (t (test-completion str result predicate)))))))))
 
 (provide 'bash-completion)
 
