@@ -1441,6 +1441,10 @@ and would like bash completion in Emacs to take these changes into account."
     (let ((begin (point-max)))
       (goto-char begin)
       (insert output)
+      (save-excursion
+        (goto-char (point-min))
+        (while (search-forward "\r" nil 'noerror)
+          (delete-char -1)))
       (ansi-color-filter-region begin (point))
       "")))
 
