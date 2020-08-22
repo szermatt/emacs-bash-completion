@@ -945,7 +945,7 @@ before calling `bash-completion-dynamic-complete-nocomint'.
                      ((symbol-function 'file-accessible-directory-p)
                       (lambda (d) (member d --directories)))
                      ((symbol-function 'bash-completion-send)
-                      (lambda (commandline &optional process timeout)
+                      (lambda (commandline &optional process timeout debug-context)
                         (with-current-buffer --process-buffer
                           (delete-region (point-min) (point-max))
                           (insert (pop --send-results))

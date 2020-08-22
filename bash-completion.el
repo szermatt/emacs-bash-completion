@@ -277,6 +277,17 @@ Bash processes.")
       "Download emacs-bash-completion version 2.1 to run on older Emacs "
       "versions, from 22 to 24."))))
 
+(defvar bash-completion--debug-info nil
+  "Alist that stores info about the last call to `bash-completion-send'.
+
+Keys:
+  commandline:    COMMANDLINE argument
+  process:        PROCESS argument
+  error:          nil or a short string
+  buffer-string:  captured output buffer content, if error is non-nil
+  status:         status code number
+  wrapped-status: nil or a wrapped-status string")
+
 ;;; ---------- Struct
 
 ;; The main, completion structure, keeping track of the definition and
@@ -866,18 +877,18 @@ The result is a list of candidates, which might be empty."
          (completion-status))
     (setq completion-status (bash-completion-send
                              (bash-completion-generate-line comp)
-                             process cmd-timeout))
+                             process cmd-timeout comp))
     (when (eq 124 completion-status)
       ;; Special 'retry-completion' exit status, typically returned by
       ;; functions bound by complete -D. Presumably, the function has
       ;; just setup completion for the current command and is asking
       ;; us to retry once with the new configuration.
-      (bash-completion-send "complete -p" process)
+      (bash-completion-send "complete -p" process cmd-timeout comp)
       (process-put process 'complete-p (bash-completion-build-alist buffer))
       (bash-completion--customize comp process 'nodefault)
       (setq completion-status (bash-completion-send
                                (bash-completion-generate-line comp)
-                               process cmd-timeout)))
+                               process cmd-timeout comp)))
     (when (eq 0 completion-status)
       (bash-completion-extract-candidates comp buffer))))
 
@@ -1455,7 +1466,7 @@ and would like bash completion in Emacs to take these changes into account."
       (setq no-timeout (accept-process-output process timeout nil t)))
     no-timeout))
 
-(defun bash-completion-send (commandline &optional process timeout)
+(defun bash-completion-send (commandline &optional process timeout debug-context)
   "Send a command to the bash completion process.
 
 COMMANDLINE should be a bash command, without the final newline.
@@ -1468,48 +1479,132 @@ depending on the value of
 TIMEOUT is the timeout value for this operation, if nil the value of
 `bash-completion-process-timeout' is used.
 
+DEBUG-CONTEXT, if specified, is appended to the debug info under
+the key 'debug-context.
+
 Once this command has run without errors, you will find the
 result of the command in the bash completion process buffer or in
 `bash-completion-output-buffer' if
 `bash-completion-use-separate-processes' is nil.
 
 Return the status code of the command, as a number."
-  (let ((process (or process (bash-completion--get-process)))
-        (timeout (or timeout bash-completion-process-timeout))
-        (comint-preoutput-filter-functions
-         (if bash-completion-use-separate-processes
-             comint-preoutput-filter-functions
-           '(bash-completion--output-filter)))
-        (send-string (if bash-completion-use-separate-processes
-                         #'process-send-string
-                       #'comint-send-string))
-        (pre-command (unless bash-completion-use-separate-processes
-                        "__emacs_complete_pre_command; ")))
+  (let* ((process (or process (bash-completion--get-process)))
+         (timeout (or timeout bash-completion-process-timeout))
+         (comint-preoutput-filter-functions
+          (if bash-completion-use-separate-processes
+              comint-preoutput-filter-functions
+            '(bash-completion--output-filter)))
+         (send-string (if bash-completion-use-separate-processes
+                          #'process-send-string
+                        #'comint-send-string))
+         (pre-command (unless bash-completion-use-separate-processes
+                        "__emacs_complete_pre_command; "))
+         (complete-command (concat pre-command commandline "\n")))
+    (setq bash-completion--debug-info
+          (list (cons 'commandline complete-command)
+                (cons 'process process)
+                (cons 'use-separate-processes bash-completion-use-separate-processes)
+                (cons 'context debug-context)))
     (with-current-buffer (bash-completion--get-buffer process)
       (erase-buffer)
-      (funcall send-string process (concat pre-command commandline "\n"))
+      (funcall send-string process complete-command)
       (unless (bash-completion--wait-for-regexp process "\t-?[[:digit:]]+\v" timeout)
-        (error (concat
-                "Timeout while waiting for an answer from "
-                "%s bash-completion process.\nProcess output: <<<EOF\n%sEOF")
-               (if bash-completion-use-separate-processes "separate" "single")
-               (buffer-string)))
+        (setf (alist-get 'error bash-completion--debug-info)
+              "timeout")
+        (setf (alist-get 'buffer-string bash-completion--debug-info)
+              (buffer-substring-no-properties (point-min) (point-max)))
+        (error "Bash completion failed. M-x bash-completion-debug for details."))
       (when pre-command
         ;; Detect the command having been echoed and remove it
         (save-excursion
           (goto-char (point-min))
           (when (looking-at pre-command)
             (delete-region (match-beginning 0) (line-beginning-position 2)))))
-      (let ((status-code (string-to-number
+      (let ((status (string-to-number
                           (buffer-substring-no-properties
                            (1+ (point))
-                           (1- (line-end-position))))))
+                           (1- (line-end-position)))))
+            (wrapped-status (bash-completion--parse-side-channel-data "wrapped-status")))
+        (setf (alist-get 'status bash-completion--debug-info)
+              status)
+        (setf (alist-get 'wrapped-status bash-completion--debug-info)
+              wrapped-status)
         (delete-region (point) (point-max))
-        (if (string=
-             "124"
-             (bash-completion--parse-side-channel-data "wrapped-status"))
+        (if (string= "124" wrapped-status)
             124
-          status-code)))))
+          status)))))
+
+(defun bash-completion-debug ()
+  (interactive)
+  (with-help-window "*bash-completion-debug*"
+    (princ "This buffer contains information about the last completion command\n")
+    (princ "and the BASH process it was sent to. This can help you figure out\n")
+    (princ "what's happening.\n\n")
+    (princ "If it doesn't, go to\n")
+    (princ "https://github.com/szermatt/emacs-bash-completion/issues/new\n")
+    (princ "to create a new issue that describes:\n")
+    (princ "- what you were trying to do\n")
+    (princ "- what you expected to happen\n")
+    (princ "- what actually happened\n\n")
+    (princ "Then add a copy of the information below:\n\n")
+    (let ((debug-info bash-completion--debug-info))
+      (princ "command line:<<EOF")
+      (terpri)
+      (princ (alist-get 'commandline debug-info))
+      (princ "EOF")
+      (terpri)
+      (terpri)
+      (when (alist-get 'error debug-info)
+        (princ "error: ")
+        (print (alist-get 'error debug-info))
+        (terpri)
+        (princ "captured output:<<EOF")
+        (terpri)
+        (princ (alist-get 'buffer-string debug-info))
+        (princ "EOF")
+        (terpri)
+        (terpri))
+      (when (alist-get 'status debug-info)
+        (princ "status: ")
+        (print (alist-get 'status debug-info))
+        (when (alist-get 'wrapped-status debug-info)
+          (princ "wrapped-status: ")
+          (print (alist-get 'wrapped-status debug-info)))
+        (terpri))
+      (princ "output-buffer:<<EOF")
+      (terpri)
+      (princ (with-current-buffer (bash-completion--get-buffer
+                                   (alist-get 'process debug-info))
+               (buffer-substring-no-properties (point-min) (point-max))))
+      (princ "EOF")
+      (terpri)
+      (terpri)
+
+      (let ((process (alist-get 'process debug-info)))
+        (princ "process: ")
+        (print process)
+        (terpri)
+        (princ "use-separate-process: ")
+        (print (alist-get 'separate debug-info))
+        (terpri)
+        (princ "bash-major-version:")
+        (print (process-get process 'bash-major-version))
+        (terpri)
+        (princ "emacs-version:\n")
+        (princ emacs-version)
+        (terpri)
+        (terpri)
+        (princ "completion-ignore-case:")
+        (print (process-get process 'completion-ignore-case))
+        (terpri)
+        (when (alist-get 'context debug-info)
+          (princ "debug-context:\n")
+          (pp (alist-get 'context debug-info))
+          (terpri))
+        (princ "complete-p:\n")
+        (pp (process-get process 'complete-p))
+        (terpri))
+    )))
 
 (defun bash-completion--get-output (process)
   "Return the output of the last command sent through `bash-completion-send'."
