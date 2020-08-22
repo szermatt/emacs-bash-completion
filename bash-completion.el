@@ -1494,6 +1494,12 @@ Return the status code of the command, as a number."
                 "%s bash-completion process.\nProcess output: <<<EOF\n%sEOF")
                (if bash-completion-use-separate-processes "separate" "single")
                (buffer-string)))
+      (when pre-command
+        ;; Detect the command having been echoed and remove it
+        (save-excursion
+          (goto-char (point-min))
+          (when (looking-at pre-command)
+            (delete-region (match-beginning 0) (line-beginning-position 2)))))
       (let ((status-code (string-to-number
                           (buffer-substring-no-properties
                            (1+ (point))
