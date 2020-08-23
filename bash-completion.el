@@ -280,13 +280,8 @@ Bash processes.")
 (defvar bash-completion--debug-info nil
   "Alist that stores info about the last call to `bash-completion-send'.
 
-Keys:
-  commandline:    COMMANDLINE argument
-  process:        PROCESS argument
-  error:          nil or a short string
-  buffer-string:  captured output buffer content, if error is non-nil
-  status:         status code number
-  wrapped-status: nil or a wrapped-status string")
+Created by `bash-completion-send' and printed by
+`bash-completion-debug'.")
 
 ;;; ---------- Struct
 
@@ -1534,6 +1529,8 @@ Return the status code of the command, as a number."
 (defun bash-completion-debug ()
   (interactive)
   (with-help-window "*bash-completion-debug*"
+    (unless bash-completion--debug-info
+      (error "No debug information available for bash-completion. Please try it out first."))
     (princ "This buffer contains information about the last completion command\n")
     (princ "and the BASH process it was sent to. This can help you figure out\n")
     (princ "what's happening.\n\n")
@@ -1544,64 +1541,71 @@ Return the status code of the command, as a number."
     (princ "- what you expected to happen\n")
     (princ "- what actually happened\n\n")
     (princ "Then add a copy of the information below:\n\n")
-    (let ((debug-info bash-completion--debug-info))
-      (princ "command line:<<EOF")
-      (terpri)
-      (princ (cdr (assq 'commandline debug-info)))
-      (princ "EOF")
-      (terpri)
-      (terpri)
-      (when (cdr (assq 'error debug-info))
-        (princ "error: ")
-        (print (cdr (assq 'error debug-info)))
-        (terpri)
-        (princ "captured output:<<EOF")
-        (terpri)
-        (princ (cdr (assq 'buffer-string debug-info)))
-        (princ "EOF")
-        (terpri)
-        (terpri))
-      (when (cdr (assq 'status debug-info))
-        (princ "status: ")
-        (print (cdr (assq 'status debug-info)))
-        (when (cdr (assq 'wrapped-status debug-info))
-          (princ "wrapped-status: ")
-          (print (cdr (assq 'wrapped-status debug-info))))
-        (terpri))
-      (princ "output-buffer:<<EOF")
-      (terpri)
-      (princ (with-current-buffer (bash-completion--get-buffer
-                                   (cdr (assq 'process debug-info)))
-               (buffer-substring-no-properties (point-min) (point-max))))
-      (princ "EOF")
-      (terpri)
-      (terpri)
+    (bash-completion--debug-print-info 'commandline 'eof)
+    (bash-completion--debug-print-info 'error)
+    (bash-completion--debug-print-info 'buffer-string 'eof)
+    (bash-completion--debug-print-info 'status)
+    (bash-completion--debug-print-info 'wrapped-status)
+    (bash-completion--debug-print-info 'process)
+    (bash-completion--debug-print-info 'use-separate-processes)
 
-      (let ((process (cdr (assq 'process debug-info))))
-        (princ "process: ")
-        (print process)
-        (terpri)
-        (princ "use-separate-process: ")
-        (print (cdr (assq 'separate debug-info)))
-        (terpri)
-        (princ "bash-major-version:")
-        (print (process-get process 'bash-major-version))
-        (terpri)
-        (princ "emacs-version:\n")
-        (princ emacs-version)
-        (terpri)
-        (terpri)
-        (princ "completion-ignore-case:")
-        (print (process-get process 'completion-ignore-case))
-        (terpri)
-        (when (cdr (assq 'context debug-info))
-          (princ "debug-context:\n")
-          (pp (cdr (assq 'context debug-info)))
+    (let* ((debug-info bash-completion--debug-info)
+           (process (cdr (assq 'process debug-info)))
+           (bash-completion-use-separate-processes
+            (cdr (assq 'use-separate-processes debug-info))))
+      (if (process-live-p process)
+          (bash-completion--debug-print
+           'output-buffer
+           (with-current-buffer (bash-completion--get-buffer process)
+             (buffer-substring-no-properties (point-min) (point-max)))
+           'eof)
+        (princ "\nERROR: Process is dead. ")
+        (princ "Information collection is incomplete.\n")
+        (princ "Please retry\n\n")))
+
+    (bash-completion--debug-print-info 'use-separate-processes)
+    (bash-completion--debug-print-procinfo 'bash-major-version)
+    (bash-completion--debug-print 'emacs-version emacs-version)
+    (bash-completion--debug-print-procinfo 'completion-ignore-case)
+    (bash-completion--debug-print-info 'context)
+    (bash-completion--debug-print-procinfo 'complete-p)))
+
+(defun bash-completion--debug-print-info (symbol &optional eof)
+  "Print variable SYMBOL from `bash-completion-debug-info'.
+
+If EOF is non-nil, VALUE might contain newlines and other special
+characters. These are output as-is."
+  (bash-completion--debug-print
+   symbol (cdr (assq symbol bash-completion--debug-info)) eof))
+
+(defun bash-completion--debug-print-procinfo (symbol &optional eof)
+  "Print variable SYMBOL from `bash-completion-debug-info''s process.
+
+If EOF is non-nil, VALUE might contain newlines and other special
+characters. These are output as-is."
+  (let ((process (cdr (assq 'process bash-completion--debug-info))))
+    (when (process-live-p process)
+        (bash-completion--debug-print
+         symbol (process-get process symbol) eof))))
+
+(defun bash-completion--debug-print (name value &optional eof)
+  "Print debugging information NAME and VALUE.
+
+If EOF is non-nil, VALUE might contain newlines and other special
+characters. These are output as-is."
+  (when value
+    (princ name)
+    (princ ": ")
+    (if eof
+        (progn
+          (princ "<<EOF")
+          (terpri)
+          (princ value)
+          (princ "EOF")
+          (terpri)
           (terpri))
-        (princ "complete-p:\n")
-        (pp (process-get process 'complete-p))
-        (terpri))
-    )))
+      (pp value)
+      (terpri))))
 
 (defun bash-completion--get-output (process)
   "Return the output of the last command sent through `bash-completion-send'."
