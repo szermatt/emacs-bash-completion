@@ -100,6 +100,30 @@ and bind `bash-completion-from-eshell` to a custom shortcut.
    (point) t))
 ```
 
+## TROUBLESHOOTING
+
+If completion in a bash shell doesn't behave as you think it should, check
+the following:
+
+* Does bash behave differently when run outside of Emacs? If not, check
+  your shell configuration.
+* Did you start a new bash process, with `exec bash` or `sudo` ? If yes, 
+  call `bash-completion-refresh` to configure the new bash process.
+* Call `M-x bash-completion-debug` and look at the completion table
+  at the bottom. Does it match your expectation? If not, call 
+  `M-x bash-completion-refresh` to refresh the copy of the completion 
+  table kept by Emacs, or if you're in a  `M-x execute` or `M-x compile` 
+  prompt, call `M-x bash-completion-reset-all`, then try again.
+* Still on `M-x bash-completion-debug`, does the `output-buffer` section
+  match the expected set of completion? If yes, it might be a display
+  problem. Are you using a completion engine other than the default, 
+  such as ivy or helm? Try turning it off to confirm, then [file
+  a bug][new_issue]
+* If all else fails, [file a bug][new_issue]. Please include the output 
+  of `M-x bash-completion-debug`, the command you're trying to use
+  and the function or package providing completion for that command and
+  where to download it. 
+
 ## CONTRIBUTING
 
 To report bugs, features or even to ask questions, please open an [issue](https://github.com/szermatt/emacs-bash-completion/issues). To contribute code or documentation, please open a [pull request](https://github.com/szermatt/emacs-bash-completion/pulls). 
@@ -111,3 +135,5 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
 bash-completion.el is known to work with Bash 3, 4 and 5, on Emacs,
 starting with version 24.3, under Linux and OSX. It does not work on
 XEmacs.
+
+[new_issue]: https://github.com/szermatt/emacs-bash-completion/issues/new
