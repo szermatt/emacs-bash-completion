@@ -60,84 +60,91 @@ The return value is the one returned by BODY."
 		 (bash-completion-test-with-buffer
 		  "a hello world b c"
 		  (bash-completion-strings-from-tokens
-		   (bash-completion-tokenize 1 (line-end-position))))))
+		   (bash-completion-tokenize 1 (point-max))))))
 
-  ;; extra spaces
-  (should (equal '("a" "hello" "world" "b" "c")
+  ;; extra spaces and newline
+  (should (equal '("a" "hello" "\n" "world" "b" "c")
   		 (bash-completion-test-with-buffer
   		  "  a  hello \n world \t b \r c  "
   		  (bash-completion-strings-from-tokens
-  		   (bash-completion-tokenize 1 (line-end-position 2))))))
+  		   (bash-completion-tokenize 1 (point-max))))))
 
   ;; escaped spaces
   (should (equal '("a" "hello world" "b" "c")
   		 (bash-completion-test-with-buffer
   		  "a hello\\ world b c"
   		  (bash-completion-strings-from-tokens
-  		   (bash-completion-tokenize 1 (line-end-position))))))
+  		   (bash-completion-tokenize 1 (point-max))))))
 
   ;; double quotes
   (should (equal '("a" "hello world" "b" "c")
   		 (bash-completion-test-with-buffer
   		  "a \"hello world\" b c"
   		  (bash-completion-strings-from-tokens
-  		   (bash-completion-tokenize 1 (line-end-position))))))
+  		   (bash-completion-tokenize 1 (point-max))))))
 
   ;; escaped double quotes
   (should (equal '("a" "-\"hello world\"-" "b" "c")
   		 (bash-completion-test-with-buffer
   		  "a \"-\\\"hello world\\\"-\" b c"
   		  (bash-completion-strings-from-tokens
-  		   (bash-completion-tokenize 1 (line-end-position))))))
+  		   (bash-completion-tokenize 1 (point-max))))))
 
   ;; single quotes
   (should (equal '("a" "hello world" "b" "c")
   		 (bash-completion-test-with-buffer
   		  "a \"hello world\" b c"
   		  (bash-completion-strings-from-tokens
-  		   (bash-completion-tokenize 1 (line-end-position))))))
+  		   (bash-completion-tokenize 1 (point-max))))))
+
+  ;; quotes containing newline
+  (should (equal '("a" "hello\nworld" "b" "c")
+  		 (bash-completion-test-with-buffer
+  		  "a \"hello\nworld\" b c"
+  		  (bash-completion-strings-from-tokens
+  		   (bash-completion-tokenize 1 (point-max))))))
 
   ;; escaped single quotes
   (should (equal '("a" "-'hello world'-" "b" "c")
 		 (bash-completion-test-with-buffer
 		  "a '-\\'hello world\\'-' b c"
 		  (bash-completion-strings-from-tokens
-		   (bash-completion-tokenize 1 (line-end-position))))))
+		   (bash-completion-tokenize 1 (point-max))))))
 
   ;; complex quote mix
   (should (equal '("a" "hello world bc" "d")
 		 (bash-completion-test-with-buffer
 		  "a hel\"lo w\"o'rld b'c d"
 		  (bash-completion-strings-from-tokens
-		   (bash-completion-tokenize 1 (line-end-position))))))
+		   (bash-completion-tokenize 1 (point-max))))))
 
   ;; unescaped semicolon
   (should (equal '("to" "infinity" ";" "and beyond")
   		 (bash-completion-test-with-buffer
   		  "to infinity;and\\ beyond"
   		  (bash-completion-strings-from-tokens
-  		   (bash-completion-tokenize 1 (line-end-position))))))
+  		   (bash-completion-tokenize 1 (point-max))))))
 
   ;; unescaped &&"
   (should (equal '("to" "infinity" "&&" "and beyond")
 		 (bash-completion-test-with-buffer
 		  "to infinity&&and\\ beyond"
 		  (bash-completion-strings-from-tokens
-		   (bash-completion-tokenize 1 (line-end-position))))))
+		   (bash-completion-tokenize 1 (point-max))))))
 
   ;;unescaped ||"
   (should (equal '("to" "infinity" "||" "and beyond")
 		 (bash-completion-test-with-buffer
 		  "to infinity||and\\ beyond"
 		  (bash-completion-strings-from-tokens
-		   (bash-completion-tokenize 1 (line-end-position))))))
+		   (bash-completion-tokenize 1 (point-max))))))
 
   ;; quoted ;&|"
   (should (equal '("to" "infinity;&|and" "beyond")
 		 (bash-completion-test-with-buffer
   		  "to \"infinity;&|and\" beyond"
   		  (bash-completion-strings-from-tokens
-  		   (bash-completion-tokenize 1 (line-end-position)))))))
+  		   (bash-completion-tokenize 1 (point-max)))))))
 
 (ert-deftest bash-completion--parse-test ()
   (let ((wordbreaks "@><=;|&(:'\""))
@@ -182,6 +189,20 @@ The return value is the one returned by BODY."
            (bash-completion-test-with-buffer
             "cd /var/tmp ; ZORG=t make -"
             (bash-completion--parse (point-min) 28 wordbreaks 3))))
+
+  ;; multiple commands on multiple lines
+  (should (equal
+           (bash-completion--make
+            :line "make -"
+            :cword 1
+            :words '("make" "-")
+            :stub-start 18
+            :stub "-"
+            :unparsed-stub "-"
+            :wordbreaks wordbreaks)
+           (bash-completion-test-with-buffer
+            "cd /var/tmp\nmake -"
+            (bash-completion--parse (point-min) (point-max) wordbreaks 3))))
 
   ;; pipe
   (should (equal
@@ -330,6 +351,7 @@ The return value is the one returned by BODY."
 	   '(("cdb" "-F" "_cdargs_aliases")
 	     ("project" "-F" "complete_projects")
 	     ("pro" "-F" "complete_projects")
+             ("scp" "-o" "default" "-W" "home\nhome.lan")
 	     ("cv" "-F" "_cdargs_aliases")
 	     ("cb" "-F" "_cdargs_aliases")
 	     (nil "-F" "_completion_loader"))
@@ -338,6 +360,8 @@ The return value is the one returned by BODY."
 complete -F _cdargs_aliases cdb
 complete -F complete_projects project
 complete -F complete_projects pro
+complete -o default -W 'home
+home.lan' scp
 complete -F _cdargs_aliases cv
 complete -F _cdargs_aliases cb
 complete -F _completion_loader -D
