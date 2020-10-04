@@ -179,11 +179,11 @@ explanation."
   :type '(repeat (string :tag "Argument"))
   :group 'bash-completion)
 
-(defcustom bash-completion-process-timeout 2.5
+(defcustom bash-completion-process-timeout 0.5
   "Number of seconds to wait for an answer from bash.
 
-If bash takes longer than that to answer, the answer will be
-ignored."
+This doesn't include the time it takes to execute an actual
+completion command, which is set by `bash-completion-command-timeout'."
   :type '(float)
   :group 'bash-completion)
 
@@ -1506,8 +1506,10 @@ Return the status code of the command, as a number."
          (send-string (if bash-completion-use-separate-processes
                           #'process-send-string
                         #'comint-send-string))
-         (pre-command (unless bash-completion-use-separate-processes
-                        "__emacs_complete_pre_command; "))
+         (pre-command (concat
+                       "echo bash\\-completion:; "
+                       (unless bash-completion-use-separate-processes
+                         "__emacs_complete_pre_command; ")))
          (complete-command (concat pre-command commandline "\n")))
     (setq bash-completion--debug-info
           (list (cons 'commandline complete-command)
@@ -1517,17 +1519,24 @@ Return the status code of the command, as a number."
     (with-current-buffer (bash-completion--get-buffer process)
       (erase-buffer)
       (funcall send-string process complete-command)
+      ;; Wait for 'echo bash\-completion' to be executed within
+      ;; bash-completion-process-timeout. This takes care of any
+      ;; command-line echo as well.
+      (unless (bash-completion--wait-for-regexp process "bash-completion:" bash-completion-process-timeout)
+        (push (cons 'error "non-bash") bash-completion--debug-info)
+        (push (cons 'buffer-string (buffer-substring-no-properties (point-min) (point-max)))
+              bash-completion--debug-info)
+        (error "Bash completion failed; not a bash process."))
+      (delete-region (point-min) (1+ (match-end 0)))
+      (goto-char (point-max))
+      ;; Now wait for the real to be executed within timeout. This can
+      ;; take a while for some completion commands.
       (unless (bash-completion--wait-for-regexp process "\t-?[[:digit:]]+\v" timeout)
+
         (push (cons 'error "timeout") bash-completion--debug-info)
         (push (cons 'buffer-string (buffer-substring-no-properties (point-min) (point-max)))
               bash-completion--debug-info)
         (error "Bash completion failed. M-x bash-completion-debug for details."))
-      (when pre-command
-        ;; Detect the command having been echoed and remove it
-        (save-excursion
-          (goto-char (point-min))
-          (when (looking-at pre-command)
-            (delete-region (match-beginning 0) (line-beginning-position 2)))))
       (let ((status (string-to-number
                           (buffer-substring-no-properties
                            (1+ (point))
