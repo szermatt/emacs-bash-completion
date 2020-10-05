@@ -234,6 +234,30 @@ to remove the extra space bash adds after a completion."
   :type '(boolean)
   :group 'bash-completion)
 
+(defcustom bash-completion-bash-prompts nil
+  "Regexps that match BASH prompts (PS1).
+
+If a prompt matches one of the regular expression on this list,
+it'll be considered a bash prompt even if it matches one of the
+regular expressions in `bash-completion-nonbash-prompts'.
+
+See `bash-completion-nonbash-prompts' for more details."
+  :type '(repeat string)
+  :group 'bash-completion)
+
+(defcustom bash-completion-nonbash-prompts '("[>+] +$")
+  "Regexps that match non-BASH prompts and BASH PS2 prompts.
+
+If a prompt matches one of the regular expressions on this list, 
+`bash-completion-dynamic-complete' doesn't attempt to communicate
+with the current BASH process to do completion.
+
+If your BASH prompt matches one of the regexps on this list, you
+might want to put a regexp for it in
+`bash-completion-bash-prompts'."
+  :type '(repeat string)
+  :group 'bash-completion)
+
 (defvar bash-completion-start-files
   '("~/.emacs_bash.sh" "~/.emacs.d/init_bash.sh")
   "Shell files that, if they exist, will be sourced at the beginning of a bash completion subprocess.
@@ -480,13 +504,27 @@ When doing completion outside of a comint buffer, call
            (if (and (not (window-minibuffer-p))
                     (not (null bash-completion-message-delay)))
                (run-at-time
-                bash-completion-message-delay nil
-                (lambda () (message "Bash completion..."))))))
+                 bash-completion-message-delay nil
+                 (lambda () (message "Bash completion..."))))))
       (unwind-protect
-          (bash-completion-dynamic-complete-nocomint
-           (comint-line-beginning-position)
-           (point)
-           'dynamic-table)
+          (let ((prompt-end (comint-line-beginning-position)))
+            (if (or bash-completion-use-separate-processes
+                    (let* ((prompt-start (save-excursion
+                                           (goto-char prompt-end)
+                                           (line-end-position -1)))
+                           (prompt (buffer-substring-no-properties
+                                    prompt-start prompt-end)))
+                      (or
+                       (bash-completion--match-any
+                        prompt bash-completion-bash-prompts)
+                       (not (bash-completion--match-any
+                             prompt bash-completion-nonbash-prompts)))))
+                (bash-completion-dynamic-complete-nocomint
+                 prompt-end (point) 'dynamic-table)
+              
+              (error (concat "Bash completion not available. "
+                             "Call M-x customize-option bash-completion-nonbash-prompts "
+                             "if this is incorrect."))))
         ;; cleanup
         (if message-timer
             (cancel-timer message-timer)))))
@@ -1526,7 +1564,7 @@ Return the status code of the command, as a number."
         (push (cons 'error "non-bash") bash-completion--debug-info)
         (push (cons 'buffer-string (buffer-substring-no-properties (point-min) (point-max)))
               bash-completion--debug-info)
-        (error "Bash completion failed; not a bash process."))
+        (error "Not a bash process. Fix using M-x customize-option bash-completion-nonbash-prompts"))
       (delete-region (point-min) (1+ (match-end 0)))
       (goto-char (point-max))
       ;; Now wait for the real to be executed within timeout. This can
@@ -1679,6 +1717,12 @@ Return the parsed value, as a string or nil."
         (prog1 (match-string 1)
           (delete-region (match-beginning 0) (match-end 0)))))))
 
+(defun bash-completion--match-any (text regexp-list)
+  (catch 'bash-completion-return
+    (dolist (regexp regexp-list) 
+      (when (string-match-p regexp text)
+        (throw 'bash-completion-return t)))))
+    
 (defun bash-completion--completion-table-with-cache (comp process)
   "Build a dynamic completion table for COMP using PROCESS.
 
