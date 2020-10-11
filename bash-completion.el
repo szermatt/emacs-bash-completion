@@ -179,11 +179,11 @@ explanation."
   :type '(repeat (string :tag "Argument"))
   :group 'bash-completion)
 
-(defcustom bash-completion-process-timeout 0.5
+(defcustom bash-completion-process-timeout 2.5
   "Number of seconds to wait for an answer from bash.
 
-This doesn't include the time it takes to execute an actual
-completion command, which is set by `bash-completion-command-timeout'."
+If bash takes longer than that to answer, the answer will be
+ignored."
   :type '(float)
   :group 'bash-completion)
 
@@ -232,30 +232,6 @@ feature doesn't always work perfectly with programmable completion.
 Enable this option if you find yourself having to often backtrack
 to remove the extra space bash adds after a completion."
   :type '(boolean)
-  :group 'bash-completion)
-
-(defcustom bash-completion-bash-prompts nil
-  "Regexps that match BASH prompts (PS1).
-
-If a prompt matches one of the regular expression on this list,
-it'll be considered a bash prompt even if it matches one of the
-regular expressions in `bash-completion-nonbash-prompts'.
-
-See `bash-completion-nonbash-prompts' for more details."
-  :type '(repeat string)
-  :group 'bash-completion)
-
-(defcustom bash-completion-nonbash-prompts '("[>+] +$")
-  "Regexps that match non-BASH prompts and BASH PS2 prompts.
-
-If a prompt matches one of the regular expressions on this list, 
-`bash-completion-dynamic-complete' doesn't attempt to communicate
-with the current BASH process to do completion.
-
-If your BASH prompt matches one of the regexps on this list, you
-might want to put a regexp for it in
-`bash-completion-bash-prompts'."
-  :type '(repeat string)
   :group 'bash-completion)
 
 (defvar bash-completion-start-files
@@ -504,27 +480,13 @@ When doing completion outside of a comint buffer, call
            (if (and (not (window-minibuffer-p))
                     (not (null bash-completion-message-delay)))
                (run-at-time
-                 bash-completion-message-delay nil
-                 (lambda () (message "Bash completion..."))))))
+                bash-completion-message-delay nil
+                (lambda () (message "Bash completion..."))))))
       (unwind-protect
-          (let ((prompt-end (comint-line-beginning-position)))
-            (if (or bash-completion-use-separate-processes
-                    (let* ((prompt-start (save-excursion
-                                           (goto-char prompt-end)
-                                           (line-end-position -1)))
-                           (prompt (buffer-substring-no-properties
-                                    prompt-start prompt-end)))
-                      (or
-                       (bash-completion--match-any
-                        prompt bash-completion-bash-prompts)
-                       (not (bash-completion--match-any
-                             prompt bash-completion-nonbash-prompts)))))
-                (bash-completion-dynamic-complete-nocomint
-                 prompt-end (point) 'dynamic-table)
-              
-              (error (concat "Bash completion not available. "
-                             "Call M-x customize-option bash-completion-nonbash-prompts "
-                             "if this is incorrect."))))
+          (bash-completion-dynamic-complete-nocomint
+           (comint-line-beginning-position)
+           (point)
+           'dynamic-table)
         ;; cleanup
         (if message-timer
             (cancel-timer message-timer)))))
@@ -1544,10 +1506,8 @@ Return the status code of the command, as a number."
          (send-string (if bash-completion-use-separate-processes
                           #'process-send-string
                         #'comint-send-string))
-         (pre-command (concat
-                       "echo bash\\-completion:; "
-                       (unless bash-completion-use-separate-processes
-                         "__emacs_complete_pre_command; ")))
+         (pre-command (unless bash-completion-use-separate-processes
+                        "__emacs_complete_pre_command; "))
          (complete-command (concat pre-command commandline "\n")))
     (setq bash-completion--debug-info
           (list (cons 'commandline complete-command)
@@ -1557,24 +1517,17 @@ Return the status code of the command, as a number."
     (with-current-buffer (bash-completion--get-buffer process)
       (erase-buffer)
       (funcall send-string process complete-command)
-      ;; Wait for 'echo bash\-completion' to be executed within
-      ;; bash-completion-process-timeout. This takes care of any
-      ;; command-line echo as well.
-      (unless (bash-completion--wait-for-regexp process "bash-completion:" bash-completion-process-timeout)
-        (push (cons 'error "non-bash") bash-completion--debug-info)
-        (push (cons 'buffer-string (buffer-substring-no-properties (point-min) (point-max)))
-              bash-completion--debug-info)
-        (error "Not a bash process. Fix using M-x customize-option bash-completion-nonbash-prompts"))
-      (delete-region (point-min) (1+ (match-end 0)))
-      (goto-char (point-max))
-      ;; Now wait for the real to be executed within timeout. This can
-      ;; take a while for some completion commands.
       (unless (bash-completion--wait-for-regexp process "\t-?[[:digit:]]+\v" timeout)
-
         (push (cons 'error "timeout") bash-completion--debug-info)
         (push (cons 'buffer-string (buffer-substring-no-properties (point-min) (point-max)))
               bash-completion--debug-info)
         (error "Bash completion failed. M-x bash-completion-debug for details."))
+      (when pre-command
+        ;; Detect the command having been echoed and remove it
+        (save-excursion
+          (goto-char (point-min))
+          (when (looking-at pre-command)
+            (delete-region (match-beginning 0) (line-beginning-position 2)))))
       (let ((status (string-to-number
                           (buffer-substring-no-properties
                            (1+ (point))
@@ -1717,12 +1670,6 @@ Return the parsed value, as a string or nil."
         (prog1 (match-string 1)
           (delete-region (match-beginning 0) (match-end 0)))))))
 
-(defun bash-completion--match-any (text regexp-list)
-  (catch 'bash-completion-return
-    (dolist (regexp regexp-list) 
-      (when (string-match-p regexp text)
-        (throw 'bash-completion-return t)))))
-    
 (defun bash-completion--completion-table-with-cache (comp process)
   "Build a dynamic completion table for COMP using PROCESS.
 
