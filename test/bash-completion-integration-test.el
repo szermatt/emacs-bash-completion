@@ -56,6 +56,7 @@
                                (concat "explicit-"
                                        (file-name-nondirectory bash-completion-prog)
                                        "-args")))
+           (inhibit-field-text-motion nil)
            (old-explicit-args)
            (shell-mode-hook nil)
            (comint-mode-hook nil)
@@ -118,14 +119,18 @@
    (line-beginning-position) (point)))
 
 (defun bash-completion_test-send (command &optional complete)
-  "Execute COMMAND in a shell buffer."
+  "Execute COMMAND in a shell buffer.
+
+Return a marker pointing to the beginning of the command."
   (goto-char (point-max))
-  (let ((command-start (point)))
+  (let ((command-start (point))
+        (insertion-point))
     (delete-region (line-beginning-position) (line-end-position))
-    (insert command)
-    (when complete (completion-at-point))
-    (comint-send-input)
-    (bash-completion_test-wait-for-prompt command-start)))
+    (prog1 (point-marker)
+      (insert command)
+      (when complete (completion-at-point))
+      (comint-send-input)
+      (bash-completion_test-wait-for-prompt command-start))))
 
 (defun bash-completion_test-wait-for-prompt (&optional limit)
   (bash-completion--wait-for-regexp
@@ -555,8 +560,7 @@ other
    (bash-completion_test-send "ls -1 so" 'complete)
    (bash-completion_test-send "tru" 'complete)
    (bash-completion_test-send "fals" 'complete)
-   (let ((history-start (line-beginning-position)))
-     (bash-completion_test-send "history")
+   (let ((history-start (bash-completion_test-send "history")))
      (untabify (point-min) (point-max))
      (delete-trailing-whitespace (point-min) (point-max))
      (should (equal
