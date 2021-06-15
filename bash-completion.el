@@ -63,7 +63,7 @@
 ;;
 ;;   (require 'bash-completion)
 ;;   (bash-completion-setup)
-;; 
+;;
 ;; 3. reload your .emacs (M-x `eval-buffer') or restart
 ;;
 ;; Once this is done, use <TAB> as usual to do dynamic completion from
@@ -294,15 +294,15 @@ Created by `bash-completion-send' and printed by
   words          ; line split into words, unescaped (list of strings)
   cword          ; 0-based index of the word to be completed in words (number)
   unparsed-stub  ; unparsed version of the thing we are completing,
-                 ; that is, the part of the last word after the last
-                 ; wordbreak separator.
+               ;;; that is, the part of the last word after the last
+               ;;; wordbreak separator.
   stub-start     ; start position of the thing we are completing
   stub           ; parsed version of the stub
   open-quote     ; quote open at stub end: nil, ?' or ?\""
   compgen-args   ; compgen arguments for this command (list of strings)
   wordbreaks     ; value of COMP_WORDBREAKS active for this completion
   compopt        ; options forced with compopt nil or `(nospace . ,bool)
-)
+  )
 
 (defun bash-completion--type (comp)
   "Returns the type of COMP.
@@ -310,8 +310,7 @@ Created by `bash-completion-send' and printed by
 Completion type is 'command, if completing a command (cword = 0),
 'custom if there's a custom completion for the current command or
 'default if there isn't or if the completion hasn't been
-customized, usually by `bash-completion--customize'.
-"
+customized, usually by `bash-completion--customize'."
   (cond
    ((zerop (bash-completion--cword comp)) 'command)
    ((bash-completion--compgen-args comp) 'custom)
@@ -394,14 +393,14 @@ returned."
           " return $ret; "
           "}")
          process))
-    
+
     ;; some bash completion functions use quote_readline
     ;; to double-quote strings - which compgen understands
     ;; but only in some environment. disable this dreadful
     ;; business to get a saner way of handling spaces.
     ;; Noticed in bash_completion v1.872.
     (bash-completion-send "function quote_readline { echo \"$1\"; }" process)
-    
+
     (bash-completion-send "echo -n ${COMP_WORDBREAKS}" process)
     (process-put process 'wordbreaks
                  (with-current-buffer (bash-completion--get-buffer process)
@@ -410,7 +409,7 @@ returned."
     (process-put process 'bash-major-version bash-major-version)
 
     (bash-completion-send "bind -v 2>/dev/null" process)
-    (process-put process 'completion-ignore-case 
+    (process-put process 'completion-ignore-case
                  (with-current-buffer (bash-completion--get-buffer process)
                    (save-excursion
                      (goto-char (point-min))
@@ -460,14 +459,13 @@ before it is needed. For an autoload version, add:
   (autoload 'bash-completion-dynamic-complete \"bash-completion\"
     \"BASH completion hook\")
   (add-hook 'shell-dynamic-complete-functions
-          'bash-completion-dynamic-complete)
-"
+          'bash-completion-dynamic-complete)"
   (add-hook 'shell-dynamic-complete-functions
             'bash-completion-dynamic-complete))
 
 ;;;###autoload
 (defun bash-completion-dynamic-complete ()
-    "Return the completion table for bash command at point.
+  "Return the completion table for bash command at point.
 
 This function is meant to be added into
 `shell-dynamic-complete-functions'.  It uses `comint' to figure
@@ -476,20 +474,20 @@ nil if no completions available.
 
 When doing completion outside of a comint buffer, call
 `bash-completion-dynamic-complete-nocomint' instead."
-    (let ((message-timer
-           (if (and (not (window-minibuffer-p))
-                    (not (null bash-completion-message-delay)))
-               (run-at-time
-                bash-completion-message-delay nil
-                (lambda () (message "Bash completion..."))))))
-      (unwind-protect
-          (bash-completion-dynamic-complete-nocomint
-           (comint-line-beginning-position)
-           (point)
-           'dynamic-table)
-        ;; cleanup
-        (if message-timer
-            (cancel-timer message-timer)))))
+  (let ((message-timer
+         (if (and (not (window-minibuffer-p))
+                  (not (null bash-completion-message-delay)))
+             (run-at-time
+              bash-completion-message-delay nil
+              (lambda () (message "Bash completion..."))))))
+    (unwind-protect
+        (bash-completion-dynamic-complete-nocomint
+         (comint-line-beginning-position)
+         (point)
+         'dynamic-table)
+      ;; cleanup
+      (if message-timer
+          (cancel-timer message-timer)))))
 
 ;;;###autoload
 (defun bash-completion-dynamic-complete-nocomint
@@ -498,7 +496,7 @@ When doing completion outside of a comint buffer, call
 
 The bash command to be completed begins at COMP-START in the
 current buffer. This must specify where the current command
-starts, usually right after the prompt. 
+starts, usually right after the prompt.
 
 COMP-POS is the point where completion should happen, usually
 just (point). Note that a bash command can span across multiple
@@ -586,14 +584,14 @@ Return one string containing WORDS."
 If WORD contains characters that aren't known to be harmless, this
 functions adds single quotes around it and return the result."
   (cond
-    ((string= "" word)
-     "''")
-    ((string-match "^[a-zA-Z0-9_./-]*$" word)
-     word)
-    (t
-     (concat "'"
-             (replace-regexp-in-string "'" "'\\''" word nil t)
-             "'"))))
+   ((string= "" word)
+    "''")
+   ((string-match "^[a-zA-Z0-9_./-]*$" word)
+    word)
+   (t
+    (concat "'"
+            (replace-regexp-in-string "'" "'\\''" word nil t)
+            "'"))))
 
 (defun bash-completion--parse (comp-start comp-pos wordbreaks bash-major-version)
   "Process a command from COMP-START to COMP-POS.
@@ -980,7 +978,7 @@ for directory name detection to work."
             (concat (substring str 0 (match-end 0))
                     (if open-quote (char-to-string open-quote) ""))
             rest (substring str (match-end 0))))
-     
+
      (t
       (setq parsed-prefix ""
             unparsed-prefix (if open-quote (char-to-string open-quote) "")
@@ -1004,7 +1002,7 @@ for directory name detection to work."
        (single
         (setq suffix (concat close-quote-str final-space-str)))
        (t (setq suffix close-quote-str))))
-    
+
     ;; put everything back together
     (concat unparsed-prefix
             (bash-completion-escape-candidate rest open-quote)
@@ -1073,7 +1071,7 @@ Return a CONS containing (before . after)."
                        (substring str (1+ end))
                        (aref str end))))
         (setq end (1- end))))
-      (list "" str ?\0)))
+    (list "" str ?\0)))
 
 (defun bash-completion-last-char (str)
   "Returns the last char of STR or nil."
@@ -1172,7 +1170,7 @@ is set to t."
                 "set +o vi\n"))
 
               (bash-completion-send
-               (concat "PROMPT_COMMAND='' PS1=" bash-completion--ps1) 
+               (concat "PROMPT_COMMAND='' PS1=" bash-completion--ps1)
                process bash-completion-initial-timeout)
               (bash-completion--setup-bash-common process)
               (push (cons remote process) bash-completion-processes)
@@ -1228,7 +1226,7 @@ completion in these cases."
             "fi;"
             "PS1='' PROMPT_COMMAND='';"
             "history &>/dev/null -d $((HISTCMD - 1)) || true\n"))
-          
+
           ;; The following is a bootstrap command for
           ;; bash-completion-send itself.
           (bash-completion-send
@@ -1405,7 +1403,7 @@ is t."
       (error "No process is available in this buffer."))
     (process-put process 'setup-done nil)
     (bash-completion--get-process)))
-  
+
 ;;;###autoload
 (defun bash-completion-reset ()
   "Force the next completion command to start with a fresh BASH process.
@@ -1529,9 +1527,9 @@ Return the status code of the command, as a number."
           (when (looking-at pre-command)
             (delete-region (match-beginning 0) (line-beginning-position 2)))))
       (let ((status (string-to-number
-                          (buffer-substring-no-properties
-                           (1+ (point))
-                           (1- (line-end-position)))))
+                     (buffer-substring-no-properties
+                      (1+ (point))
+                      (1- (line-end-position)))))
             (wrapped-status (bash-completion--parse-side-channel-data "wrapped-status")))
         (push (cons 'status status) bash-completion--debug-info)
         (push (cons 'wrapped-status wrapped-status) bash-completion--debug-info)
@@ -1599,8 +1597,8 @@ If EOF is non-nil, VALUE might contain newlines and other special
 characters. These are output as-is."
   (let ((process (cdr (assq 'process bash-completion--debug-info))))
     (when (process-live-p process)
-        (bash-completion--debug-print
-         symbol (process-get process symbol) eof))))
+      (bash-completion--debug-print
+       symbol (process-get process symbol) eof))))
 
 (defun bash-completion--debug-print (name value &optional eof)
   "Print debugging information NAME and VALUE.
