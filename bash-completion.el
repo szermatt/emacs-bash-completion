@@ -1702,13 +1702,6 @@ using the current Emacs completion style."
                                               (bash-completion--unparsed-stub comp)) "" str)))
             (cond
              ((null action) (try-completion completion-string result predicate))
-             ((and (eq action t) (equal "" completion-string) predicate)
-              (delq nil (mapcar
-                         (lambda (elt)
-                           (when (funcall predicate elt) elt))
-                         result)))
-             ((and (eq action t) (equal "" completion-string))
-              result)
              ((eq action t)
               (all-completions completion-string result predicate))
              (t (test-completion str result predicate)))))))))
