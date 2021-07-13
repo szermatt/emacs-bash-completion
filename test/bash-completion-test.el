@@ -1,5 +1,4 @@
-;;; bash-completion-test.el --- Tests bash-completion.el
-
+;;; bash-completion-test.el --- Tests bash-completion.el -*- lexical-binding: t -*-
 ;; Copyright (C) 2009 Stephane Zermatten
 
 ;; Author: Stephane Zermatten <szermatt@gmx.net>
@@ -30,7 +29,7 @@
 
 ;;; Code:
 (require 'bash-completion)
-(require 'cl)
+(require 'cl-lib)
 (require 'ert)
 
 ; for Emacs 24.1
@@ -935,11 +934,11 @@ before calling `bash-completion-dynamic-complete-nocomint'.
          (wordbreaks "@><=;|&(:")
          (bash-major-version 3)
          (bash-completion-nospace nil))
-     (lexical-let ((--process-buffer)
-                   (--test-buffer)
-                   (--send-results (list))
-                   (--captured-commands (list))
-                   (--directories (list)))
+     (let ((--process-buffer)
+           (--test-buffer)
+           (--send-results (list))
+           (--captured-commands (list))
+           (--directories (list)))
        (with-temp-buffer
          (setq --process-buffer (current-buffer))
          (with-temp-buffer
