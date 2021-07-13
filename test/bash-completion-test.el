@@ -30,7 +30,7 @@
 
 ;;; Code:
 (require 'bash-completion)
-(require 'cl)
+(require 'cl-lib)
 (require 'ert)
 
 ; for Emacs 24.1
