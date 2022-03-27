@@ -236,7 +236,9 @@ to remove the extra space bash adds after a completion."
 
 (defvar bash-completion-start-files
   '("~/.emacs_bash.sh" "~/.emacs.d/init_bash.sh")
-  "Shell files that, if they exist, will be sourced at the beginning of a bash completion subprocess.
+  "Shell files that sourced at the beginning of a bash completion subprocess.
+
+If a listed file does not exist that is silently ignored.
 
 This variable is only used when creating separate processes for
 performing completion. See
