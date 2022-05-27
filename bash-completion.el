@@ -309,9 +309,9 @@ Created by `bash-completion-send' and printed by
 (defun bash-completion--type (comp)
   "Returns the type of COMP.
 
-Completion type is 'command, if completing a command (cword = 0),
-'custom if there's a custom completion for the current command or
-'default if there isn't or if the completion hasn't been
+Completion type is `command', if completing a command (cword = 0),
+`custom' if there's a custom completion for the current command or
+`default' if there isn't or if the completion hasn't been
 customized, usually by `bash-completion--customize'."
   (cond
    ((zerop (bash-completion--cword comp)) 'command)
@@ -324,7 +324,7 @@ customized, usually by `bash-completion--customize'."
 The option can be:
  - set globally, by setting `bash-completion-nospace' to t
  - set for a customized completion, in bash, with
-   '-o' 'nospace'."
+   \"-o nospace\"."
   (let ((cell))
     (cond
      (bash-completion-nospace t) ; set globally
@@ -458,10 +458,10 @@ This function is convenient, but it might not be the best way of enabling
 bash completion in your .emacs file because it forces you to load the module
 before it is needed. For an autoload version, add:
 
-  (autoload 'bash-completion-dynamic-complete \"bash-completion\"
+  (autoload \\='bash-completion-dynamic-complete \"bash-completion\"
     \"BASH completion hook\")
-  (add-hook 'shell-dynamic-complete-functions
-          'bash-completion-dynamic-complete)"
+  (add-hook \\='shell-dynamic-complete-functions
+            \\='bash-completion-dynamic-complete)"
   (add-hook 'shell-dynamic-complete-functions
             'bash-completion-dynamic-complete))
 
@@ -708,7 +708,7 @@ This method returns a list of tokens found between START and END,
 ordered by position.  Tokens contain a string and a range.
 
 The string in a token is an unescaped version of the token.  For
-example, if the token is 'hello world', the string contains
+example, if the token is \\='hello world\\=', the string contains
 \"hello world\", without the quotes.  It can be accessed using
 `bash-completion-tokenize-get-str'.  It can be modified using
 `bash-completion-tokenize-append-str'.
@@ -724,7 +724,7 @@ set using `bash-completion-tokenize-set-end'.
 
 Tokens should always be accessed using the functions specified above,
 never directly as they're likely to change as this code evolves.
-The current format of a token is '(string . (start . end))."
+The current format of a token is \\='(string . (start . end))."
   (let ((tokens nil)
         (bash-completion-wordbreaks
          (mapconcat 'char-to-string
@@ -1489,7 +1489,7 @@ TIMEOUT is the timeout value for this operation, if nil the value of
 `bash-completion-process-timeout' is used.
 
 DEBUG-CONTEXT, if specified, is appended to the debug info under
-the key 'debug-context.
+the key `debug-context'.
 
 Once this command has run without errors, you will find the
 result of the command in the bash completion process buffer or in
