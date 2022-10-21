@@ -544,11 +544,14 @@ Returns (list stub-start stub-end completions) with
                     comp-start comp-pos
                     (process-get process 'wordbreaks)
                     (process-get process 'bash-major-version)))
-             (stub-start (bash-completion--stub-start comp)))
-
+             (stub-start (bash-completion--stub-start comp))
+             (stub (bash-completion--stub comp)))
         (bash-completion--customize comp process)
         (list
-         stub-start
+         (let ((last-separator (string-match "/[^/]*$" stub)))
+           (if last-separator
+               (- comp-pos (- (length stub) last-separator 1))
+             stub-start))
          comp-pos
          (if dynamic-table
              (bash-completion--completion-table-with-cache
@@ -1006,7 +1009,11 @@ for directory name detection to work."
        (t (setq suffix close-quote-str))))
 
     ;; put everything back together
-    (concat unparsed-prefix
+    (concat (let ((last-separator (string-match "/[^/]*$" unparsed-prefix)))
+              (if last-separator
+                  (substring unparsed-prefix (1+ last-separator)
+                             (length unparsed-prefix))
+                unparsed-prefix))
             (bash-completion-escape-candidate rest open-quote)
             suffix)))
 
