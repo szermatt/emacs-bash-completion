@@ -1218,45 +1218,52 @@ completion in these cases."
           ;; interfere with bash-completion-send detecting the end
           ;; of a command. It disables prompt to avoid interference
           ;; from commands run by prompts.
-          (comint-send-string
-           process
-           (concat
-            "set +o emacs;"
-            "set +o vi;"
-            "if [[ -z \"$__emacs_complete_ps1\" ]]; then"
-            "  __emacs_complete_ps1=\"$PS1\";"
-            "  __emacs_complete_pc=\"$PROMPT_COMMAND\";"
-            "fi;"
-            "PS1='' PROMPT_COMMAND='';"
-            "history &>/dev/null -d $((HISTCMD - 1)) || true\n"))
+          (let* ((history-unclutter-cmd
+                  (concat
+                   "if [[ ${BASH_VERSINFO[0]} -eq 5 && ${BASH_VERSINFO[1]} -ge 1 || ${BASH_VERSINFO[0]} -gt 5 ]]; then"
+                   "  history -d $HISTCMD &>/dev/null || true;"
+                   "else"
+                   "  history -d $((HISTCMD - 1)) &>/dev/null || true;"
+                   "fi")))
+            (comint-send-string
+             process
+             (concat
+              "set +o emacs;"
+              "set +o vi;"
+              "if [[ -z \"$__emacs_complete_ps1\" ]]; then"
+              "  __emacs_complete_ps1=\"$PS1\";"
+              "  __emacs_complete_pc=\"$PROMPT_COMMAND\";"
+              "fi;"
+              "PS1='' PROMPT_COMMAND='';"
+              history-unclutter-cmd "\n"))
 
-          ;; The following is a bootstrap command for
-          ;; bash-completion-send itself.
-          (bash-completion-send
-           (concat
-            "function __emacs_complete_pre_command {"
-            "  if [[ -z \"$__emacs_complete_ps1\" ]]; then"
-            "    __emacs_complete_ps1=\"$PS1\";"
-            "    __emacs_complete_pc=\"$PROMPT_COMMAND\";"
-            "  fi;"
-            "  PROMPT_COMMAND=__emacs_complete_prompt;"
-            "  history &>/dev/null -d $((HISTCMD - 1)) || true;"
-            "} &&"
-            "function __emacs_complete_prompt {"
-            "  PS1=" bash-completion--ps1 ";"
-            "  PROMPT_COMMAND=__emacs_complete_recover_prompt;"
-            "} &&"
-            "function __emacs_complete_recover_prompt {"
-            "  local r=$?;"
-            "  PS1=\"${__emacs_complete_ps1}\";"
-            "  PROMPT_COMMAND=\"${__emacs_complete_pc}\";"
-            "  unset __emacs_complete_ps1 __emacs_complete_pc;"
-            "  if [[ -n \"$PROMPT_COMMAND\" ]]; then"
-            "    (exit $r); eval \"$PROMPT_COMMAND\";"
-            "  fi;"
-            "} &&"
-            "__emacs_complete_pre_command")
-           process)
+            ;; The following is a bootstrap command for
+            ;; bash-completion-send itself.
+            (bash-completion-send
+             (concat
+              "function __emacs_complete_pre_command {"
+              "  if [[ -z \"$__emacs_complete_ps1\" ]]; then"
+              "    __emacs_complete_ps1=\"$PS1\";"
+              "    __emacs_complete_pc=\"$PROMPT_COMMAND\";"
+              "  fi;"
+              "  PROMPT_COMMAND=__emacs_complete_prompt;"
+              "  " history-unclutter-cmd ";"
+              "} &&"
+              "function __emacs_complete_prompt {"
+              "  PS1=" bash-completion--ps1 ";"
+              "  PROMPT_COMMAND=__emacs_complete_recover_prompt;"
+              "} &&"
+              "function __emacs_complete_recover_prompt {"
+              "  local r=$?;"
+              "  PS1=\"${__emacs_complete_ps1}\";"
+              "  PROMPT_COMMAND=\"${__emacs_complete_pc}\";"
+              "  unset __emacs_complete_ps1 __emacs_complete_pc;"
+              "  if [[ -n \"$PROMPT_COMMAND\" ]]; then"
+              "    (exit $r); eval \"$PROMPT_COMMAND\";"
+              "  fi;"
+              "} &&"
+              "__emacs_complete_pre_command")
+             process))
           (bash-completion--setup-bash-common process))
         process))))
 
