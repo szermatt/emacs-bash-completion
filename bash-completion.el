@@ -357,6 +357,9 @@ returned."
   (bash-completion-send "complete -p" process)
   (process-put process 'complete-p
                (bash-completion-build-alist (bash-completion--get-buffer process)))
+  (unless (zerop
+           (bash-completion-send "[[ ${BASH_VERSINFO[0]} -ge 4 ]]" process))
+    (error "bash-completion.el requires at least Bash 4."))
   (bash-completion-send
    (concat "function __emacs_complete_wrapper {"
            " COMP_TYPE=9; COMP_KEY=9; _EMACS_COMPOPT=\"\";"
