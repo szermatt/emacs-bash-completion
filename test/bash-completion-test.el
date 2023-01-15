@@ -32,9 +32,6 @@
 (require 'cl-lib)
 (require 'ert)
 
-; for Emacs 24.1
-(unless (fboundp 'cl-letf) (defalias 'cl-letf 'letf))
-
 (defmacro bash-completion-test-with-buffer (content &rest body)
   "Create a temporary buffer with CONTENT and execute BODY.
 

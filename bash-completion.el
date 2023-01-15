@@ -7,7 +7,7 @@
 ;; Version: 3.1.0
 ;; Keywords: convenience, unix
 ;; URL: http://github.com/szermatt/emacs-bash-completion
-;; Package-Requires: ((emacs "24.3"))
+;; Package-Requires: ((emacs "25.3"))
 
 ;; This program is free software: you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -99,8 +99,8 @@
 
 ;;; Compatibility:
 
-;; bash-completion.el is known to work with Bash 3, 4 and 5, on Emacs,
-;; starting with version 24.3, under Linux and OSX. It does not work
+;; bash-completion.el is known to work with Bash 4 and 5, on Emacs,
+;; starting with version 25.3, under Linux and OSX. It does not work
 ;; on XEmacs.
 
 ;;; History:
@@ -274,13 +274,13 @@ Bash processes.")
   "Value for the special PS1 prompt set for completions, quoted.")
 
 (eval-when-compile
-  (unless (or (and (= emacs-major-version 24) (>= emacs-minor-version 3))
-              (>= emacs-major-version 25))
+  (unless (or (and (= emacs-major-version 25) (>= emacs-minor-version 3))
+              (>= emacs-major-version 26))
     (error
      (concat
-      "Emacs version 24.3 or later is required to run emacs-bash-completion.\n"
-      "Download emacs-bash-completion version 2.1 to run on older Emacs "
-      "versions, from 22 to 24."))))
+      "Emacs version 25.3 or later is required to run emacs-bash-completion.\n"
+      "Download emacs-bash-completion version 2.1 to run on Emacs 22 and 23"
+      "version 3.1.0 to run on Emacs 24."))))
 
 (defvar bash-completion--debug-info nil
   "Alist that stores info about the last call to `bash-completion-send'.

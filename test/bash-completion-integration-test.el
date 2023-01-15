@@ -182,9 +182,7 @@ for testing completion."
 (defun bash-completion_test-teardown-env (test-env-dir)
   "Deletes everything `bash-completion_test-setup-env' set up."
   (when test-env-dir
-    (if (>= emacs-major-version 24)
-        (delete-directory test-env-dir 'recursive)
-      (dired-delete-file test-env-dir 'always))))
+    (delete-directory test-env-dir 'recursive)))
 
 (defun bash-completion_test-equal-any-order (expected actual)
   "Compare a sorted list of string EXPECTED with ACTUAL.
