@@ -1,11 +1,11 @@
-;;; bash-completion.el --- BASH completion for the shell buffer -*- lexical-binding: t -*-
+;;; bash-completion.el --- Bash completion for the shell buffer -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2009 Stephane Zermatten
 
 ;; Author: Stephane Zermatten <szermatt@gmx.net>
 ;; Maintainer: Stephane Zermatten <szermatt@gmail.com>
 ;; Version: 3.1.0
-;; Keywords: shell bash bash-completion
+;; Keywords: convenience, unix
 ;; URL: http://github.com/szermatt/emacs-bash-completion
 ;; Package-Requires: ((emacs "24.3"))
 
@@ -25,23 +25,28 @@
 
 ;;; Commentary:
 ;;
-;; This file defines dynamic completion hooks for shell-mode and
-;; shell-command prompts that are based on bash completion.
+;; This file defines dynamic completion hooks for `shell-mode' and
+;; `shell-command' prompts that are based on Bash completion.  You can
+;; enable it by invoking `bash-completion-setup' or by adding
 ;;
-;; Bash completion for emacs:
-;; - is aware of bash builtins, aliases and functions
-;; - does file expansion inside of colon-separated variables
-;;   and after redirections (> or <)
-;; - escapes special characters when expanding file names
-;; - is configurable through programmable bash completion
+;;    (bash-completion-setup)
+;;
+;; to your initialisation file.
+;;
+;; The completion will be aware of bash builtins, alii and functions.
+;; It does file expansion does file expansion inside of
+;; colon-separated variables and after redirections (> or <), and
+;; escapes special characters when expanding file names.  Just like
+;; "regular" Bash, it is configurable through programmable bash
+;; completion.
 ;;
 ;; When the first completion is requested in shell model or a shell
-;; command, bash-completion.el starts a separate bash
+;; command, bash-completion.el starts a separate Bash
 ;; process.  Bash-completion.el then uses this process to do the actual
 ;; completion and includes it into Emacs completion suggestions.
 ;;
 ;; A simpler and more complete alternative to bash-completion.el is to
-;; run a bash shell in a buffer in term mode(M-x `ansi-term').
+;; run a Bash shell in a buffer in term mode (M-x `ansi-term').
 ;; Unfortunately, many Emacs editing features are not available when
 ;; running in term mode.  Also, term mode is not available in
 ;; shell-command prompts.
@@ -49,9 +54,9 @@
 ;; Bash completion can also be run programmatically, outside of a
 ;; shell-mode command, by calling
 ;; `bash-completion-dynamic-complete-nocomint'
-;;
-;; INSTALLATION
-;;
+
+;;; Installation:
+
 ;; 1. copy bash-completion.el into a directory that's on Emacs load-path
 ;; 2. add this into your .emacs file:
 ;;   (autoload 'bash-completion-dynamic-complete \"bash-completion\"
@@ -69,38 +74,37 @@
 ;; Once this is done, use <TAB> as usual to do dynamic completion from
 ;; shell mode or a shell command minibuffer, such as the one started
 ;; for M-x `compile'. Note that the first completion is slow, as emacs
-;; launches a new bash process.
+;; launches a new Bash process.
 ;;
 ;; Naturally, you'll get better results if you turn on programmable
-;; bash completion in your shell. Depending on how your system is set
+;; Bash completion in your shell. Depending on how your system is set
 ;; up, this might requires calling:
 ;;   . /etc/bash_completion
 ;; from your ~/.bashrc.
 ;;
-;; When called from a bash shell buffer,
+;; When called from a Bash shell buffer,
 ;; `bash-completion-dynamic-complete' communicates with the current shell
-;; to reproduce, as closely as possible the normal bash auto-completion,
+;; to reproduce, as closely as possible the normal Bash auto-completion,
 ;; available on full terminals.
 ;;
 ;; When called from non-shell buffers, such as the prompt of M-x
-;; compile, `bash-completion-dynamic-complete' creates a separate bash
+;; compile, `bash-completion-dynamic-complete' creates a separate Bash
 ;; process just for doing completion. Such processes have the
 ;; environment variable EMACS_BASH_COMPLETE set to t, to help
 ;; distinguish them from normal shell processes.
 ;;
 ;; See the documentation of the function
-;; `bash-completion-dynamic-complete-nocomint' to do bash completion
+;; `bash-completion-dynamic-complete-nocomint' to do Bash completion
 ;; from other buffers or completion engines.
-;;
-;; COMPATIBILITY
-;;
+
+;;; Compatibility:
+
 ;; bash-completion.el is known to work with Bash 3, 4 and 5, on Emacs,
 ;; starting with version 24.3, under Linux and OSX. It does not work
 ;; on XEmacs.
-;;
 
 ;;; History:
-;;
+
 ;; Full history is available on
 ;; https://github.com/szermatt/emacs-bash-completion
 
@@ -110,9 +114,9 @@
 (require 'cl-lib)
 (require 'shell)
 
-;;; ---------- Customization
+;;; Customization
 (defgroup bash-completion nil
-  "BASH configurable command-line completion "
+  "BASH configurable command-line completion."
   :group 'shell
   :group 'shell-command)
 
@@ -124,7 +128,7 @@ once it's been installed.
 
 Setting this variable to t is NOT enough to enable BASH completion.
 BASH completion is only available in the environment for which
-`bash-completion-dynamic-complete' has been registered. See
+`bash-completion-dynamic-complete' has been registered.  See
 `bash-completion-setup' for that."
   :type '(boolean)
   :group 'bash-completion)
@@ -133,7 +137,7 @@ BASH completion is only available in the environment for which
   "Enable/disable the use of separate processes to perform completion.
 
 When set to a non-nil value, separate processes will always be
-used to perform completion. If nil, process associated with the
+used to perform completion.  If nil, process associated with the
 current buffer will be used to perform completion from a shell
 buffer associated to a bash shell, and otherwise a separate process
 will be started to do completion."
@@ -144,12 +148,12 @@ will be started to do completion."
   "Name or path of the BASH executable to run for command-line completion.
 
 This should be either an absolute path to the BASH executable or
-the name of the bash command if it is on Emacs' PATH. This should
+the name of the bash command if it is on Emacs' PATH.  This should
 point to a recent version of BASH, 3 or 4, with support for
 command-line completion.
 
 This variable is only used when creating separate processes for
-performing completion. See
+performing completion.  See
 `bash-completion-use-separate-processes' for further
 explanation."
   :type '(file :must-match t)
@@ -173,7 +177,7 @@ explanation."
   "Args passed to the BASH shell.
 
 This variable is only used when creating separate processes for
-performing completion. See
+performing completion.  See
 `bash-completion-use-separate-processes' for further
 explanation."
   :type '(repeat (string :tag "Argument"))
@@ -188,8 +192,7 @@ ignored."
   :group 'bash-completion)
 
 (defcustom bash-completion-command-timeout 30
-  "Number of seconds to wait for an answer from programmable
-completion functions.
+  "Number of seconds to wait for an answer from programmable completion functions.
 
 Programmable completion functions might take an arbitrary long
 time to run, so this should be long."
@@ -200,8 +203,8 @@ time to run, so this should be long."
   "Time to wait before displaying a message while waiting for results.
 
 If completion takes longer than that time, a message is displayed
-on the minibuffer to make it clear what's happening. Set to nil
-to never display any such message. 0 to always display it.
+on the minibuffer to make it clear what's happening.  Set to nil
+to never display any such message.  0 to always display it.
 
 Only relevant when using bash completion in a shell, through
 `bash-completion-dynamic-complete'."
@@ -215,7 +218,7 @@ The first thing bash is supposed to do is process /etc/bash_complete,
 which typically takes a long time.
 
 This variable is only used when creating separate processes for
-performing completion. See
+performing completion.  See
 `bash-completion-use-separate-processes' for further
 explanation."
   :type '(float)
@@ -226,7 +229,7 @@ explanation."
 
 When there is only one completion candidate, bash sometimes adds
 a space at the end of the completion to move the cursor at the
-appropriate position to add more command-line arguments. This
+appropriate position to add more command-line arguments.  This
 feature doesn't always work perfectly with programmable completion.
 
 Enable this option if you find yourself having to often backtrack
@@ -235,13 +238,13 @@ to remove the extra space bash adds after a completion."
   :group 'bash-completion)
 
 (defvar bash-completion-start-files
-  '("~/.emacs_bash.sh" "~/.emacs.d/init_bash.sh")
+  (list "~/.emacs_bash.sh" (locate-user-emacs-file "init_bash.sh"))
   "Shell files that sourced at the beginning of a bash completion subprocess.
 
 If a listed file does not exist that is silently ignored.
 
 This variable is only used when creating separate processes for
-performing completion. See
+performing completion.  See
 `bash-completion-use-separate-processes' for further
 explanation.")
 
@@ -252,11 +255,11 @@ explanation.")
   "Buffer storing completion results.
 
 This buffer is only used when creating separate processes for
-performing completion. See
+performing completion.  See
 `bash-completion-use-separate-processes' for further
 explanation.")
 
-;;; ---------- Internal variables and constants
+;;; Internal variables and constants
 
 (defvar bash-completion-processes nil
   "Bash processes alist.
@@ -285,7 +288,7 @@ Bash processes.")
 Created by `bash-completion-send' and printed by
 `bash-completion-debug'.")
 
-;;; ---------- Struct
+;;; Struct
 
 ;; The main, completion structure, keeping track of the definition and
 ;; state of the current completion.
@@ -307,7 +310,7 @@ Created by `bash-completion-send' and printed by
   )
 
 (defun bash-completion--type (comp)
-  "Returns the type of COMP.
+  "Return the type of COMP.
 
 Completion type is `command', if completing a command (cword = 0),
 `custom' if there's a custom completion for the current command or
@@ -319,7 +322,7 @@ customized, usually by `bash-completion--customize'."
    (t 'default)))
 
 (defun bash-completion--nospace (comp)
-  "Returns the value of the nospace option to use for COMP.
+  "Return the value of the nospace option to use for COMP.
 
 The option can be:
  - set globally, by setting `bash-completion-nospace' to t
@@ -334,14 +337,15 @@ The option can be:
          (bash-completion--compgen-args comp) "nospace")))))
 
 (defun bash-completion--command (comp)
-  "Return the current command for the completion, if there is one."
+  "Return the current command for the completion, if there is one.
+Argument COMP is the completion parse."
   (file-name-nondirectory (car (bash-completion--words comp))))
 
 (defun bash-completion--get-buffer (process)
   "Return the buffer used to store completion results.
 
 PROCESS is the bash process from which completions are
-retrieved. When `bash-completion-use-separate-processes' is nil,
+retrieved.  When `bash-completion-use-separate-processes' is nil,
 PROCESS is not used and `bash-completion-output-buffer' is
 returned."
   (if bash-completion-use-separate-processes
@@ -419,7 +423,7 @@ returned."
 
     (process-put process 'setup-done t)))
 
-;;; ---------- Inline functions
+;;; Inline functions
 
 (defsubst bash-completion-tokenize-get-range (token)
   "Return the TOKEN range as a cons: (start . end)."
@@ -445,25 +449,23 @@ TOKENS is a list of token as returned by
 `bash-completion-tokenize'."
   (cdr (assq 'quote (car (last tokens)))))
 
-;;; ---------- Functions: completion
+;;; Functions: completion
 
 ;;;###autoload
-(defun bash-completion-setup ()
-  "Register bash completion for the shell buffer and shell command line.
+(progn
+  ;; The following definition is wrapped in a `progn' to force the
+  ;; autoload scraper to pull the entire definition into the autoload
+  ;; file.  That way this function can be invoked without having to
+  ;; immediately load the entire file.  This will be done when
+  ;; `bash-completion-dynamic-complete' is actually used by the
+  ;; completion system.
+  (defun bash-completion-setup ()
+    "Register bash completion for the shell buffer and shell command line.
 
 This function adds `bash-completion-dynamic-complete' to the completion
-function list of shell mode, `shell-dynamic-complete-functions'.
-
-This function is convenient, but it might not be the best way of enabling
-bash completion in your .emacs file because it forces you to load the module
-before it is needed. For an autoload version, add:
-
-  (autoload \\='bash-completion-dynamic-complete \"bash-completion\"
-    \"BASH completion hook\")
-  (add-hook \\='shell-dynamic-complete-functions
-            \\='bash-completion-dynamic-complete)"
-  (add-hook 'shell-dynamic-complete-functions
-            'bash-completion-dynamic-complete))
+function list of shell mode, `shell-dynamic-complete-functions'."
+    (add-hook 'shell-dynamic-complete-functions
+              #'bash-completion-dynamic-complete)))
 
 ;;;###autoload
 (defun bash-completion-dynamic-complete ()
@@ -497,16 +499,16 @@ When doing completion outside of a comint buffer, call
   "Return completion information for bash command at an arbitrary position.
 
 The bash command to be completed begins at COMP-START in the
-current buffer. This must specify where the current command
+current buffer.  This must specify where the current command
 starts, usually right after the prompt.
 
 COMP-POS is the point where completion should happen, usually
-just (point). Note that a bash command can span across multiple
+just (point).  Note that a bash command can span across multiple
 line, so COMP-START is not necessarily on the same line as
 COMP-POS.
 
 This function does not assume that the current buffer is a shell
-or even comint buffer. It can safely be called from any buffer
+or even comint buffer.  It can safely be called from any buffer
 where a bash command appears, including `completion-at-point'.
 
 If DYNAMIC-TABLE is passed a non-nil value, the resulting
@@ -514,7 +516,7 @@ collection will be a function that fetches the result lazily,
 when it's called.
 
 When calling from `completion-at-point', make sure to pass a
-non-nil value to DYNAMIC-TABLE. This isn't just an optimization:
+non-nil value to DYNAMIC-TABLE.  This isn't just an optimization:
 returning a function instead of a list tells Emacs it should
 avoids post-filtering the results and possibly discarding useful
 completion from bash.
@@ -556,7 +558,7 @@ Returns (list stub-start stub-end completions) with
            (bash-completion-comm comp process)))))))
 
 (defun bash-completion--find-last (elt array)
-  "Return the position of the last instance of ELT in array or nil."
+  "Return the position of the last instance of ELT in ARRAY or nil."
   (catch 'bash-completion-return
     (let ((array-len (length array)))
       (dotimes (index array-len)
@@ -564,7 +566,7 @@ Returns (list stub-start stub-end completions) with
             (throw 'bash-completion-return (- array-len index 1)))))
     nil))
 
-;;; ---------- Functions: parsing and tokenizing
+;;; Functions: parsing and tokenizing
 
 (defun bash-completion-join (words)
   "Join WORDS into a shell command line.
@@ -701,7 +703,7 @@ TOKENS should be in the format returned by `bash-completion-tokenize'."
 
 This function splits a BASH command line into tokens.  It knows
 about quotes, escape characters and special command separators such
-as ;, | and &&. If specified WORDBREAKS contains extra word breaks,
+as ;, | and &&.  If specified WORDBREAKS contains extra word breaks,
 usually taken from COMP_WORDBREAKS, to apply while tokenizing.
 
 This method returns a list of tokens found between START and END,
@@ -748,7 +750,7 @@ This function is meant to be called exclusively from
 `bash-completion-tokenize' and `bash-completion-tokenize-0'.
 
 This function expects the point to be at the start of a new
-element to be added to the list of tokens. It parses the line
+element to be added to the list of tokens.  It parses the line
 until the limit of that element or until LIMIT.
 
 It leaves the point at the position where parsing should
@@ -812,7 +814,7 @@ TOKENS is the list of tokens built so far in reverse order.
 
 TOKEN is the token currently being built.
 
-Sets the point at the position of the next token. Returns TOKENS
+Sets the point at the position of the next token.  Returns TOKENS
 with new tokens prepended to it."
   ;; parse the token elements at the current position and
   ;; append them
@@ -861,7 +863,7 @@ QUOTE should be nil, ?' or ?\"."
    (if (null quote) (concat ";&|'\"" wordbreaks)
      (char-to-string quote))))
 
-;;; ---------- Functions: getting candidates from bash
+;;; Functions: getting candidates from bash
 
 (defun bash-completion-comm (comp process)
   "Call compgen on COMP for PROCESS, return the result.
@@ -907,7 +909,7 @@ for directory name detection to work.
 
 Post-processing includes escaping special characters, adding a /
 to directory names, replacing STUB with UNPARSED-STUB in the
-result. See `bash-completion-fix' for more details."
+result.  See `bash-completion-fix' for more details."
   (let ((output) (candidates) (pwd))
     (with-current-buffer buffer
       (setq pwd (bash-completion--parse-side-channel-data "pwd"))
@@ -931,7 +933,7 @@ result. See `bash-completion-fix' for more details."
           (delete-dups (nreverse result)))))))
 
 (defun bash-completion-fix (str comp single)
-  "Fix completion candidate in STR for COMP
+  "Fix completion candidate in STR for COMP.
 
 STR is the completion candidate to modify, COMP the current
 completion operation.
@@ -1040,7 +1042,7 @@ Return a possibly escaped version of COMPLETION-CANDIDATE."
     completion-candidate)))
 
 (defun bash-completion-unescape (open-quote string)
-  "Unescapes a possibly QUOTE'ed STRING."
+  "Unescape a possibly quoted STRING using OPEN-QUOTE."
   (if (eq ?' open-quote)
       (replace-regexp-in-string "'\\\\''" "'" string)
     (replace-regexp-in-string "\\(\\\\\\)\\(.\\)" "\\2" string)))
@@ -1076,7 +1078,7 @@ Return a CONS containing (before . after)."
     (list "" str ?\0)))
 
 (defun bash-completion-last-char (str)
-  "Returns the last char of STR or nil."
+  "Return the last char of STR or nil."
   (let ((str-len (length str)))
     (and (>= str-len 1)
          (aref str (1- str-len)))))
@@ -1089,7 +1091,7 @@ Return a CONS containing (before . after)."
      (>= str-len prefix-len)
      (string= (substring str 0 prefix-len) prefix))))
 
-;;; ---------- Functions: bash subprocess
+;;; Functions: bash subprocess
 
 (defun bash-completion--get-or-create-separate-process ()
   "Return the bash completion process or start it.
@@ -1104,12 +1106,11 @@ initialized correctly.
 The process uses `bash-completion-prog' to figure out the path to
 bash on the current system.
 
-To get an environment consistent with shells started with `shell',
-the first file found in the following list are sourced if they exist:
- ~/.emacs_bash.sh
- ~/.emacs.d/init_bash.sh
-Or, to be more exact, ~/.emacs_$(basename `bash-completion-prog').sh)
-and ~/.emacs.d/init_$(basename `bash-completion-prog').sh)
+To get an environment consistent with shells started with
+`shell', create a file \".emacs_bash.sh\" (or to be more exact,
+\"~/.emacs_$(basename `bash-completion-prog').sh\") in your home
+or Emacs user directory.  If both exist, they will be sourced in
+this order as well.
 
 To allow scripts to tell the difference between shells launched
 by bash-completion, the environment variable EMACS_BASH_COMPLETE
@@ -1265,15 +1266,15 @@ completion in these cases."
 If `bash-completion-use-separate-processes' is non-nil,
 `bash-completion--get-or-create-separate-process' is called to
 get the process, otherwise `bash-completion--get-same-process' is
-used. "
+used."
   (if bash-completion-use-separate-processes
       (bash-completion--get-or-create-separate-process)
     (bash-completion--get-same-process)))
 
 (defun bash-completion-cd-command-prefix ()
-  "Build a command-line that CD to default-directory.
+  "Build a command-line that CD to `default-directory'.
 
-Return a bash command-line for going to default-directory or \"\"."
+Return a bash command-line for going to `default-directory' or \"\"."
   (let ((dir (or (file-remote-p (or default-directory "") 'localname)
                  default-directory)))
     (if dir
@@ -1330,9 +1331,9 @@ The returned alist is a slightly parsed version of the output of
                 (and (not nodefault) (cdr (assoc nil compgen-args-alist))))))))
 
 (defun bash-completion-generate-line (comp)
-  "Generate a command-line that calls compgen for COMP.
+  "Generate a bash command to call \"compgen\" for COMP.
 
-COMP is a struct returned by `bash-completion--parse'. It is
+COMP is a struct returned by `bash-completion--parse'.  It is
 normally configured using `bash-completion--customize' before
 calling this command.
 
@@ -1402,7 +1403,7 @@ is t."
   (interactive)
   (let* ((process (get-buffer-process (current-buffer))))
     (unless process
-      (error "No process is available in this buffer."))
+      (error "No process is available in this buffer"))
     (process-put process 'setup-done nil)
     (bash-completion--get-process)))
 
@@ -1410,11 +1411,11 @@ is t."
 (defun bash-completion-reset ()
   "Force the next completion command to start with a fresh BASH process.
 
-This function kills any existing BASH completion process. This
+This function kills any existing BASH completion process.  This
 way, the next time BASH completion is requested, a new process
-will be created with the latest configuration. The BASH
+will be created with the latest configuration.  The BASH
 completion process that will be killed depends on the
-default-directory of the buffer where the command is executed.
+`default-directory' of the buffer where the command is executed.
 
 Call this method if you have updated your .bashrc or any bash init scripts
 and would like bash completion in Emacs to take these changes into account."
@@ -1427,11 +1428,12 @@ and would like bash completion in Emacs to take these changes into account."
       (setq bash-completion-processes (delq entry bash-completion-processes)))))
 
 (defun bash-completion-reset-all ()
+  "Invoke `bash-completion-reset' for all active bash processes."
   (interactive)
-  (mapcar (lambda (entry)
-            (let ((default-directory (car entry)))
-              (bash-completion-reset)))
-          bash-completion-processes))
+  (dolist (entry bash-completion-processes)
+    (let ((default-directory (car entry)))
+      (bash-completion-reset))))
+
 
 (defun bash-completion-kill (process)
   "Kill PROCESS and its buffer."
@@ -1521,7 +1523,7 @@ Return the status code of the command, as a number."
         (push (cons 'error "timeout") bash-completion--debug-info)
         (push (cons 'buffer-string (buffer-substring-no-properties (point-min) (point-max)))
               bash-completion--debug-info)
-        (error "Bash completion failed. M-x bash-completion-debug for details."))
+        (error "Bash completion failed.  M-x bash-completion-debug for details"))
       (when pre-command
         ;; Detect the command having been echoed and remove it
         (save-excursion
@@ -1541,10 +1543,11 @@ Return the status code of the command, as a number."
           status)))))
 
 (defun bash-completion-debug ()
+  "Display information relevant for debugging `bash-completion'."
   (interactive)
   (with-help-window "*bash-completion-debug*"
     (unless bash-completion--debug-info
-      (error "No debug information available for bash-completion. Please try it out first."))
+      (error "No debug information available for bash-completion.  Please try it out first"))
     (princ "This buffer contains information about the last completion command\n")
     (princ "and the BASH process it was sent to. This can help you figure out\n")
     (princ "what's happening.\n\n")
@@ -1588,7 +1591,7 @@ Return the status code of the command, as a number."
   "Print variable SYMBOL from `bash-completion-debug-info'.
 
 If EOF is non-nil, VALUE might contain newlines and other special
-characters. These are output as-is."
+characters.  These are output as-is."
   (bash-completion--debug-print
    symbol (cdr (assq symbol bash-completion--debug-info)) eof))
 
@@ -1596,7 +1599,7 @@ characters. These are output as-is."
   "Print variable SYMBOL from `bash-completion-debug-info''s process.
 
 If EOF is non-nil, VALUE might contain newlines and other special
-characters. These are output as-is."
+characters.  These are output as-is."
   (let ((process (cdr (assq 'process bash-completion--debug-info))))
     (when (process-live-p process)
       (bash-completion--debug-print
@@ -1606,7 +1609,7 @@ characters. These are output as-is."
   "Print debugging information NAME and VALUE.
 
 If EOF is non-nil, VALUE might contain newlines and other special
-characters. These are output as-is."
+characters.  These are output as-is."
   (when value
     (princ name)
     (princ ": ")
@@ -1700,8 +1703,8 @@ using the current Emacs completion style."
                           (signal (car err) (cdr err)))))))))
           (setq last-result result)
           (let ((completion-ignore-case (process-get process 'completion-ignore-case))
-                (completion-string (if (equal str
-                                              (bash-completion--unparsed-stub comp)) "" str)))
+                (completion-string (if (equal str (bash-completion--unparsed-stub comp))
+                                       "" str)))
             (cond
              ((null action) (try-completion completion-string result predicate))
              ((eq action t)
@@ -1710,7 +1713,4 @@ using the current Emacs completion style."
 
 (provide 'bash-completion)
 
-;; Local Variables:
-;; indent-tabs-mode: nil
-;; End:
 ;;; bash-completion.el ends here
