@@ -149,7 +149,7 @@ will be started to do completion."
 
 This should be either an absolute path to the BASH executable or
 the name of the bash command if it is on Emacs' PATH.  This should
-point to a recent version of BASH, 3 or 4, with support for
+point to a recent version of BASH 4 or 5, with support for
 command-line completion.
 
 This variable is only used when creating separate processes for
@@ -354,74 +354,62 @@ returned."
 
 (defun bash-completion--setup-bash-common (process)
   "Setup PROCESS to be ready for completion."
-  (let (bash-major-version)
-    (bash-completion-send "complete -p" process)
-    (process-put process 'complete-p
-                 (bash-completion-build-alist (bash-completion--get-buffer process)))
-    (bash-completion-send "echo -n ${BASH_VERSINFO[0]}" process)
-    (setq bash-major-version
-          (with-current-buffer (bash-completion--get-buffer process)
-            (string-to-number (buffer-substring-no-properties
-                               (point-min) (point-max)))))
-    (bash-completion-send
-     (concat "function __emacs_complete_wrapper {"
-             (if (>= bash-major-version 4)
-                 " COMP_TYPE=9; COMP_KEY=9; _EMACS_COMPOPT=\"\";"
-               "")
-             " eval $__EMACS_COMPLETE_WRAPPER;"
-             " n=$?;"
-             " if [[ $n = 124 ]]; then"
-             (bash-completion--side-channel-data "wrapped-status" "124")
-             "  return 1; "
-             " fi; "
-             (when (>= bash-major-version 4)
-               (concat
-                " if [[ -n \"${_EMACS_COMPOPT}\" ]]; then"
-                (bash-completion--side-channel-data "compopt" "${_EMACS_COMPOPT}")
-                " fi;"))
-             " return $n;"
-             "}")
-     process)
-    (if (>= bash-major-version 4)
-        (bash-completion-send
-         (concat
-          "function compopt {"
-          " command compopt \"$@\" 2>/dev/null;"
-          " ret=$?; "
-          " if [[ $ret == 1 && \"$*\" = *\"-o nospace\"* ]]; then"
-          "  _EMACS_COMPOPT='-o nospace';"
-          "  return 0;"
-          " fi;"
-          " if [[ $ret == 1 && \"$*\" = *\"+o nospace\"* ]]; then"
-          "  _EMACS_COMPOPT='+o nospace';"
-          "  return 0;"
-          " fi;"
-          " return $ret; "
-          "}")
-         process))
+  (bash-completion-send "complete -p" process)
+  (process-put process 'complete-p
+               (bash-completion-build-alist (bash-completion--get-buffer process)))
+  (bash-completion-send
+   (concat "function __emacs_complete_wrapper {"
+           " COMP_TYPE=9; COMP_KEY=9; _EMACS_COMPOPT=\"\";"
+           " eval $__EMACS_COMPLETE_WRAPPER;"
+           " n=$?;"
+           " if [[ $n = 124 ]]; then"
+           (bash-completion--side-channel-data "wrapped-status" "124")
+           "  return 1; "
+           " fi; "
+           " if [[ -n \"${_EMACS_COMPOPT}\" ]]; then"
+           (bash-completion--side-channel-data "compopt" "${_EMACS_COMPOPT}")
+           " fi;"
+           " return $n;"
+           "}")
+   process)
+  (bash-completion-send
+   (concat
+    "function compopt {"
+    " command compopt \"$@\" 2>/dev/null;"
+    " ret=$?; "
+    " if [[ $ret == 1 && \"$*\" = *\"-o nospace\"* ]]; then"
+    "  _EMACS_COMPOPT='-o nospace';"
+    "  return 0;"
+    " fi;"
+    " if [[ $ret == 1 && \"$*\" = *\"+o nospace\"* ]]; then"
+    "  _EMACS_COMPOPT='+o nospace';"
+    "  return 0;"
+    " fi;"
+    " return $ret; "
+    "}")
+   process)
 
-    ;; some bash completion functions use quote_readline
-    ;; to double-quote strings - which compgen understands
-    ;; but only in some environment. disable this dreadful
-    ;; business to get a saner way of handling spaces.
-    ;; Noticed in bash_completion v1.872.
-    (bash-completion-send "function quote_readline { echo \"$1\"; }" process)
+  ;; some bash completion functions use quote_readline
+  ;; to double-quote strings - which compgen understands
+  ;; but only in some environment. disable this dreadful
+  ;; business to get a saner way of handling spaces.
+  ;; Noticed in bash_completion v1.872.
+  (bash-completion-send "function quote_readline { echo \"$1\"; }" process)
 
-    (bash-completion-send "echo -n ${COMP_WORDBREAKS}" process)
-    (process-put process 'wordbreaks
-                 (with-current-buffer (bash-completion--get-buffer process)
-                   (buffer-substring-no-properties
-                    (point-min) (point-max))))
-    (process-put process 'bash-major-version bash-major-version)
+  (bash-completion-send "echo -n ${COMP_WORDBREAKS}" process)
+  (process-put process 'wordbreaks
+               (with-current-buffer (bash-completion--get-buffer process)
+                 (buffer-substring-no-properties
+                  (point-min) (point-max))))
 
-    (bash-completion-send "bind -v 2>/dev/null" process)
-    (process-put process 'completion-ignore-case
-                 (with-current-buffer (bash-completion--get-buffer process)
-                   (save-excursion
-                     (goto-char (point-min))
-                     (and (search-forward "completion-ignore-case on" nil 'noerror) t))))
+  (bash-completion-send "bind -v 2>/dev/null" process)
+  (process-put process 'completion-ignore-case
+               (with-current-buffer (bash-completion--get-buffer process)
+                 (save-excursion
+                   (goto-char (point-min))
+                   (and (search-forward "completion-ignore-case on" nil 'noerror) t))))
 
-    (process-put process 'setup-done t)))
+  (process-put process 'setup-done t))
 
 ;;; Inline functions
 
@@ -544,8 +532,7 @@ Returns (list stub-start stub-end completions) with
         (setq process (bash-completion--get-process)))
       (let* ((comp (bash-completion--parse
                     comp-start comp-pos
-                    (process-get process 'wordbreaks)
-                    (process-get process 'bash-major-version)))
+                    (process-get process 'wordbreaks)))
              (stub-start (bash-completion--stub-start comp)))
 
         (bash-completion--customize comp process)
@@ -597,7 +584,7 @@ functions adds single quotes around it and return the result."
             (replace-regexp-in-string "'" "'\\''" word nil t)
             "'"))))
 
-(defun bash-completion--parse (comp-start comp-pos wordbreaks bash-major-version)
+(defun bash-completion--parse (comp-start comp-pos wordbreaks)
   "Process a command from COMP-START to COMP-POS.
 
 WORDBREAK is the value of COMP_WORDBREAKS to use for this completion,
@@ -605,8 +592,7 @@ usually taken from the current process.
 
 Returns a completion struct."
   (let* ((all-tokens (bash-completion-tokenize
-                      comp-start comp-pos (if (>= bash-major-version 4)
-                                              wordbreaks "")))
+                      comp-start comp-pos wordbreaks))
          (line-tokens (bash-completion-parse-current-command  all-tokens))
          (first-token (car line-tokens))
          (last-token (car (last line-tokens)))
@@ -629,9 +615,6 @@ Returns a completion struct."
               parsed-stub ""
               words (append words '(""))
               rebuilt-line (buffer-substring-no-properties start comp-pos))
-      (if (< bash-major-version 4)
-          (setq last-token (car (last (bash-completion-tokenize
-                                       start comp-pos wordbreaks)))))
       (setq stub-start (car (bash-completion-tokenize-get-range last-token))
             parsed-stub (bash-completion-tokenize-get-str last-token)
             unparsed-stub (buffer-substring-no-properties stub-start comp-pos)
@@ -1588,7 +1571,6 @@ Return the status code of the command, as a number."
         (princ "Please retry\n\n")))
 
     (bash-completion--debug-print-info 'use-separate-processes)
-    (bash-completion--debug-print-procinfo 'bash-major-version)
     (bash-completion--debug-print 'emacs-version emacs-version)
     (bash-completion--debug-print-procinfo 'completion-ignore-case)
     (bash-completion--debug-print-info 'context)

@@ -156,7 +156,7 @@ The return value is the one returned by BODY."
               :wordbreaks wordbreaks)
 	   (bash-completion-test-with-buffer
 	    "a hello world"
-	    (bash-completion--parse (point-min) 14 wordbreaks 3))))
+	    (bash-completion--parse (point-min) 14 wordbreaks))))
 
   ;; some words separated by spaces, cursor after the last space
   (should (equal
@@ -170,21 +170,21 @@ The return value is the one returned by BODY."
             :wordbreaks wordbreaks)
            (bash-completion-test-with-buffer
             "a hello "
-            (bash-completion--parse (point-min) 9 wordbreaks 3))))
+            (bash-completion--parse (point-min) 9 wordbreaks))))
 
   ;; complex multi-command line
   (should (equal
            (bash-completion--make
-            :line "make -"
-            :cword 1
-            :words '("make" "-")
+            :line "ZORG=t make -"
+            :cword 4
+            :words '("ZORG" "=" "t" "make" "-")
             :stub-start 27
             :stub "-"
             :unparsed-stub "-"
             :wordbreaks wordbreaks)
            (bash-completion-test-with-buffer
             "cd /var/tmp ; ZORG=t make -"
-            (bash-completion--parse (point-min) 28 wordbreaks 3))))
+            (bash-completion--parse (point-min) 28 wordbreaks))))
 
   ;; multiple commands on multiple lines
   (should (equal
@@ -198,7 +198,7 @@ The return value is the one returned by BODY."
             :wordbreaks wordbreaks)
            (bash-completion-test-with-buffer
             "cd /var/tmp\nmake -"
-            (bash-completion--parse (point-min) (point-max) wordbreaks 3))))
+            (bash-completion--parse (point-min) (point-max) wordbreaks))))
 
   ;; pipe
   (should (equal
@@ -212,7 +212,7 @@ The return value is the one returned by BODY."
             :wordbreaks wordbreaks)
            (bash-completion-test-with-buffer
             "ls /var/tmp | sort -"
-            (bash-completion--parse (point-min) 21 wordbreaks 3))))
+            (bash-completion--parse (point-min) 21 wordbreaks))))
 
   ;; escaped semicolon
   (should (equal
@@ -226,35 +226,35 @@ The return value is the one returned by BODY."
             :wordbreaks wordbreaks)
            (bash-completion-test-with-buffer
             "find -name '*.txt' -exec echo {} ';' -"
-            (bash-completion--parse (point-min) 39 wordbreaks 3))))
+            (bash-completion--parse (point-min) 39 wordbreaks))))
 
   ;; at var assignment
   (should (equal
            (bash-completion--make
-            :line "ZORG=t"
-            :cword 0
-            :words '("ZORG=t")
+            :line "A=f ZORG=t"
+            :cword 5
+            :words '("A" "=" "f" "ZORG" "=" "t")
             :stub-start 24
             :stub "t"
             :unparsed-stub "t"
             :wordbreaks wordbreaks)
            (bash-completion-test-with-buffer
             "cd /var/tmp ; A=f ZORG=t"
-            (bash-completion--parse (point-min) 25 wordbreaks 3))))
+            (bash-completion--parse (point-min) 25 wordbreaks))))
 
   ;; stub is a subset of last word (bash 3)
   (should (equal
            (bash-completion--make
             :line "export PATH=/bin:/usr/bi"
-            :cword 1
-            :words '("export" "PATH=/bin:/usr/bi")
+            :cword 5
+            :words '("export" "PATH" "=" "/bin" ":" "/usr/bi")
             :stub-start 18
             :stub "/usr/bi"
             :unparsed-stub "/usr/bi"
             :wordbreaks wordbreaks)
            (bash-completion-test-with-buffer
             "export PATH=/bin:/usr/bi"
-            (bash-completion--parse (point-min) (point-max) wordbreaks 3))))
+            (bash-completion--parse (point-min) (point-max) wordbreaks))))
 
   ;; last word is split according to COMP_WORDBREAKS (bash 4)
   (should (equal
@@ -268,7 +268,7 @@ The return value is the one returned by BODY."
             :wordbreaks wordbreaks)
            (bash-completion-test-with-buffer
             "export PATH=/bin:/usr/bi"
-            (bash-completion--parse (point-min) (point-max) wordbreaks 4))))
+            (bash-completion--parse (point-min) (point-max) wordbreaks))))
 
   ;; with escaped quote
   (should (equal
@@ -282,7 +282,7 @@ The return value is the one returned by BODY."
             :wordbreaks wordbreaks)
            (bash-completion-test-with-buffer
             "cd /vcr/shows/Dexter\\'s"
-            (bash-completion--parse (point-min) 24 wordbreaks 3))))
+            (bash-completion--parse (point-min) 24 wordbreaks))))
 
   ;; with escaped quote, bash 4
   (should (equal
@@ -296,7 +296,7 @@ The return value is the one returned by BODY."
             :wordbreaks wordbreaks)
            (bash-completion-test-with-buffer
             "cd /vcr/shows/Dexter\\'s"
-            (bash-completion--parse (point-min) 24 wordbreaks 4))))
+            (bash-completion--parse (point-min) 24 wordbreaks))))
 
   ;; with double quote
   (should (equal
@@ -311,7 +311,7 @@ The return value is the one returned by BODY."
             :wordbreaks wordbreaks)
            (bash-completion-test-with-buffer
             "cd \"/vcr/shows/Dexter's"
-            (bash-completion--parse (point-min) 24 wordbreaks 3))))
+            (bash-completion--parse (point-min) 24 wordbreaks))))
 
   ;; with single quote
   (should (equal
@@ -326,7 +326,7 @@ The return value is the one returned by BODY."
             :wordbreaks wordbreaks)
            (bash-completion-test-with-buffer
             "cd '/vcr/shows/Dexter'\\''s"
-            (bash-completion--parse (point-min) 27 wordbreaks 3))))
+            (bash-completion--parse (point-min) 27 wordbreaks))))
 
   ;; just one space, cursor after it
   (should (equal
@@ -340,7 +340,7 @@ The return value is the one returned by BODY."
             :wordbreaks wordbreaks)
            (bash-completion-test-with-buffer
             " "
-            (bash-completion--parse (point-min) 2 wordbreaks 3))))))
+            (bash-completion--parse (point-min) 2 wordbreaks))))))
 
 (ert-deftest bash-completion-build-alist ()
   (should (equal
@@ -460,8 +460,6 @@ garbage
                       (eq 'complete-p prop))
                  '((nil "-F" "__default")
                    ("zorg" "-F" "__zorg")))
-                ((and (eq 'process process)
-                      (eq 'bash-major-version prop)) 3)
                 ((and (eq 'process process)
                       (eq 'wordbreaks prop)) "\"'@><=;|&(:")
                 (t (error "unexpected: (process-get %s %s)"
@@ -929,7 +927,6 @@ before calling `bash-completion-dynamic-complete-nocomint'.
          (bash-completion-alist '())
          (bash-completion-use-separate-processes t)
          (wordbreaks "@><=;|&(:")
-         (bash-major-version 3)
          (bash-completion-nospace nil))
      (let ((--process-buffer)
            (--test-buffer)
@@ -945,8 +942,6 @@ before calling `bash-completion-dynamic-complete-nocomint'.
                       (lambda (process prop value)
                         (cond ((and (eq 'process process) (eq 'complete-p prop))
                                (setq bash-completion-alist value))
-                              ((and (eq 'process process) (eq 'bash-major-version prop))
-                               (setq bash-major-version value))
                               (t (error "unexpected: (process-put %s %s)" process prop)))))
                      ((symbol-function 'process-get)
                       (lambda (process prop)
@@ -955,8 +950,6 @@ before calling `bash-completion-dynamic-complete-nocomint'.
                           bash-completion-alist)
                          ((and (eq 'process process) (eq 'wordbreaks prop))
                           wordbreaks)
-                         ((and (eq 'process process) (eq 'bash-major-version prop))
-                          bash-major-version)
                          ((and (eq 'process process) (eq 'completion-ignore-case prop))
                           completion-ignore-case)
                          (t (error "unexpected call")))))

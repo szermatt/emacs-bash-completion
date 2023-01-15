@@ -105,10 +105,6 @@
            (kill-process (get-buffer-process shell-buffer)))
          (kill-buffer shell-buffer)))))
 
-(defun bash-completion_test-bash-major-version ()
-  "Return the major version of the bash process."
-  (process-get (bash-completion--get-process) 'bash-major-version))
-
 (defun bash-completion_test-complete (complete-me)
   "Complete COMPLETE-ME and returns the resulting string."
   (goto-char (point-max))
@@ -347,11 +343,10 @@ across Emacs version."
     "}\n"
     "complete -D -F _default\n")
    use-separate-process
-   (when (>= (bash-completion_test-bash-major-version) 4)
-     (should (equal "dosomething dummy "
-                    (bash-completion_test-complete "dosomething du")))
-     (should (equal "dosomethingelse du"
-                      (bash-completion_test-complete "dosomethingelse du"))))))
+   (should (equal "dosomething dummy "
+                  (bash-completion_test-complete "dosomething du")))
+   (should (equal "dosomethingelse du"
+                  (bash-completion_test-complete "dosomethingelse du")))))
 
 (ert-deftest bash-completion-integration-bash-4-compopt ()
   (bash-completion_test-with-shell-harness
@@ -377,26 +372,25 @@ across Emacs version."
     "complete -F _sometimes_nospace sometimes_nospace\n"
     "complete -F _sometimes_not_nospace -o nospace sometimes_not_nospace\n")
    t ; use-separate-process
-   (when (>= (bash-completion_test-bash-major-version) 4)
+   (should (equal
+            "sometimes_nospace dummy "
+            (bash-completion_test-complete "sometimes_nospace du")))
+   (should (equal
+            "sometimes_nospace dummyo"
+            (bash-completion_test-complete "sometimes_nospace dum")))
+   (should (equal
+            "sometimes_not_nospace dummy"
+            (bash-completion_test-complete "sometimes_not_nospace du")))
+   (should (equal
+            "sometimes_not_nospace dummyo "
+            (bash-completion_test-complete "sometimes_not_nospace dum")))
+   (let ((bash-completion-nospace t)) ;; never nospace
      (should (equal
-              "sometimes_nospace dummy "
+              "sometimes_nospace dummy"
               (bash-completion_test-complete "sometimes_nospace du")))
      (should (equal
-              "sometimes_nospace dummyo"
-              (bash-completion_test-complete "sometimes_nospace dum")))
-     (should (equal
-              "sometimes_not_nospace dummy"
-              (bash-completion_test-complete "sometimes_not_nospace du")))
-     (should (equal
-              "sometimes_not_nospace dummyo "
-              (bash-completion_test-complete "sometimes_not_nospace dum")))
-     (let ((bash-completion-nospace t)) ;; never nospace
-       (should (equal
-                "sometimes_nospace dummy"
-                (bash-completion_test-complete "sometimes_nospace du")))
-       (should (equal
-                "sometimes_not_nospace dummyo"
-                (bash-completion_test-complete "sometimes_not_nospace dum")))))))
+              "sometimes_not_nospace dummyo"
+              (bash-completion_test-complete "sometimes_not_nospace dum"))))))
 
 (ert-deftest bash-completion-integration-bash-4-substring-completion ()
   (bash-completion_test-with-shell-harness
@@ -460,31 +454,30 @@ across Emacs version."
    (make-directory "libs")
    (make-directory "Library")
    (bash-completion_test-with-shell
-    (when (>= (bash-completion_test-bash-major-version) 4)
-      ;; Case insensitive completion is done by compgen which, under
-      ;; bash 4, respects the case sensitivity settings set in
-      ;; .inputrc.
-      (should (equal "ls some/" (bash-completion_test-complete "ls so")))
-      (should (equal "ls some/" (bash-completion_test-complete "ls So")))
-      (should (equal "ls Uppercase/" (bash-completion_test-complete "ls Up")))
-      (should (equal "ls Uppercase/" (bash-completion_test-complete "ls up")))
-      
-      (should (equal "ls libs/" (bash-completion_test-complete "ls li")))
-      (should (equal "ls libs/" (bash-completion_test-complete "ls Li")))
+    ;; Case insensitive completion is done by compgen which, under
+    ;; bash 4, respects the case sensitivity settings set in
+    ;; .inputrc.
+    (should (equal "ls some/" (bash-completion_test-complete "ls so")))
+    (should (equal "ls some/" (bash-completion_test-complete "ls So")))
+    (should (equal "ls Uppercase/" (bash-completion_test-complete "ls Up")))
+    (should (equal "ls Uppercase/" (bash-completion_test-complete "ls up")))
+    
+    (should (equal "ls libs/" (bash-completion_test-complete "ls li")))
+    (should (equal "ls libs/" (bash-completion_test-complete "ls Li")))
 
-      (should (equal "ls Another\\ Uppercase/" (bash-completion_test-complete "ls Ano")))
-      (should (equal "ls Another\\ Uppercase/" (bash-completion_test-complete "ls ano")))
-      (should (equal "ls \"Another Uppercase/" (bash-completion_test-complete "ls \"Ano")))
-      (should (equal "ls \"Another Uppercase/" (bash-completion_test-complete "ls \"ano")))
-      (should (equal "ls 'Another Uppercase/" (bash-completion_test-complete "ls 'Ano")))
-      (should (equal "ls 'Another Uppercase/" (bash-completion_test-complete "ls 'ano")))
+    (should (equal "ls Another\\ Uppercase/" (bash-completion_test-complete "ls Ano")))
+    (should (equal "ls Another\\ Uppercase/" (bash-completion_test-complete "ls ano")))
+    (should (equal "ls \"Another Uppercase/" (bash-completion_test-complete "ls \"Ano")))
+    (should (equal "ls \"Another Uppercase/" (bash-completion_test-complete "ls \"ano")))
+    (should (equal "ls 'Another Uppercase/" (bash-completion_test-complete "ls 'Ano")))
+    (should (equal "ls 'Another Uppercase/" (bash-completion_test-complete "ls 'ano")))
 
-      ;; When doing case-insensitive search, bash-completion.el cannot
-      ;; keep the exact same quotes, so it just puts the quote, if
-      ;; any, at the beginning, just after the tilde part.
-      (should (equal "ls \"Another Uppercase/" (bash-completion_test-complete "ls ano\"t")))
-      (should (equal "ls 'Another Uppercase/" (bash-completion_test-complete "ls ano't")))
-      (should (equal "ls ~/\"Another Uppercase/" (bash-completion_test-complete "ls ~/ano\"t")))))))      
+    ;; When doing case-insensitive search, bash-completion.el cannot
+    ;; keep the exact same quotes, so it just puts the quote, if
+    ;; any, at the beginning, just after the tilde part.
+    (should (equal "ls \"Another Uppercase/" (bash-completion_test-complete "ls ano\"t")))
+    (should (equal "ls 'Another Uppercase/" (bash-completion_test-complete "ls ano't")))
+    (should (equal "ls ~/\"Another Uppercase/" (bash-completion_test-complete "ls ~/ano\"t"))))))
 
 (ert-deftest bash-completion-integration-case-sensitive-test ()
   (bash-completion_test-harness
