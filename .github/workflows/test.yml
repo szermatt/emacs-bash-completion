@@ -34,7 +34,7 @@ jobs:
       if: matrix.allow_failure == true
       run: 'cask && make test || true'
       
-  test:
+  test-ubuntu-20:
     runs-on: ubuntu-20.04 # bash 5.0
     strategy:
       matrix:
