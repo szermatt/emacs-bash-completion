@@ -9,13 +9,12 @@ jobs:
     strategy:
       matrix:
         emacs_version:
-          - '24.3'
-          - '25.1'
           - '25.3'
-          - '26.1'
-          - '26.2'
           - '26.3'
           - '27.1'
+          - '27.2'
+          - '28.1'
+          - '28.2'
           - 'snapshot'
         include:
           - emacs_version: 'snapshot'
@@ -35,12 +34,16 @@ jobs:
       if: matrix.allow_failure == true
       run: 'cask && make test || true'
       
-  test-macos-bash3:
-    runs-on: macos-10.15
+  test:
+    runs-on: ubuntu-20.04 # bash 5.0
     strategy:
       matrix:
         emacs_version:
-          - '26.3'
+          - '28.2'
+          - 'snapshot'
+        include:
+          - emacs_version: 'snapshot'
+            allow_failure: true
     steps:
     - uses: actions/checkout@v1
     - uses: purcell/setup-emacs@master
@@ -49,5 +52,9 @@ jobs:
     - uses: conao3/setup-cask@master
 
     - name: Run tests
+      if: matrix.allow_failure != true
       run: 'cask && make test'
-      
+
+    - name: Run tests (allow failure)
+      if: matrix.allow_failure == true
+      run: 'cask && make test || true'
