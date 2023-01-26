@@ -508,18 +508,18 @@ Return (const return-value new-buffer-content)"
 (ert-deftest bash-completion-send-test ()
   (should (equal
 	   (cons 0 "line1\nline2\n")
-	   (bash-completion-test-send "line1\nline2\n\t0\v")))
+	   (bash-completion-test-send "line1\nline2\n==emacs==ret=0==.")))
 
   ;; command failed"
   (should (equal
 	   (cons 1 "line1\nline2\n")
-	   (bash-completion-test-send "line1\nline2\n\t1\v")))
+	   (bash-completion-test-send "line1\nline2\n==emacs==ret=1==.")))
 
   ;; wrapped function returned 124"
   (should (equal
 	   (cons 124 "line1\nline2\n")
 	   (bash-completion-test-send
-	    (concat "line1\nli\e\ewrapped-status=124\e\ene2\n\t0\v")))))
+	    (concat "line1\nli\e\ewrapped-status=124\e\ene2\n==emacs==ret=0==.")))))
 
 (ert-deftest bash-completion-cd-command-prefix-test ()
   ;; no current dir
