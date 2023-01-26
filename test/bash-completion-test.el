@@ -452,30 +452,6 @@ garbage
                :stub "worl"
                :unparsed-stub "worl"))))))
 
-(ert-deftest bash-completion-customize-test ()
-  (cl-letf (((symbol-function 'process-get)
-             (lambda (process prop)
-               (cond
-                ((and (eq 'process process)
-                      (eq 'complete-p prop))
-                 '((nil "-F" "__default")
-                   ("zorg" "-F" "__zorg")))
-                ((and (eq 'process process)
-                      (eq 'wordbreaks prop)) "\"'@><=;|&(:")
-                (t (error "unexpected: (process-get %s %s)"
-                          process prop))))))
-    (let ((comp (bash-completion--make :cword 1)))
-      (setf (bash-completion--words comp) '("zorg" "world"))
-      (bash-completion--customize comp 'process)
-      (should (equal '("-F" "__zorg") (bash-completion--compgen-args comp)))
-
-      (setf (bash-completion--words comp) '("notzorg" "world"))
-      (bash-completion--customize comp 'process)
-      (should (equal '("-F" "__default") (bash-completion--compgen-args comp)))
-
-      (bash-completion--customize comp 'process 'nodefault)
-      (should (null (bash-completion--compgen-args comp))))))
-
 (ert-deftest bash-completion--find-last-test ()
   (should (equal nil (bash-completion--find-last ?a "xxxxx")))
   (should (equal 3 (bash-completion--find-last ?d "abcdef")))
@@ -924,7 +900,6 @@ The body is run with a test buffer as current buffer. Fill it with the command-l
 before calling `bash-completion-dynamic-complete-nocomint'.
 "
   `(let ((default-directory "/tmp/test")
-         (bash-completion-alist '())
          (bash-completion-use-separate-processes t)
          (wordbreaks "@><=;|&(:")
          (bash-completion-nospace nil))
@@ -940,14 +915,10 @@ before calling `bash-completion-dynamic-complete-nocomint'.
            (cl-letf (((symbol-function 'bash-completion--get-process) (lambda () 'process))
                      ((symbol-function 'process-put)
                       (lambda (process prop value)
-                        (cond ((and (eq 'process process) (eq 'complete-p prop))
-                               (setq bash-completion-alist value))
-                              (t (error "unexpected: (process-put %s %s)" process prop)))))
+                        (error "unexpected: (process-put %s %s)" process prop)))
                      ((symbol-function 'process-get)
                       (lambda (process prop)
                         (cond
-                         ((and (eq 'process process) (eq 'complete-p prop))
-                          bash-completion-alist)
                          ((and (eq 'process process) (eq 'wordbreaks prop))
                           wordbreaks)
                          ((and (eq 'process process) (eq 'completion-ignore-case prop))
@@ -961,14 +932,27 @@ before calling `bash-completion-dynamic-complete-nocomint'.
                       (lambda (commandline &optional process timeout debug-context)
                         (with-current-buffer --process-buffer
                           (delete-region (point-min) (point-max))
-                          (insert (pop --send-results))
-                          (push commandline --captured-commands)
+                          (let ((cell --send-results)
+                                (found nil))
+                            (while (and (not found) cell)
+                              (let ((result (car cell)))
+                                (setq cell (cdr cell))
+                                (when (and (cdr result)
+                                           (string-match-p (car result) commandline))
+                                  (insert (cdr result))
+                                  (setcdr result nil)
+                                  (push commandline --captured-commands)
+                                  (setq found t))))
+                            (unless found
+                              (error "nothing for '%s' in --send-results (%s)"
+                                     commandline --send-results)))
                           0))))
              (progn ,@body)))))))
 
 (ert-deftest bash-completion-simple-complete-test ()
   (--with-fake-bash-completion-send
-   (push "hell\nhello1\nhello2\n" --send-results)
+   (push '("complete -p" . "\n") --send-results)
+   (push '("compgen" . "hell\nhello1\nhello2\n") --send-results)
    (insert "$ cat he")
    (should (equal
             (list 7 9 '("hell" "hello1" "hello2"))
@@ -978,7 +962,8 @@ before calling `bash-completion-dynamic-complete-nocomint'.
 
 (ert-deftest bash-completion-simple-dynamic-table-test ()
   (--with-fake-bash-completion-send
-   (push "hell\nhello1\nhello2\n" --send-results)
+   (push '("complete -p" . "\n") --send-results)
+   (push '("compgen" . "hell\nhello1\nhello2\n") --send-results)
    (insert "$ cat he")
    (pcase-let ((`(,stub-start ,stub-end ,completions)
                 (bash-completion-dynamic-complete-nocomint
@@ -990,7 +975,8 @@ before calling `bash-completion-dynamic-complete-nocomint'.
 
 (ert-deftest bash-completion-single-completion-test ()
   (--with-fake-bash-completion-send
-   (push "hello\n" --send-results)
+   (push '("complete -p" . "\n") --send-results)
+   (push '("compgen" . "hello\n") --send-results)
    (insert "$ cat he")
    (should (equal
             '("hello ")
@@ -999,7 +985,8 @@ before calling `bash-completion-dynamic-complete-nocomint'.
 
 (ert-deftest bash-completion-single-completion-double-quotes ()
   (--with-fake-bash-completion-send
-   (push "hello\n" --send-results)
+   (push '("complete -p" . "\n") --send-results)
+   (push '("compgen" . "hello\n") --send-results)
    (insert "$ cat \"he")
    (should (equal
             '("\"hello\" ")
@@ -1007,7 +994,8 @@ before calling `bash-completion-dynamic-complete-nocomint'.
 
 (ert-deftest bash-completion-single-completion-single-quotes ()
   (--with-fake-bash-completion-send
-   (push "hello\n" --send-results)
+   (push '("complete -p" . "\n") --send-results)
+   (push '("compgen" . "hello\n") --send-results)
    (insert "$ cat 'he")
    (should (equal
             '("'hello' ")
@@ -1015,7 +1003,8 @@ before calling `bash-completion-dynamic-complete-nocomint'.
 
 (ert-deftest bash-completion-completion-with-double-quotes ()
   (--with-fake-bash-completion-send
-   (push "hell\nhello\n" --send-results)
+   (push '("complete -p" . "\n") --send-results)
+   (push '("compgen" . "hell\nhello\n") --send-results)
    (insert "$ cat \"he")
    (should (equal
             '("\"hell\"" "\"hello\"")
@@ -1023,7 +1012,8 @@ before calling `bash-completion-dynamic-complete-nocomint'.
 
 (ert-deftest bash-completion-trailing-default-completion ()
   (--with-fake-bash-completion-send
-   (push "without space\nwith space \nwith slash/\n" --send-results)
+   (push '("complete -p" . "\n") --send-results)
+   (push '("compgen" . "without space\nwith space \nwith slash/\n") --send-results)
    (insert "$ ls with")
    (let ((bash-completion-nospace nil))
      (should (equal
@@ -1032,7 +1022,8 @@ before calling `bash-completion-dynamic-complete-nocomint'.
 
 (ert-deftest bash-completion-trailing-default-completion-nospace ()
   (--with-fake-bash-completion-send
-   (push "without space\nwith space \nwith slash/\n" --send-results)
+   (push '("complete -p" . "\n") --send-results)
+   (push '("compgen" . "without space\nwith space \nwith slash/\n") --send-results)
    (insert "$ ls with")
    (let ((bash-completion-nospace t))
      (should (equal
@@ -1041,8 +1032,8 @@ before calling `bash-completion-dynamic-complete-nocomint'.
 
 (ert-deftest bash-completion-trailing-custom-completion ()
   (--with-fake-bash-completion-send
-   (setq bash-completion-alist '(("ls" "compgen" "args")))
-   (push "without space\nwith space \nwith slash/\n" --send-results)
+   (push '("complete -p" . "complete -compgen -args ls\n") --send-results)
+   (push '("compgen -compgen -args" . "without space\nwith space \nwith slash/\n") --send-results)
    (insert "$ ls with")
    (let ((bash-completion-nospace nil))
      (should (equal
@@ -1051,8 +1042,8 @@ before calling `bash-completion-dynamic-complete-nocomint'.
 
 (ert-deftest bash-completion-trailing-custom-completion-nospace ()
   (--with-fake-bash-completion-send
-   (setq bash-completion-alist '(("ls" "compgen" "args")))
-   (push "without space\nwith space \nwith slash/\n" --send-results)
+   (push '("complete -p" . "complete -compgen -args ls\n") --send-results)
+   (push '("compgen -compgen -args" . "without space\nwith space \nwith slash/\n") --send-results)
    (insert "$ ls with")
    (let ((bash-completion-nospace t))
      (should (equal
@@ -1061,8 +1052,8 @@ before calling `bash-completion-dynamic-complete-nocomint'.
 
 (ert-deftest bash-completion-trailing-custom-flag-completion ()
   (--with-fake-bash-completion-send
-   (setq bash-completion-alist '(("ls" "compgen" "args")))
-   (push "--color\n--color=\n" --send-results)
+   (push '("complete -p" . "complete -compgen -args ls\n") --send-results)
+   (push '("compgen -compgen -args" . "--color\n--color=\n") --send-results)
    (insert "$ ls --c")
    (let ((bash-completion-nospace nil))
      (should (equal
@@ -1073,20 +1064,22 @@ before calling `bash-completion-dynamic-complete-nocomint'.
   (--with-fake-bash-completion-send
    (push "/tmp/test/Documents" --directories)
    (push "/tmp/test/Documents/Modes d'emplois" --directories)
-   (push "/tmp/test/Documents\n" --send-results)
-   (push "Documents\n" --send-results)
+   (push '("complete -p" . "\n") --send-results)
+   (push '("compgen" . "/tmp/test/Documents\n") --send-results)
+   (push '("compgen" . "Documents\n") --send-results)
    (insert "$ cat Doc")
    (should (equal
             '(7 10 ("Documents/"))
             (bash-completion-dynamic-complete-nocomint 3 (point))))
    (insert "uments/")
-   (push "Documents/Modes d'emplois\n" --send-results)
+   (push '("complete -p" . "\n") --send-results)
+   (push '("compgen" . "Documents/Modes d'emplois\n") --send-results)
    (should (equal
             '("Documents/Modes\\ d\\'emplois/")
             (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point)))))
    (insert "Modes\\ d\\'emplois/")
-   (push "Documents/Modes d'emplois/KAR 1.pdf\nDocuments/Modes d'emplois/KAR 2.pdf\n"
-         --send-results)
+   (push '("complete -p" . "\n") --send-results)
+   (push '("compgen" . "Documents/Modes d'emplois/KAR 1.pdf\nDocuments/Modes d'emplois/KAR 2.pdf\n") --send-results)
    (should (equal
             '("Documents/Modes\\ d\\'emplois/KAR\\ 1.pdf"
               "Documents/Modes\\ d\\'emplois/KAR\\ 2.pdf")
@@ -1101,20 +1094,22 @@ before calling `bash-completion-dynamic-complete-nocomint'.
   (--with-fake-bash-completion-send
    (push "/tmp/test/Documents" --directories)
    (push "/tmp/test/Documents/Modes d'emplois" --directories)
-   (push "/tmp/test/Documents\n" --send-results)
-   (push "Documents\n" --send-results)
+   (push '("complete -p" . "\n") --send-results)
+   (push '("compgen" . "/tmp/test/Documents\n") --send-results)
+   (push '("compgen" . "Documents\n") --send-results)
    (insert "$ cat 'Doc")
    (should (equal
             '(7 11 ("'Documents/"))
             (bash-completion-dynamic-complete-nocomint 3 (point))))
    (insert "uments/")
-   (push "Documents/Modes d'emplois\n" --send-results)
+   (push '("complete -p" . "\n") --send-results)
+   (push '("compgen" . "Documents/Modes d'emplois\n") --send-results)
    (should (equal
             '("'Documents/Modes d'\\''emplois/")
             (nth 2(bash-completion-dynamic-complete-nocomint 3 (point)))))
    (insert "Modes d'\\''emplois/")
-   (push "Documents/Modes d'emplois/KAR 1.pdf\nDocuments/Modes d'emplois/KAR 2.pdf\n"
-         --send-results)
+   (push '("complete -p" . "\n") --send-results)
+   (push '("compgen" . "Documents/Modes d'emplois/KAR 1.pdf\nDocuments/Modes d'emplois/KAR 2.pdf\n") --send-results)
    (should (equal
             '("'Documents/Modes d'\\''emplois/KAR 1.pdf'"
               "'Documents/Modes d'\\''emplois/KAR 2.pdf'")
@@ -1123,7 +1118,7 @@ before calling `bash-completion-dynamic-complete-nocomint'.
 (ert-deftest bash-completion-complete-command-with-dir ()
   (--with-fake-bash-completion-send
    (push "/tmp/test/bin" --directories)
-   (push "bin\nbind\n" --send-results)
+   (push '("compgen" . "bin\nbind\n") --send-results)
    (insert "$ b")
    (should (equal
             '("bin/" "bind")
@@ -1134,7 +1129,7 @@ before calling `bash-completion-dynamic-complete-nocomint'.
 
 (ert-deftest bash-completion-complete-command-with-space ()
   (--with-fake-bash-completion-send
-   (push "some command\n" --send-results)
+   (push '("compgen" . "some command\n") --send-results)
    (insert "$ some\\ c")
    (should (equal
             '("some\\ command ")
@@ -1145,15 +1140,18 @@ before calling `bash-completion-dynamic-complete-nocomint'.
 
 (ert-deftest bash-completion-failed-completion ()
   (--with-fake-bash-completion-send
-   (setq --send-results '("" "bad"))
+   (push '("complete -p" . "\n") --send-results)
+   (push '("compgen" . "\nbad\n") --send-results)
+   (push '("compgen" . "") --send-results)
    (insert "$ ls --")
    (should
     (null (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point)))))))
 
 (ert-deftest bash-completion-wordbreak-completion ()
   (--with-fake-bash-completion-send
+   (push '("complete -p" . "\n") --send-results)
    (push "/tmp/test/bin" --directories)
-   (setq --send-results '("./binary\n./bind\n./bin\n"))
+   (push '("compgen" . "./binary\n./bind\n./bin\n") --send-results)
    (insert "$ export PATH=$PATH:./b")
    (should
     (equal '(21 24 ("./binary" "./bind" "./bin/"))
@@ -1161,8 +1159,9 @@ before calling `bash-completion-dynamic-complete-nocomint'.
 
 (ert-deftest bash-completion-single-wordbreak-completion ()
   (--with-fake-bash-completion-send
+   (push '("complete -p" . "\n") --send-results)
    (push "/tmp/test/bin" --directories)
-   (setq --send-results '("./world\n"))
+   (push '("compgen" . "./world\n") --send-results)
    (insert "$ set a=./hello:./w")
    (should
     (equal '(17 20 ("./world "))
@@ -1170,8 +1169,8 @@ before calling `bash-completion-dynamic-complete-nocomint'.
 
 (ert-deftest bash-completion-single-custom-completion ()
   (--with-fake-bash-completion-send
-   (setq bash-completion-alist '(("ls" "compgen" "args")))
-   (push "--escape\n" --send-results)
+   (push '("complete -p" . "complete -compgen -args ls\n") --send-results)
+   (push '("compgen -compgen -args" . "--escape\n") --send-results)
    (insert "$ ls --esc")
    (let ((bash-completion-nospace nil))
      (should (equal
@@ -1180,8 +1179,8 @@ before calling `bash-completion-dynamic-complete-nocomint'.
 
 (ert-deftest bash-completion-single-custom-completion-with-wordbreak-end ()
   (--with-fake-bash-completion-send
-   (setq bash-completion-alist '(("ls" "compgen" "args")))
-   (push "--color=\n" --send-results)
+   (push '("complete -p" . "complete -compgen -args ls\n") --send-results)
+   (push '("compgen -compgen -args" . "--color=\n") --send-results)
    (insert "$ ls --col")
    (let ((bash-completion-nospace nil))
      (should (equal
@@ -1190,8 +1189,8 @@ before calling `bash-completion-dynamic-complete-nocomint'.
 
 (ert-deftest bash-completion-single-custom-completion-as-directory-explicit ()
   (--with-fake-bash-completion-send
-   (setq bash-completion-alist '(("ls" "compgen" "args")))
-   (push "somedir/\n" --send-results)
+   (push '("complete -p" . "complete -compgen -args ls\n") --send-results)
+   (push '("compgen -compgen -args" . "somedir/\n") --send-results)
    (insert "$ ls some")
    (let ((bash-completion-nospace nil))
      (should (equal
@@ -1200,11 +1199,11 @@ before calling `bash-completion-dynamic-complete-nocomint'.
 
 (ert-deftest bash-completion-single-custom-completion-as-directory-with-option ()
   (--with-fake-bash-completion-send
-   (setq bash-completion-alist '(("ls" "compgen" "args" "-o" "filenames")))
+   (push '("complete -p" . "complete -compgen -args -o filenames ls\n") --send-results)
    ;; note that adding a / after a completion is not always the right thing
    ;; to do. See github issue #19.
    (push "/tmp/test/somedir" --directories)
-   (push "somedir\n" --send-results)
+   (push '("compgen -compgen -args -o filenames" . "somedir\n") --send-results)
    (insert "$ ls some")
    (let ((bash-completion-nospace nil))
      (should (equal

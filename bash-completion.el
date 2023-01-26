@@ -354,9 +354,6 @@ returned."
 
 (defun bash-completion--setup-bash-common (process)
   "Setup PROCESS to be ready for completion."
-  (bash-completion-send "complete -p" process)
-  (process-put process 'complete-p
-               (bash-completion-build-alist (bash-completion--get-buffer process)))
   (unless (zerop
            (bash-completion-send "[[ ${BASH_VERSINFO[0]} -ge 4 ]]" process))
     (error "bash-completion.el requires at least Bash 4."))
@@ -873,9 +870,8 @@ The result is a list of candidates, which might be empty."
       ;; Special 'retry-completion' exit status, typically returned by
       ;; functions bound by complete -D. Presumably, the function has
       ;; just setup completion for the current command and is asking
-      ;; us to retry once with the new configuration.
-      (bash-completion-send "complete -p" process cmd-timeout comp)
-      (process-put process 'complete-p (bash-completion-build-alist buffer))
+      ;; us to retry once with the new configuration, retrieved by
+      ;; bash-completion--customize.
       (bash-completion--customize comp process 'nodefault)
       (setq completion-status (bash-completion-send
                                (bash-completion-generate-line comp)
@@ -1314,14 +1310,13 @@ The returned alist is a slightly parsed version of the output of
 
 (defun bash-completion--customize (comp process &optional nodefault)
   (unless (eq 'command (bash-completion--type comp))
-    (let ((compgen-args-alist
-           (process-get process 'complete-p))
-          (command-name (bash-completion--command comp)))
-      ;; TODO: first lookup the full command path, then only the
-      ;; command name.
-      (setf (bash-completion--compgen-args comp)
-            (or (cdr (assoc command-name compgen-args-alist))
-                (and (not nodefault) (cdr (assoc nil compgen-args-alist))))))))
+    (bash-completion-send
+     (concat "complete -p "
+             (bash-completion-quote (bash-completion--command comp))
+             " 2>/dev/null || complete -p -D"))
+    (setf (bash-completion--compgen-args comp)
+          (cdr (car (bash-completion-build-alist
+                     (bash-completion--get-buffer process)))))))
 
 (defun bash-completion-generate-line (comp)
   "Generate a bash command to call \"compgen\" for COMP.
@@ -1576,8 +1571,7 @@ Return the status code of the command, as a number."
     (bash-completion--debug-print-info 'use-separate-processes)
     (bash-completion--debug-print 'emacs-version emacs-version)
     (bash-completion--debug-print-procinfo 'completion-ignore-case)
-    (bash-completion--debug-print-info 'context)
-    (bash-completion--debug-print-procinfo 'complete-p)))
+    (bash-completion--debug-print-info 'context)))
 
 (defun bash-completion--debug-print-info (symbol &optional eof)
   "Print variable SYMBOL from `bash-completion-debug-info'.
