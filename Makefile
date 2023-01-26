@@ -16,15 +16,15 @@ test: clean-elc
 .PHONY: test
 
 unit:
-	${CASK} exec ert-runner  test/bash-completion-test.el
+	${CASK} exec ert-runner -L . test/bash-completion-test.el
 .PHONY: unit
 
 integration: setup_bash
-	${CASK} exec ert-runner -l $(setup_bash) -p integration test/bash-completion-integration-test.el
+	${CASK} exec ert-runner -L . -l $(setup_bash) -p integration test/bash-completion-integration-test.el
 .PHONY: integration
 
 ert: setup_bash
-	${CASK} exec ert-runner -l $(setup_bash)
+	${CASK} exec ert-runner -L . -l $(setup_bash)
 .PHONY: ert
 
 compile:
