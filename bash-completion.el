@@ -1329,18 +1329,15 @@ completion candidates."
 
 ;;;###autoload
 (defun bash-completion-refresh ()
-  "Force a refresh the completion table.
+  "Does nothing.
 
-This can be called after changing the completion table on BASH,
-or after starting a new BASH job.
+This command is obsolete and doesn't do anything useful anymore.
+It used to refresh the copy of the completion table kept in
+memory, but bash-completion.el now uses the completion table of
+the Bash process directly."
+  (interactive))
 
-This is only useful when `bash-completion-use-separate-processes'
-is t."
-  (interactive)
-  (let* ((process (get-buffer-process (current-buffer))))
-    (unless process
-      (error "No process is available in this buffer"))
-    (bash-completion--get-process)))
+(make-obsolete 'bash-completion-refresh "no longer useful.")
 
 ;;;###autoload
 (defun bash-completion-reset ()
