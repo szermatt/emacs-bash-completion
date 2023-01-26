@@ -1337,7 +1337,7 @@ memory, but bash-completion.el now uses the completion table of
 the Bash process directly."
   (interactive))
 
-(make-obsolete 'bash-completion-refresh "no longer useful.")
+(make-obsolete 'bash-completion-refresh "no longer useful." "3.1.2")
 
 ;;;###autoload
 (defun bash-completion-reset ()
