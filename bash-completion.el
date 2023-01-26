@@ -407,9 +407,7 @@ returned."
                (with-current-buffer (bash-completion--get-buffer process)
                  (save-excursion
                    (goto-char (point-min))
-                   (and (search-forward "completion-ignore-case on" nil 'noerror) t))))
-
-  (process-put process 'setup-done t))
+                   (and (search-forward "completion-ignore-case on" nil 'noerror) t)))))
 
 ;;; Inline functions
 
@@ -1194,8 +1192,6 @@ completion in these cases."
     (let* ((process (get-buffer-process (current-buffer)))
            (shell (if process (bash-completion--current-shell))))
       (when (and shell (bash-completion-starts-with shell "bash"))
-        (unless (process-get process 'setup-done)
-          (bash-completion--setup-bash-common process))
         process))))
 
 (defun bash-completion--get-process ()
@@ -1259,13 +1255,16 @@ The returned alist is a slightly parsed version of the output of
 
 (defun bash-completion--customize (comp process &optional nodefault)
   (unless (eq 'command (bash-completion--type comp))
-    (bash-completion-send
-     (concat "complete -p "
-             (bash-completion-quote (bash-completion--command comp))
-             " 2>/dev/null || complete -p -D"))
+    (let* ((complete-p (concat "complete -p "
+                               (bash-completion-quote (bash-completion--command comp))
+                               " 2>/dev/null || complete -p "))
+           (status (bash-completion-send
+                    (concat complete-p "&& type -t __emacs_complete_wrapper >/dev/null 2>&1"))))
     (setf (bash-completion--compgen-args comp)
           (cdr (car (bash-completion-build-alist
-                     (bash-completion--get-buffer process)))))))
+                     (bash-completion--get-buffer process)))))
+    (when (= 1 status)
+      (bash-completion--setup-bash-common process)))))
 
 (defun bash-completion-generate-line (comp)
   "Generate a bash command to call \"compgen\" for COMP.
@@ -1341,7 +1340,6 @@ is t."
   (let* ((process (get-buffer-process (current-buffer))))
     (unless process
       (error "No process is available in this buffer"))
-    (process-put process 'setup-done nil)
     (bash-completion--get-process)))
 
 ;;;###autoload
