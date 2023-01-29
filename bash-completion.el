@@ -1257,7 +1257,7 @@ The returned alist is a slightly parsed version of the output of
   (unless (eq 'command (bash-completion--type comp))
     (let* ((complete-p (concat "complete -p "
                                (bash-completion-quote (bash-completion--command comp))
-                               " 2>/dev/null || complete -p "))
+                               " 2>/dev/null || complete -p -D"))
            (status (bash-completion-send
                     (concat complete-p "&& type -t __emacs_complete_wrapper >/dev/null 2>&1"))))
     (setf (bash-completion--compgen-args comp)
