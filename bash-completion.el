@@ -113,6 +113,7 @@
 (require 'comint)
 (require 'cl-lib)
 (require 'shell)
+(require 'rx)
 
 ;;; Customization
 (defgroup bash-completion nil
@@ -1168,18 +1169,40 @@ is set to t."
                   (bash-completion-kill process)
                 (error nil)))))))))
 
-(defun bash-completion--current-shell ()
-  "Figure out what the shell associated with the current buffer is."
-  (let ((prog (or
-               (if (derived-mode-p 'shell-mode)
-                   (or explicit-shell-file-name
-                       (getenv "ESHELL")
-                       shell-file-name))
-               (let ((process (get-buffer-process (current-buffer))))
-                 (when process
-                   (car (process-command process)))))))
-    (when prog
-      (file-name-nondirectory prog))))
+(defun bash-completion--process-command (process)
+  "Return the command that was executed to start PROCESS.
+It is similar to `process-command' but if the process is a remote
+process, it returns the remote command."
+  (with-current-buffer (process-buffer process)
+    (or (and (file-remote-p default-directory)
+             (process-get process 'remote-command))
+        (process-command process))))
+
+(defun bash-completion--process-start-program (process)
+  "Return the program that was executed to start PROCESS."
+  (car (bash-completion--process-command process)))
+
+(defun bash-completion--process-running-program (process)
+  "Return the program currently executed by PROCESS."
+  (with-current-buffer (process-buffer process)
+    (let* ((remote (file-remote-p default-directory))
+           (pid (or (and remote (process-get process 'remote-pid))
+                    (process-id process))))
+      (file-truename (concat remote (format "/proc/%d/exe" pid))))))
+
+(defun bash-completion--is-bash-process (process)
+  "Return a non-nil value if PROCESS is a Bash process."
+  (pcase (process-get process 'is-bash)
+    ('true t)
+    ('false nil)
+    (_ (let* ((res (cl-some
+                    (lambda (fun)
+                      (bash-completion-starts-with
+                       (file-name-nondirectory (funcall fun process)) "bash"))
+                    (list #'bash-completion--process-running-program
+                          #'bash-completion--process-start-program))))
+         (process-put process 'is-bash (if res 'true 'false))
+         res))))
 
 (defun bash-completion--get-same-process ()
   "Return the BASH process associated with the current buffer.
@@ -1189,9 +1212,8 @@ associated with a command that looks like a bash shell.
 Completion will fallback to creating a separate process
 completion in these cases."
   (when (derived-mode-p 'comint-mode)
-    (let* ((process (get-buffer-process (current-buffer)))
-           (shell (if process (bash-completion--current-shell))))
-      (when (and shell (bash-completion-starts-with shell "bash"))
+    (let* ((process (get-buffer-process (current-buffer))))
+      (when (bash-completion--is-bash-process process)
         process))))
 
 (defun bash-completion--get-process ()
