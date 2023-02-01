@@ -113,7 +113,6 @@
 (require 'comint)
 (require 'cl-lib)
 (require 'shell)
-(require 'rx)
 
 ;;; Customization
 (defgroup bash-completion nil
