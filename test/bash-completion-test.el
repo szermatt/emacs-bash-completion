@@ -49,7 +49,9 @@ The return value is the one returned by BODY."
   (should (equal "a 'hel'\\''lo' world b c"
 		 (bash-completion-join '("a" "hel'lo" "world" "b" "c"))))
   (should (equal "a 'hello world' b c"
-		 (bash-completion-join '("a" "hello world" "b" "c")))))
+		 (bash-completion-join '("a" "hello world" "b" "c"))))
+  (should (equal "ls -l /a/b '/a/b c' '/a/b'\\''c' '$help/d'"
+		 (bash-completion-join '("ls" "-l" "/a/b" "/a/b c" "/a/b'c" "$help/d")))))
 
 (ert-deftest bash-completion-tokenize-test ()
   (should (equal '("a" "hello" "world" "b" "c")
@@ -364,18 +366,6 @@ complete -F _completion_loader -D
 garbage
 "
             (bash-completion-build-alist (current-buffer))))))
-
-(ert-deftest bash-completion-quote-test ()
-  ;; not necessary
-  (should (equal "hello"
-		 (bash-completion-quote "hello")))
-  ;; space"
-  (should (equal "'hello world'"
-		 (bash-completion-quote "hello world")))
-
-  ;; quote
-  (should (equal "'hell'\\''o'"
-		 (bash-completion-quote "hell'o"))))
 
 (ert-deftest bash-completion-generate-line-test ()
   ;; no custom completion
@@ -864,10 +854,6 @@ Return (const return-value new-buffer-content)"
 
   ;; quoted single quote
   (should (equal "'a'\\''b'" (bash-completion-quote "a'b"))))
-
-(ert-deftest bash-completion-join-test ()
-  (should (equal "ls -l /a/b '/a/b c' '/a/b'\\''c' '$help/d'"
-		 (bash-completion-join '("ls" "-l" "/a/b" "/a/b c" "/a/b'c" "$help/d")))))
 
 (defmacro --with-fake-bash-completion-send (&rest body)
   "Runs the body in an environment that fakes `bash-completion-send'.
