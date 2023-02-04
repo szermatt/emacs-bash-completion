@@ -458,23 +458,6 @@ garbage
   (should (equal 5 (bash-completion--find-last ?f "abcdef")))
   (should (equal 9 (bash-completion--find-last ?d "abcdefabcdef"))))
 
-(ert-deftest bash-completion-starts-with-test ()
-  ;; empty str
-  (should (equal nil
-		 (bash-completion-starts-with "" "prefix")))
-
-  ;; starts with
-  (should (equal t
-		 (bash-completion-starts-with "blah-blah" "blah-")))
-
-  ;; does not starts with
-  (should (equal nil
-		 (bash-completion-starts-with "blah-blah" "blih-")))
-
-  ;; same
-  (should (equal t
-		 (bash-completion-starts-with "blah-" "blah-"))))
-
 (defun bash-completion-test-send (buffer-content)
   "Run `bash-completion-send' on BUFFER-CONTENT.
 Return (const return-value new-buffer-content)"
