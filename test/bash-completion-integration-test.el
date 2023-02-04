@@ -442,6 +442,37 @@ across Emacs version."
    (should (equal "dummy 1 Yaaa "
                   (bash-completion_test-complete "dummy 1 Y")))))
 
+(ert-deftest bash-completion-integration-default ()
+  (bash-completion_test-with-shell-harness
+   (concat ; .bashrc
+    "function _ook {\n"
+    "  COMPREPLY=(ook)\n"
+    "}\n"
+    "function _bar {\n"
+    "  COMPREPLY=(bar)\n"
+    "}\n"
+    "function _baa {\n"
+    "  COMPREPLY=(baa)\n"
+    "}\n"
+    "complete -F _ook -D\n"
+    "complete -F _bar foo\n"
+    "complete -F _baa baa\n")
+   t ; use-separate-process
+   ;; using default (_ook)
+   (should (equal
+            "faa ook "
+            (bash-completion_test-complete "faa a")))
+   (should (equal
+            "fee ook "
+            (bash-completion_test-complete "fee a")))
+   ;; exceptions, to make sure non-default still works
+   (should (equal
+            "foo bar "
+            (bash-completion_test-complete "foo a")))
+   (should (equal
+            "baa baa "
+            (bash-completion_test-complete "baa a")))))
+
 (ert-deftest bash-completion-integration-case-insensitive-test ()
   (bash-completion_test-harness
    (concat ; .bashrc
