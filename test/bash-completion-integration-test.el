@@ -33,6 +33,11 @@
 (require 'dired)
 (require 'ert)
 
+(defvar bash-completion_test-notbash-prog (executable-find "dash")
+  "Path to a command line executable that is not bash.
+
+It must exit when given C-d as input.")
+
 (defvar bash-completion_test-setup-completion "/etc/bash_completion")
 (defconst bash-completion_test-start-mark "====START====")
 
@@ -287,6 +292,33 @@ across Emacs version."
       ;; make sure a separate process was used; in case /bin/sh is
       ;; actually bash, the test could otherwise work just fine.
       (should (not (null (cdr (assq nil bash-completion-processes)))))))))
+
+(ert-deftest bash-completion-integration-notbash-anymore-test ()
+  (skip-unless bash-completion_test-notbash-prog)
+  (bash-completion_test-with-shell-harness
+   "" ; bashrc
+   nil ; use-separate-process
+   ;; initially completion works
+   (should (bash-completion_test-equal-any-order
+            '("some/directory/" "some/other/")
+            (bash-completion_test-candidates "ls some/")))
+   ;; but then later on bash executes another command-line tool
+   (delete-region (line-beginning-position) (line-end-position))
+   (insert bash-completion_test-notbash-prog)
+   (comint-send-input)
+   (let ((bash-completion--debug-info nil))
+     (should-error (bash-completion_test-candidates "ls some/"))
+     (should (equal "short-timeout" (cdr (assq 'error bash-completion--debug-info)))))
+
+   ;; this is recoverable, once the other command-line tool exits,
+   ;; completion works again.
+   (delete-region (line-beginning-position) (line-end-position))
+   (insert "\004") ;; C-d
+   (comint-send-input)
+
+   (should (bash-completion_test-equal-any-order
+            '("some/directory/" "some/other/")
+            (bash-completion_test-candidates "ls some/")))))
 
 (ert-deftest bash-completion-integration-space ()
   (bash-completion_test-with-shell-harness

@@ -191,6 +191,20 @@ ignored."
   :type '(float)
   :group 'bash-completion)
 
+(defcustom bash-completion-short-command-timeout 0.6
+  "Number of seconds to wait for bash to start completion.
+
+This is the time it might take for Emacs to notice it's not
+actually talking to a functioning Bash process, when
+`bash-completion-use-separate-processes` is nil.
+
+This doesn't include the time it takes to execute completion,
+which can be quite long, but just the time it normally takes for
+the Bash process to respond to Emacs. This should be very short,
+unless the remote connection to the Bash process is very slow."
+  :type '(float)
+  :group 'bash-completion)
+
 (defcustom bash-completion-command-timeout 30
   "Number of seconds to wait for an answer from programmable completion functions.
 
@@ -1425,6 +1439,7 @@ and would like bash completion in Emacs to take these changes into account."
 
 (defun bash-completion--wait-for-regexp (process prompt-regexp timeout &optional limit)
   (let ((no-timeout t))
+    (goto-char (point-max))
     (while (and no-timeout
                 (not (re-search-backward prompt-regexp limit t)))
       (setq no-timeout (accept-process-output process timeout nil t)))
@@ -1465,6 +1480,7 @@ Return the status code of the command, as a number."
           (unless bash-completion-use-separate-processes
             (concat
              "set +o emacs; set +o vi;"
+             "echo \"==emacs==bash=${BASH_VERSINFO[0]}==.\";"
              "if [[ -z \"${__emacs_complete_ps1}\" ]]; then "
              " __emacs_complete_ps1=\"$PS1\";"
              " __emacs_complete_pc=\"$PROMPT_COMMAND\";"
@@ -1497,6 +1513,14 @@ Return the status code of the command, as a number."
     (with-current-buffer (bash-completion--get-buffer process)
       (erase-buffer)
       (funcall send-string process complete-command)
+      (unless bash-completion-use-separate-processes
+        (unless (bash-completion--wait-for-regexp
+                 process "==emacs==bash=[0-9]==." bash-completion-short-command-timeout)
+          (push (cons 'error "short-timeout") bash-completion--debug-info)
+          (push (cons 'buffer-string (buffer-substring-no-properties (point-min) (point-max)))
+                bash-completion--debug-info)
+          (error "Bash completion failed.  M-x bash-completion-debug for details"))
+        (delete-region (match-beginning 0) (1+ (match-end 0))))
       (unless (bash-completion--wait-for-regexp process "==emacs==ret=-?[[:digit:]]+==." timeout)
         (push (cons 'error "timeout") bash-completion--debug-info)
         (push (cons 'buffer-string (buffer-substring-no-properties (point-min) (point-max)))
