@@ -369,8 +369,11 @@ returned."
 (defun bash-completion--setup-bash-common (process)
   "Setup PROCESS to be ready for completion."
   (unless (zerop
-           (bash-completion-send "[[ ${BASH_VERSINFO[0]} -ge 4 ]]" process))
-    (error "bash-completion.el requires at least Bash 4."))
+           (bash-completion-send "echo -n $BASH_VERSION ; [[ ${BASH_VERSINFO[0]} -ge 4 ]]" process))
+    (error "bash-completion.el requires at least Bash 4, not %s."
+           (with-current-buffer (bash-completion--get-buffer process)
+             (buffer-substring-no-properties
+              (point-min) (point-max)))))
   (bash-completion-send
    (concat "function __emacs_fixdirs {"
            "  local l; "
