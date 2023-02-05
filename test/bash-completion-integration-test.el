@@ -494,6 +494,14 @@ across Emacs version."
    (should (equal "dummy 1 Yooo "
                   (bash-completion_test-complete "dummy 1 Y")))))
 
+(ert-deftest bash-completion-integration-tracing ()
+  (bash-completion_test-with-shell-harness
+   "set -x\n" ;; .bashrc
+   nil ;; use-separate-process
+   (should (bash-completion_test-equal-any-order
+            '("some/directory/" "some/other/")
+            (bash-completion_test-candidates "ls some/")))))
+
 (ert-deftest bash-completion-integration-refresh-test ()
   (bash-completion_test-with-shell-harness
    (concat ; .bashrc
