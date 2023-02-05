@@ -375,7 +375,7 @@ returned."
              (buffer-substring-no-properties
               (point-min) (point-max)))))
   (bash-completion-send
-   (concat "function __emacs_fixdirs {"
+   (concat "function __ebcfixdirs {"
            "  local l; "
            "  while read l; do "
            "    if [[ -d \"${l/#\~/$HOME}\" ]]; then echo \"$l/\"; else echo \"$l\"; fi; "
@@ -383,9 +383,9 @@ returned."
            "}")
    process)
   (bash-completion-send
-   (concat "function __emacs_complete_wrapper {"
+   (concat "function __ebcwrapper {"
            " COMP_TYPE=9; COMP_KEY=9; _EMACS_COMPOPT=\"\";"
-           " eval $__EMACS_COMPLETE_WRAPPER;"
+           " eval $__EBCWRAPPER;"
            " local n=$?;"
            " if [[ $n = 124 ]]; then"
            (bash-completion--side-channel-data "wrapped-status" "124")
@@ -1246,7 +1246,7 @@ Return a bash command-line for going to `default-directory' or \"\"."
   (let ((dir (or (file-remote-p (or default-directory "") 'localname)
                  default-directory)))
     (if dir
-        (concat "cd >/dev/null 2>&1 "
+        (concat "cd &>/dev/null "
                 (bash-completion-quote (bash-completion--expand-file-name dir t))
                 " && ")
       "")))
@@ -1291,15 +1291,15 @@ The returned alist is a slightly parsed version of the output of
   "Initialize current shell in PROCESS and fetch compgen args for COMP."
   (cond
    ((eq 'command (bash-completion--type comp))
-    ;; Just check that __emacs_fixdirs is defined, since it's
+    ;; Just check that __ebcfixdirs is defined, since it's
     ;; required for doing command completion. No compgen args are
     ;; available in this case.
-    (when (= 1 (bash-completion-send "type -t __emacs_fixdirs >/dev/null 2>&1" process))
+    (when (= 1 (bash-completion-send "type -t __ebcfixdirs &>/dev/null " process))
       (bash-completion--setup-bash-common process)))
 
    ((or forced (null (bash-completion--compgen-args comp)))
     ;; Fetch the compgen args for the current command, or the default
-    ;; compgen args otherwise. Make sure that __emacs_complete_wrapper
+    ;; compgen args otherwise. Make sure that __ebcwrapper
     ;; is defined since this function is necessary for doing command
     ;; completion.
     (let ((status
@@ -1307,7 +1307,7 @@ The returned alist is a slightly parsed version of the output of
             (concat "complete -p "
                     (bash-completion-quote (bash-completion--command comp))
                     " 2>/dev/null || complete -p -D"
-                    "&& type -t __emacs_complete_wrapper >/dev/null 2>&1")
+                    "&& type -t __ebcwrapper &>/dev/null ")
             process)))
       (setf (bash-completion--compgen-args comp)
             (cdr (car (bash-completion-build-alist
@@ -1352,8 +1352,8 @@ completion candidates."
               (function (or (member "-F" args) (member "-C" args)))
               (function-name (car (cdr function))))
          (setcar function "-F")
-         (setcar (cdr function) "__emacs_complete_wrapper")
-         (format "__EMACS_COMPLETE_WRAPPER=%s compgen %s -- %s"
+         (setcar (cdr function) "__ebcwrapper")
+         (format "__EBCWRAPPER=%s compgen %s -- %s"
                  (bash-completion-quote
                   (format "COMP_LINE=%s; COMP_POINT=$(( 1 + ${#COMP_LINE} )); COMP_CWORD=%s; COMP_WORDS=( %s ); %s %s %s %s"
                           (bash-completion-quote (bash-completion--line comp))
@@ -1373,11 +1373,11 @@ completion candidates."
                (bash-completion-join compgen-args)
                quoted-stub))
       (t (error "Unsupported completion type: %s" completion-type)))
-     ;; __emacs_fixdirs post-processes the output to add / after
+     ;; __ebcfixdirs post-processes the output to add / after
      ;; directories. This is done in this way instead of using a pipe
      ;; to avoid executing compgen in a subshell, as completion
      ;; functions sometimes define new functions.
-     " 2>/dev/null  > >(__emacs_fixdirs); wait $!")))
+     " 2>/dev/null  > >(__ebcfixdirs); wait $!")))
 
 ;;;###autoload
 (defun bash-completion-refresh ()
@@ -1493,35 +1493,12 @@ Return the status code of the command, as a number."
          (send-string (if bash-completion-use-separate-processes
                           #'process-send-string
                         #'comint-send-string))
-         (pre-command
-          (unless bash-completion-use-separate-processes
-            (concat
-             "set +o emacs; set +o vi;"
-             "echo \"==emacs==bash=${BASH_VERSINFO[0]}==.\";"
-             "if [[ -z \"${__emacs_complete_ps1}\" ]]; then "
-             " __emacs_complete_ps1=\"$PS1\";"
-             " __emacs_complete_pc=\"$PROMPT_COMMAND\";"
-             "fi;"
-             "PROMPT_COMMAND=" ;; set a temporary prompt
-             (bash-completion-quote
-              (concat "PS1=" bash-completion--ps1 ";"
-                      "PROMPT_COMMAND=" ;; recover prompt
-                      (bash-completion-quote
-                       (concat
-                        "__emacs_complete_r=$?;"
-                        "PS1=\"${__emacs_complete_ps1}\";"
-                        "PROMPT_COMMAND=\"${__emacs_complete_pc}\";"
-                        "unset __emacs_complete_ps1 __emacs_complete_pc;"
-                        "if [[ -n \"$PROMPT_COMMAND\" ]]; then"
-                        "  (exit $__emacs_complete_r); eval \"$PROMPT_COMMAND\";"
-                        "fi;"))))
-             ;; remove this command from history
-             ";if [[ ${BASH_VERSINFO[0]} -eq 5 && ${BASH_VERSINFO[1]} -ge 1 || ${BASH_VERSINFO[0]} -gt 5 ]]; then"
-             "  history -d $HISTCMD &>/dev/null || true;"
-             "else"
-             "  history -d $((HISTCMD - 1)) &>/dev/null || true;"
-             "fi;")))
-         (complete-command (concat pre-command commandline "\n")))
+         (complete-command
+          (format 
+           (if bash-completion-use-separate-processes
+               "%s\n"
+             "type __ebcpre &>/dev/null || echo ==emacs==nopre=${BASH_VERSINFO[0]}==. && { __ebcpre ; %s; }\n")
+           commandline)))
     (setq bash-completion--debug-info
           (list (cons 'commandline complete-command)
                 (cons 'process process)
@@ -1532,23 +1509,66 @@ Return the status code of the command, as a number."
       (funcall send-string process complete-command)
       (unless bash-completion-use-separate-processes
         (unless (bash-completion--wait-for-regexp
-                 process "==emacs==bash=[0-9]==." bash-completion-short-command-timeout)
+                 process "==emacs==\\(nopre\\|bash\\)=[0-9]==." bash-completion-short-command-timeout)
           (push (cons 'error "short-timeout") bash-completion--debug-info)
           (push (cons 'buffer-string (buffer-substring-no-properties (point-min) (point-max)))
                 bash-completion--debug-info)
           (error "Bash completion failed.  M-x bash-completion-debug for details"))
-        (delete-region (match-beginning 0) (1+ (match-end 0))))
+        (when (string= "nopre" (match-string 1))
+          (setq
+           complete-command
+           (concat
+            "function __ebcnohistory {"
+            "  local c=$((HISTCMD-$1)) maj=${BASH_VERSINFO[0]} min=${BASH_VERSINFO[1]};"
+            "  if [[ $maj -eq 5 && $min -ge 1 || $maj -gt 5 ]]; then"
+            "    c=$((c+1));"
+            "  fi;"
+            "  history -d $c &>/dev/null || true;"
+            "};"
+            "function __ebcpre {"
+            "  set +o emacs; set +o vi;"
+            "  echo \"==emacs==bash=${BASH_VERSINFO[0]}==.\";"
+            "  if [[ -z \"${__ebcps1}\" ]]; then "
+            "    __ebcps1=\"$PS1\";"
+            "    __ebcpc=\"$PROMPT_COMMAND\";"
+            "  fi;"
+            "  PROMPT_COMMAND=" ;; set a temporary prompt
+            (bash-completion-quote
+             (concat "PS1=" bash-completion--ps1 ";"
+                     "PROMPT_COMMAND=" ;; recover prompt
+                     (bash-completion-quote
+                      (concat
+                       "__ebcr=$?;"
+                       "PS1=\"${__ebcps1}\";"
+                       "PROMPT_COMMAND=\"${__ebcpc}\";"
+                       "unset __ebcps1 __ebcpc;"
+                       "if [[ -n \"$PROMPT_COMMAND\" ]]; then"
+                       "  (exit $__ebcr); eval \"$PROMPT_COMMAND\";"
+                       "fi;"))))
+            ";"
+            "  __ebcnohistory 1;"
+            "} && __ebcnohistory 2 && __ebcpre && { "
+            commandline
+            "; }\n"))
+          (funcall send-string process complete-command)
+          (unless (bash-completion--wait-for-regexp
+                   process "==emacs==bash=[0-9]==." bash-completion-short-command-timeout)
+            (push (cons 'error "short-timeout") bash-completion--debug-info)
+            (push (cons 'buffer-string (buffer-substring-no-properties (point-min) (point-max)))
+                  bash-completion--debug-info)
+            (error "Bash completion failed.  M-x bash-completion-debug for details")))
+        (delete-region (point-min) (1+ (match-end 0))))
       (unless (bash-completion--wait-for-regexp process "==emacs==ret=-?[[:digit:]]+==." timeout)
         (push (cons 'error "timeout") bash-completion--debug-info)
         (push (cons 'buffer-string (buffer-substring-no-properties (point-min) (point-max)))
               bash-completion--debug-info)
         (error "Bash completion failed.  M-x bash-completion-debug for details"))
-      (when pre-command
-        ;; Detect the command having been echoed and remove it
-        (save-excursion
-          (goto-char (point-min))
-          (when (looking-at pre-command)
-            (delete-region (match-beginning 0) (line-beginning-position 2)))))
+      ;; (when complete-command
+      ;;   ;; Detect the command having been echoed and remove it
+      ;;   (save-excursion
+      ;;     (goto-char (point-min))
+      ;;     (when (looking-at (regexp-quote complete-command))
+      ;;       (delete-region (match-beginning 0) (line-beginning-position 2)))))
       (let ((status (string-to-number
                      (buffer-substring-no-properties
                       (+ (point) 13)

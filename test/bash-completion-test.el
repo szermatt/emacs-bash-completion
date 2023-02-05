@@ -372,8 +372,8 @@ garbage
   (let ((default-directory "/test")
         (bash-completion-use-separate-processes t))
     (should
-     (equal (concat "cd >/dev/null 2>&1 /test"
-                    " && compgen -o default -- worl 2>/dev/null  > >(__emacs_fixdirs); wait $!")
+     (equal (concat "cd &>/dev/null /test"
+                    " && compgen -o default -- worl 2>/dev/null  > >(__ebcfixdirs); wait $!")
             (bash-completion-generate-line
              (bash-completion--make
               :line "hello worl"
@@ -384,7 +384,7 @@ garbage
 
     ;; custom completion no function or command
     (should (equal
-             "cd >/dev/null 2>&1 /test && compgen -A -G '*.txt' -- worl 2>/dev/null  > >(__emacs_fixdirs); wait $!"
+             "cd &>/dev/null /test && compgen -A -G '*.txt' -- worl 2>/dev/null  > >(__ebcfixdirs); wait $!"
              (bash-completion-generate-line
               (bash-completion--make
                :line "zorg worl"
@@ -397,12 +397,12 @@ garbage
     ;; custom completion function
     (should (equal
              (concat
-              "cd >/dev/null 2>&1 /test && "
-              "__EMACS_COMPLETE_WRAPPER='COMP_LINE='\\''zorg blah worl'\\''; "
+              "cd &>/dev/null /test && "
+              "__EBCWRAPPER='COMP_LINE='\\''zorg blah worl'\\''; "
               "COMP_POINT=$(( 1 + ${#COMP_LINE} )); COMP_CWORD=2; "
               "COMP_WORDS=( zorg blah worl ); "
               "__zorg zorg worl blah' "
-              "compgen -F __emacs_complete_wrapper -- worl 2>/dev/null  > >(__emacs_fixdirs); wait $!")
+              "compgen -F __ebcwrapper -- worl 2>/dev/null  > >(__ebcfixdirs); wait $!")
              (bash-completion-generate-line
               (bash-completion--make
                :line "zorg blah worl"
@@ -415,13 +415,13 @@ garbage
     ;; custom completion command
     (should (equal
              (concat
-              "cd >/dev/null 2>&1 /test && "
-              "__EMACS_COMPLETE_WRAPPER='COMP_LINE='\\''zorg worl'\\''; "
+              "cd &>/dev/null /test && "
+              "__EBCWRAPPER='COMP_LINE='\\''zorg worl'\\''; "
               "COMP_POINT=$(( 1 + ${#COMP_LINE} )); "
               "COMP_CWORD=1; "
               "COMP_WORDS=( zorg worl ); "
               "__zorg zorg worl zorg' "
-              "compgen -F __emacs_complete_wrapper -- worl 2>/dev/null  > >(__emacs_fixdirs); wait $!")
+              "compgen -F __ebcwrapper -- worl 2>/dev/null  > >(__ebcfixdirs); wait $!")
              (bash-completion-generate-line
               (bash-completion--make
                :line "zorg worl"
@@ -433,7 +433,7 @@ garbage
 
     ;; command completion
     (should (equal
-             "cd >/dev/null 2>&1 /test && compgen -b -c -a -A function -- worl 2>/dev/null  > >(__emacs_fixdirs); wait $!"
+             "cd &>/dev/null /test && compgen -b -c -a -A function -- worl 2>/dev/null  > >(__ebcfixdirs); wait $!"
              (bash-completion-generate-line
               (bash-completion--make
                :line "worl"
@@ -501,13 +501,13 @@ Return (const return-value new-buffer-content)"
 		   (bash-completion-cd-command-prefix))))
 
   ;; current dir
-  (should (equal "cd >/dev/null 2>&1 /tmp/x && "
+  (should (equal "cd &>/dev/null /tmp/x && "
 		 (let ((default-directory "/tmp/x"))
 		   (bash-completion-cd-command-prefix))))
 
   ;; expand tilde
   (should (equal
-	   (concat "cd >/dev/null 2>&1 " (expand-file-name "~/x") " && ")
+	   (concat "cd &>/dev/null " (expand-file-name "~/x") " && ")
 	   (let ((default-directory "~/x"))
 	     (bash-completion-cd-command-prefix)))))
 
@@ -880,7 +880,7 @@ before calling `bash-completion-dynamic-complete-nocomint'.
                                   (setcdr result nil)
                                   (push commandline --captured-commands)
                                   (setq found t))))
-                            (when (and (not found) (not (string-match-p "type -t __emacs_fixdirs" commandline)))
+                            (when (and (not found) (not (string-match-p "type -t __ebcfixdirs" commandline)))
                               (error "nothing for '%s' in --send-results (%s)"
                                      commandline --send-results)))
                           0))))
@@ -894,7 +894,7 @@ before calling `bash-completion-dynamic-complete-nocomint'.
    (should (equal
             (list 7 9 '("hell" "hello1" "hello2"))
             (bash-completion-dynamic-complete-nocomint 3 (point))))
-   (should (equal "cd >/dev/null 2>&1 /tmp/test && compgen -o default -- he 2>/dev/null  > >(__emacs_fixdirs); wait $!"
+   (should (equal "cd &>/dev/null /tmp/test && compgen -o default -- he 2>/dev/null  > >(__ebcfixdirs); wait $!"
                   (pop --captured-commands)))))
 
 (ert-deftest bash-completion-simple-dynamic-table-test ()
@@ -1021,8 +1021,8 @@ before calling `bash-completion-dynamic-complete-nocomint'.
             (nth 2(bash-completion-dynamic-complete-nocomint 3 (point)))))
    (should (equal
             (concat
-             "cd >/dev/null 2>&1 /tmp/test && "
-             "compgen -o default -- 'Documents/Modes d'\\''emplois/' 2>/dev/null  > >(__emacs_fixdirs); wait $!")
+             "cd &>/dev/null /tmp/test && "
+             "compgen -o default -- 'Documents/Modes d'\\''emplois/' 2>/dev/null  > >(__ebcfixdirs); wait $!")
             (pop --captured-commands)))))
 
 (ert-deftest bash-completion-complete-single-quoted-dir ()
@@ -1055,8 +1055,8 @@ before calling `bash-completion-dynamic-complete-nocomint'.
    (should (equal
             '("bin/" "bind")
             (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point)))))
-   (should (equal (concat "cd >/dev/null 2>&1 /tmp/test && "
-                          "compgen -b -c -a -A function -- b 2>/dev/null  > >(__emacs_fixdirs); wait $!")
+   (should (equal (concat "cd &>/dev/null /tmp/test && "
+                          "compgen -b -c -a -A function -- b 2>/dev/null  > >(__ebcfixdirs); wait $!")
                   (pop --captured-commands)))))
 
 (ert-deftest bash-completion-complete-command-with-space ()
@@ -1066,8 +1066,8 @@ before calling `bash-completion-dynamic-complete-nocomint'.
    (should (equal
             '("some\\ command ")
             (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point)))))
-   (should (equal (concat "cd >/dev/null 2>&1 /tmp/test && "
-                          "compgen -b -c -a -A function -- 'some c' 2>/dev/null  > >(__emacs_fixdirs); wait $!")
+   (should (equal (concat "cd &>/dev/null /tmp/test && "
+                          "compgen -b -c -a -A function -- 'some c' 2>/dev/null  > >(__ebcfixdirs); wait $!")
                   (pop --captured-commands)))))
 
 (ert-deftest bash-completion-failed-completion ()
