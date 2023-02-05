@@ -373,7 +373,7 @@ garbage
         (bash-completion-use-separate-processes t))
     (should
      (equal (concat "cd >/dev/null 2>&1 /test"
-                    " && compgen -o default -- worl 2>/dev/null")
+                    " && compgen -o default -- worl 2>/dev/null  > >(__emacs_fixdirs); wait $!")
             (bash-completion-generate-line
              (bash-completion--make
               :line "hello worl"
@@ -384,7 +384,7 @@ garbage
 
     ;; custom completion no function or command
     (should (equal
-             "cd >/dev/null 2>&1 /test && compgen -A -G '*.txt' -- worl 2>/dev/null"
+             "cd >/dev/null 2>&1 /test && compgen -A -G '*.txt' -- worl 2>/dev/null  > >(__emacs_fixdirs); wait $!"
              (bash-completion-generate-line
               (bash-completion--make
                :line "zorg worl"
@@ -402,7 +402,7 @@ garbage
               "COMP_POINT=$(( 1 + ${#COMP_LINE} )); COMP_CWORD=2; "
               "COMP_WORDS=( zorg blah worl ); "
               "__zorg zorg worl blah' "
-              "compgen -F __emacs_complete_wrapper -- worl 2>/dev/null")
+              "compgen -F __emacs_complete_wrapper -- worl 2>/dev/null  > >(__emacs_fixdirs); wait $!")
              (bash-completion-generate-line
               (bash-completion--make
                :line "zorg blah worl"
@@ -421,7 +421,7 @@ garbage
               "COMP_CWORD=1; "
               "COMP_WORDS=( zorg worl ); "
               "__zorg zorg worl zorg' "
-              "compgen -F __emacs_complete_wrapper -- worl 2>/dev/null")
+              "compgen -F __emacs_complete_wrapper -- worl 2>/dev/null  > >(__emacs_fixdirs); wait $!")
              (bash-completion-generate-line
               (bash-completion--make
                :line "zorg worl"
@@ -433,7 +433,7 @@ garbage
 
     ;; command completion
     (should (equal
-             "cd >/dev/null 2>&1 /test && compgen -b -c -a -A function -- worl 2>/dev/null"
+             "cd >/dev/null 2>&1 /test && compgen -b -c -a -A function -- worl 2>/dev/null  > >(__emacs_fixdirs); wait $!"
              (bash-completion-generate-line
               (bash-completion--make
                :line "worl"
@@ -492,7 +492,7 @@ Return (const return-value new-buffer-content)"
   (should (equal
 	   (cons 124 "line1\nline2\n")
 	   (bash-completion-test-send
-	    (concat "line1\nli\e\ewrapped-status=124\e\ene2\n==emacs==ret=0==.")))))
+	    (concat "line1\nli\e\ewrapped-status=124\e\e\nne2\n==emacs==ret=0==.")))))
 
 (ert-deftest bash-completion-cd-command-prefix-test ()
   ;; no current dir
@@ -609,32 +609,6 @@ Return (const return-value new-buffer-content)"
                    :wordbreaks "")
                   nil)))
 
-  ;; append / for home
-  (should (equal "~/"
-                 (bash-completion-fix
-                  "~"
-                  (bash-completion--make
-                   :cword 1
-                   :stub "~"
-                   :unparsed-stub "~"
-                   :wordbreaks "")
-                  nil)))
-
-  (cl-letf (((symbol-function 'file-accessible-directory-p)
-             (lambda (d) (equal d "/tmp/somedir"))))
-    (let ((default-directory "/tmp/"))
-      ;; append / for directory
-      (should (equal "somedir/"
-                     (bash-completion-fix
-                      "somedir"
-                      (bash-completion--make
-                       :cword 1
-                       :stub "some"
-                       :unparsed-stub "some"
-                       :wordbreaks ""
-                       :compgen-args '(filenames))
-                      nil)))))
-
   ;; append a space for initial command that is not a directory
   (let ((bash-completion-nospace nil))
     (should
@@ -739,7 +713,7 @@ Return (const return-value new-buffer-content)"
      (equal
       '("hello")
       (bash-completion-test-with-buffer
-       "\e\ecompopt=-o nospace\e\ehello\n"
+       "\e\ecompopt=-o nospace\e\e\nhello\n"
        (bash-completion-extract-candidates
         (bash-completion--make :stub "hell"
                                :unparsed-stub "hell"
@@ -751,7 +725,7 @@ Return (const return-value new-buffer-content)"
      (equal
       '("hello ")
       (bash-completion-test-with-buffer
-       "\e\ecompopt=+o nospace\e\ehello\n"
+       "\e\ecompopt=+o nospace\e\e\nhello\n"
        (bash-completion-extract-candidates
         (bash-completion--make :stub "hell"
                                :unparsed-stub "hell"
@@ -766,7 +740,7 @@ Return (const return-value new-buffer-content)"
      (equal
       '("hello")
       (bash-completion-test-with-buffer
-       "hello\n\e\ecompopt=+o nospace\e\e"
+       "hello\n\e\ecompopt=+o nospace\e\e\n"
        (bash-completion-extract-candidates
         (bash-completion--make :stub "hell"
                                :unparsed-stub "hell"
@@ -862,9 +836,6 @@ When `bash-completion-send' is called, it pops the result from
 --send-results and captures the command-line it was given into
 --captured-commands.
 
-Directories in --directories get a / appended to them. Note that
-the current directory in this environment is /tmp/test.
-
 The body is run with a test buffer as current buffer. Fill it with the command-line
 before calling `bash-completion-dynamic-complete-nocomint'.
 "
@@ -875,8 +846,7 @@ before calling `bash-completion-dynamic-complete-nocomint'.
      (let ((--process-buffer)
            (--test-buffer)
            (--send-results (list))
-           (--captured-commands (list))
-           (--directories (list)))
+           (--captured-commands (list)))
        (with-temp-buffer
          (setq --process-buffer (current-buffer))
          (with-temp-buffer
@@ -895,8 +865,6 @@ before calling `bash-completion-dynamic-complete-nocomint'.
                          (t (error "unexpected call")))))
                      ((symbol-function 'bash-completion-buffer) (lambda () --process-buffer))
                      ((symbol-function 'process-buffer) (lambda (p) --process-buffer))
-                     ((symbol-function 'file-accessible-directory-p)
-                      (lambda (d) (member d --directories)))
                      ((symbol-function 'bash-completion-send)
                       (lambda (commandline &optional process timeout debug-context)
                         (with-current-buffer --process-buffer
@@ -912,7 +880,7 @@ before calling `bash-completion-dynamic-complete-nocomint'.
                                   (setcdr result nil)
                                   (push commandline --captured-commands)
                                   (setq found t))))
-                            (unless found
+                            (when (and (not found) (not (string-match-p "type -t __emacs_fixdirs" commandline)))
                               (error "nothing for '%s' in --send-results (%s)"
                                      commandline --send-results)))
                           0))))
@@ -926,7 +894,7 @@ before calling `bash-completion-dynamic-complete-nocomint'.
    (should (equal
             (list 7 9 '("hell" "hello1" "hello2"))
             (bash-completion-dynamic-complete-nocomint 3 (point))))
-   (should (equal "cd >/dev/null 2>&1 /tmp/test && compgen -o default -- he 2>/dev/null"
+   (should (equal "cd >/dev/null 2>&1 /tmp/test && compgen -o default -- he 2>/dev/null  > >(__emacs_fixdirs); wait $!"
                   (pop --captured-commands)))))
 
 (ert-deftest bash-completion-simple-dynamic-table-test ()
@@ -1031,18 +999,16 @@ before calling `bash-completion-dynamic-complete-nocomint'.
 
 (ert-deftest bash-completion-complete-dir-with-spaces-test ()
   (--with-fake-bash-completion-send
-   (push "/tmp/test/Documents" --directories)
-   (push "/tmp/test/Documents/Modes d'emplois" --directories)
    (push '("complete -p" . "\n") --send-results)
-   (push '("compgen" . "/tmp/test/Documents\n") --send-results)
-   (push '("compgen" . "Documents\n") --send-results)
+   (push '("compgen" . "/tmp/test/Documents/\n") --send-results)
+   (push '("compgen" . "Documents/\n") --send-results)
    (insert "$ cat Doc")
    (should (equal
             '(7 10 ("Documents/"))
             (bash-completion-dynamic-complete-nocomint 3 (point))))
    (insert "uments/")
    (push '("complete -p" . "\n") --send-results)
-   (push '("compgen" . "Documents/Modes d'emplois\n") --send-results)
+   (push '("compgen" . "Documents/Modes d'emplois/\n") --send-results)
    (should (equal
             '("Documents/Modes\\ d\\'emplois/")
             (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point)))))
@@ -1056,23 +1022,21 @@ before calling `bash-completion-dynamic-complete-nocomint'.
    (should (equal
             (concat
              "cd >/dev/null 2>&1 /tmp/test && "
-             "compgen -o default -- 'Documents/Modes d'\\''emplois/' 2>/dev/null")
+             "compgen -o default -- 'Documents/Modes d'\\''emplois/' 2>/dev/null  > >(__emacs_fixdirs); wait $!")
             (pop --captured-commands)))))
 
 (ert-deftest bash-completion-complete-single-quoted-dir ()
   (--with-fake-bash-completion-send
-   (push "/tmp/test/Documents" --directories)
-   (push "/tmp/test/Documents/Modes d'emplois" --directories)
    (push '("complete -p" . "\n") --send-results)
-   (push '("compgen" . "/tmp/test/Documents\n") --send-results)
-   (push '("compgen" . "Documents\n") --send-results)
+   (push '("compgen" . "/tmp/test/Documents/\n") --send-results)
+   (push '("compgen" . "Documents/\n") --send-results)
    (insert "$ cat 'Doc")
    (should (equal
             '(7 11 ("'Documents/"))
             (bash-completion-dynamic-complete-nocomint 3 (point))))
    (insert "uments/")
    (push '("complete -p" . "\n") --send-results)
-   (push '("compgen" . "Documents/Modes d'emplois\n") --send-results)
+   (push '("compgen" . "Documents/Modes d'emplois/\n") --send-results)
    (should (equal
             '("'Documents/Modes d'\\''emplois/")
             (nth 2(bash-completion-dynamic-complete-nocomint 3 (point)))))
@@ -1086,14 +1050,13 @@ before calling `bash-completion-dynamic-complete-nocomint'.
 
 (ert-deftest bash-completion-complete-command-with-dir ()
   (--with-fake-bash-completion-send
-   (push "/tmp/test/bin" --directories)
-   (push '("compgen" . "bin\nbind\n") --send-results)
+   (push '("compgen" . "bin/\nbind\n") --send-results)
    (insert "$ b")
    (should (equal
             '("bin/" "bind")
             (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point)))))
    (should (equal (concat "cd >/dev/null 2>&1 /tmp/test && "
-                          "compgen -b -c -a -A function -- b 2>/dev/null")
+                          "compgen -b -c -a -A function -- b 2>/dev/null  > >(__emacs_fixdirs); wait $!")
                   (pop --captured-commands)))))
 
 (ert-deftest bash-completion-complete-command-with-space ()
@@ -1104,7 +1067,7 @@ before calling `bash-completion-dynamic-complete-nocomint'.
             '("some\\ command ")
             (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point)))))
    (should (equal (concat "cd >/dev/null 2>&1 /tmp/test && "
-                          "compgen -b -c -a -A function -- 'some c' 2>/dev/null")
+                          "compgen -b -c -a -A function -- 'some c' 2>/dev/null  > >(__emacs_fixdirs); wait $!")
                   (pop --captured-commands)))))
 
 (ert-deftest bash-completion-failed-completion ()
@@ -1119,8 +1082,7 @@ before calling `bash-completion-dynamic-complete-nocomint'.
 (ert-deftest bash-completion-wordbreak-completion ()
   (--with-fake-bash-completion-send
    (push '("complete -p" . "\n") --send-results)
-   (push "/tmp/test/bin" --directories)
-   (push '("compgen" . "./binary\n./bind\n./bin\n") --send-results)
+   (push '("compgen" . "./binary\n./bind\n./bin/\n") --send-results)
    (insert "$ export PATH=$PATH:./b")
    (should
     (equal '(21 24 ("./binary" "./bind" "./bin/"))
@@ -1129,7 +1091,6 @@ before calling `bash-completion-dynamic-complete-nocomint'.
 (ert-deftest bash-completion-single-wordbreak-completion ()
   (--with-fake-bash-completion-send
    (push '("complete -p" . "\n") --send-results)
-   (push "/tmp/test/bin" --directories)
    (push '("compgen" . "./world\n") --send-results)
    (insert "$ set a=./hello:./w")
    (should
@@ -1171,8 +1132,7 @@ before calling `bash-completion-dynamic-complete-nocomint'.
    (push '("complete -p" . "complete -compgen -args -o filenames ls\n") --send-results)
    ;; note that adding a / after a completion is not always the right thing
    ;; to do. See github issue #19.
-   (push "/tmp/test/somedir" --directories)
-   (push '("compgen -compgen -args -o filenames" . "somedir\n") --send-results)
+   (push '("compgen -compgen -args -o filenames" . "somedir/\n") --send-results)
    (insert "$ ls some")
    (let ((bash-completion-nospace nil))
      (should (equal
@@ -1198,19 +1158,19 @@ before calling `bash-completion-dynamic-complete-nocomint'.
 
 (ert-deftest bash-completion--parse-side-channel-data ()
   (bash-completion-test-with-buffer
-   "test\ntest\e\ename=value\e\e\ntest"
+   "test\ntest\e\ename=value\e\e\n\ntest"
    (should (equal
             "value"
             (bash-completion--parse-side-channel-data "name")))
    (should (equal "test\ntest\ntest" (buffer-string))))
   ;; leave other data alone
   (bash-completion-test-with-buffer
-   "test\ntest\e\eothername=value\e\e\ntest"
+   "test\ntest\e\eothername=value\e\e\n\ntest"
    (should (null (bash-completion--parse-side-channel-data "name")))
-   (should (equal "test\ntest\e\eothername=value\e\e\ntest" (buffer-string))))
+   (should (equal "test\ntest\e\eothername=value\e\e\n\ntest" (buffer-string))))
   ;; name can contain chars special for regexps
   (bash-completion-test-with-buffer 
-   "\e\ename*=value\e\etest"
+   "\e\ename*=value\e\e\ntest"
    (should (equal "value" (bash-completion--parse-side-channel-data "name*")))
    (should (equal "test" (buffer-string)))))
 

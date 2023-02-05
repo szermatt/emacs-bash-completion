@@ -372,10 +372,18 @@ returned."
            (bash-completion-send "[[ ${BASH_VERSINFO[0]} -ge 4 ]]" process))
     (error "bash-completion.el requires at least Bash 4."))
   (bash-completion-send
+   (concat "function __emacs_fixdirs {"
+           "  local l; "
+           "  while read l; do "
+           "    if [[ -d \"${l/#\~/$HOME}\" ]]; then echo \"$l/\"; else echo \"$l\"; fi; "
+           "  done; "
+           "}")
+   process)
+  (bash-completion-send
    (concat "function __emacs_complete_wrapper {"
            " COMP_TYPE=9; COMP_KEY=9; _EMACS_COMPOPT=\"\";"
            " eval $__EMACS_COMPLETE_WRAPPER;"
-           " n=$?;"
+           " local n=$?;"
            " if [[ $n = 124 ]]; then"
            (bash-completion--side-channel-data "wrapped-status" "124")
            "  return 1; "
@@ -390,7 +398,7 @@ returned."
    (concat
     "function compopt {"
     " command compopt \"$@\" 2>/dev/null;"
-    " ret=$?; "
+    " local ret=$?; "
     " if [[ $ret == 1 && \"$*\" = *\"-o nospace\"* ]]; then"
     "  _EMACS_COMPOPT='-o nospace';"
     "  return 0;"
@@ -547,7 +555,7 @@ Returns (list stub-start stub-end completions) with
                     (process-get process 'wordbreaks)))
              (stub-start (bash-completion--stub-start comp)))
 
-        (bash-completion--customize comp process)
+        (bash-completion--customize process comp)
         (list
          stub-start
          comp-pos
@@ -884,7 +892,7 @@ The result is a list of candidates, which might be empty."
       ;; just setup completion for the current command and is asking
       ;; us to retry once with the new configuration, retrieved by
       ;; bash-completion--customize.
-      (bash-completion--customize comp process 'nodefault)
+      (bash-completion--customize process comp 'forced)
       (setq completion-status (bash-completion-send
                                (bash-completion-generate-line comp)
                                process cmd-timeout comp)))
@@ -904,9 +912,8 @@ for directory name detection to work.
 Post-processing includes escaping special characters, adding a /
 to directory names, replacing STUB with UNPARSED-STUB in the
 result.  See `bash-completion-fix' for more details."
-  (let ((output) (candidates) (pwd))
+  (let ((output) (candidates))
     (with-current-buffer buffer
-      (setq pwd (bash-completion--parse-side-channel-data "pwd"))
       (let ((compopt (bash-completion--parse-side-channel-data "compopt")))
         (cond
          ((string= "-o nospace" compopt)
@@ -915,16 +922,13 @@ result.  See `bash-completion-fix' for more details."
           (setf (bash-completion--compopt comp) '((nospace . nil))))))
       (setq output (buffer-string)))
     (setq candidates (delete-dups (split-string output "\n" t)))
-    (let ((default-directory (if pwd
-                                 (concat (file-remote-p default-directory) pwd)
-                               default-directory)))
-      (if (eq 1 (length candidates))
-          (list (bash-completion-fix (car candidates) comp t))
-        ;; multiple candidates
-        (let ((result (list)))
-          (dolist (completion candidates)
-            (push (bash-completion-fix completion comp nil) result))
-          (delete-dups (nreverse result)))))))
+    (if (eq 1 (length candidates))
+        (list (bash-completion-fix (car candidates) comp t))
+      ;; multiple candidates
+      (let ((result (list)))
+        (dolist (completion candidates)
+          (push (bash-completion-fix completion comp nil) result))
+        (delete-dups (nreverse result))))))
 
 (defun bash-completion-fix (str comp single)
   "Fix completion candidate in STR for COMP.
@@ -939,11 +943,7 @@ Return a modified version of STR.
 Modification include:
  - escaping of special characters in STR
  - prepending the stub if STR does not contain all of it, when
-   completion was done after a wordbreak
- - adding / to recognized directory names
-
-It should be invoked with the comint buffer as the current buffer
-for directory name detection to work."
+   completion was done after a wordbreak"
   (let ((parsed-prefix (bash-completion--stub comp))
         (unparsed-prefix (bash-completion--unparsed-stub comp))
         (open-quote (bash-completion--open-quote comp))
@@ -993,10 +993,6 @@ for directory name detection to work."
        ((or (bash-completion--find-last last-char wordbreaks)
             (eq ?/ last-char))
         (setq suffix ""))
-       ((file-accessible-directory-p
-         (bash-completion--expand-file-name (bash-completion-unescape
-                                             open-quote (concat parsed-prefix rest))))
-        (setq suffix "/"))
        (single
         (setq suffix (concat close-quote-str final-space-str)))
        (t (setq suffix close-quote-str))))
@@ -1288,18 +1284,33 @@ The returned alist is a slightly parsed version of the output of
                         (push (cons command-name options) alist)))))))))))
     (nreverse alist)))
 
-(defun bash-completion--customize (comp process &optional nodefault)
-  (unless (eq 'command (bash-completion--type comp))
-    (let* ((complete-p (concat "complete -p "
-                               (bash-completion-quote (bash-completion--command comp))
-                               " 2>/dev/null || complete -p -D"))
-           (status (bash-completion-send
-                    (concat complete-p "&& type -t __emacs_complete_wrapper >/dev/null 2>&1"))))
-    (setf (bash-completion--compgen-args comp)
-          (cdr (car (bash-completion-build-alist
-                     (bash-completion--get-buffer process)))))
-    (when (= 1 status)
-      (bash-completion--setup-bash-common process)))))
+(defun bash-completion--customize (process comp &optional forced)
+  "Initialize current shell in PROCESS and fetch compgen args for COMP."
+  (cond
+   ((eq 'command (bash-completion--type comp))
+    ;; Just check that __emacs_fixdirs is defined, since it's
+    ;; required for doing command completion. No compgen args are
+    ;; available in this case.
+    (when (= 1 (bash-completion-send "type -t __emacs_fixdirs >/dev/null 2>&1" process))
+      (bash-completion--setup-bash-common process)))
+
+   ((or forced (null (bash-completion--compgen-args comp)))
+    ;; Fetch the compgen args for the current command, or the default
+    ;; compgen args otherwise. Make sure that __emacs_complete_wrapper
+    ;; is defined since this function is necessary for doing command
+    ;; completion.
+    (let ((status
+           (bash-completion-send
+            (concat "complete -p "
+                    (bash-completion-quote (bash-completion--command comp))
+                    " 2>/dev/null || complete -p -D"
+                    "&& type -t __emacs_complete_wrapper >/dev/null 2>&1")
+            process)))
+      (setf (bash-completion--compgen-args comp)
+            (cdr (car (bash-completion-build-alist
+                       (bash-completion--get-buffer process)))))
+      (when (= 1 status)
+        (bash-completion--setup-bash-common process))))))
 
 (defun bash-completion-generate-line (comp)
   "Generate a bash command to call \"compgen\" for COMP.
@@ -1323,8 +1334,7 @@ completion candidates."
         (compgen-args (bash-completion--compgen-args comp)))
     (concat
      (if bash-completion-use-separate-processes
-         (bash-completion-cd-command-prefix)
-       (bash-completion--side-channel-data "pwd" "${PWD}"))
+         (bash-completion-cd-command-prefix))
      (cond
       ((eq 'command completion-type)
        (concat "compgen -b -c -a -A function -- " quoted-stub))
@@ -1360,7 +1370,11 @@ completion candidates."
                (bash-completion-join compgen-args)
                quoted-stub))
       (t (error "Unsupported completion type: %s" completion-type)))
-     " 2>/dev/null")))
+     ;; __emacs_fixdirs post-processes the output to add / after
+     ;; directories. This is done in this way instead of using a pipe
+     ;; to avoid executing compgen in a subshell, as completion
+     ;; functions sometimes define new functions.
+     " 2>/dev/null  > >(__emacs_fixdirs); wait $!")))
 
 ;;;###autoload
 (defun bash-completion-refresh ()
@@ -1654,7 +1668,7 @@ characters.  These are output as-is."
 
 Parse that data from the buffer output using
 `bash-completion--side-channel-data'."
-  (format " echo -n \"\e\e%s=%s\e\e\";" name value))
+  (format " echo \"\e\e%s=%s\e\e\";" name value))
 
 (defun bash-completion--parse-side-channel-data (name)
   "Parse side-channel data NAME from the current buffer.
@@ -1671,7 +1685,7 @@ Return the parsed value, as a string or nil."
                      (regexp-quote name))
              nil 'noerror)
         (prog1 (match-string 1)
-          (delete-region (match-beginning 0) (match-end 0)))))))
+          (delete-region (match-beginning 0) (1+ (match-end 0))))))))
 
 (defun bash-completion--completion-table-with-cache (comp process)
   "Build a dynamic completion table for COMP using PROCESS.
