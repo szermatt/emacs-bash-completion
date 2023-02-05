@@ -107,8 +107,6 @@ the following:
 
 * Does bash behave differently when run outside of Emacs? If not, check
   your shell configuration.
-* Did you start a new bash process, with `exec bash` or `sudo` ? If yes, 
-  call `bash-completion-refresh` to configure the new bash process.
 * Call `M-x bash-completion-debug` and look at the completion table
   at the bottom. Does it match your expectation? If not, call 
   `M-x bash-completion-refresh` to refresh the copy of the completion 
