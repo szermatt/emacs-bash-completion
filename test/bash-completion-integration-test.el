@@ -119,14 +119,21 @@ It must exit when given C-d as input.")
   (buffer-substring-no-properties
    (line-beginning-position) (point)))
 
+(defun bash-completion_test-send-nowait (command)
+  "Execute COMMAND in the current shell buffer.
+
+This variant doesn't wait for the prompt to reappear."
+  (delete-region (line-beginning-position) (line-end-position))
+  (insert command)
+  (comint-send-input))
+
 (defun bash-completion_test-send (command &optional complete)
   "Execute COMMAND in a shell buffer.
 
 Return a marker pointing to the beginning of the command."
   (goto-char (point-max))
-  (let ((command-start (point))
-        (insertion-point))
-    (delete-region (line-beginning-position) (line-end-position))
+  (delete-region (line-beginning-position) (line-end-position))
+  (let ((command-start (point)))
     (prog1 (point-marker)
       (insert command)
       (when complete (completion-at-point))
@@ -303,18 +310,46 @@ across Emacs version."
             '("some/directory/" "some/other/")
             (bash-completion_test-candidates "ls some/")))
    ;; but then later on bash executes another command-line tool
-   (delete-region (line-beginning-position) (line-end-position))
-   (insert bash-completion_test-notbash-prog)
-   (comint-send-input)
+   (bash-completion_test-send-nowait bash-completion_test-notbash-prog)
    (let ((bash-completion--debug-info nil))
      (should-error (bash-completion_test-candidates "ls some/"))
      (should (equal "short-timeout" (cdr (assq 'error bash-completion--debug-info)))))
 
    ;; this is recoverable, once the other command-line tool exits,
    ;; completion works again.
-   (delete-region (line-beginning-position) (line-end-position))
-   (insert "\004") ;; C-d
-   (comint-send-input)
+   (bash-completion_test-send-nowait "\004") ;; C-d
+
+   (should (bash-completion_test-equal-any-order
+            '("some/directory/" "some/other/")
+            (bash-completion_test-candidates "ls some/")))))
+
+(ert-deftest bash-completion-integration-bash-in-bash ()
+  (skip-unless bash-completion_test-notbash-prog)
+  (bash-completion_test-with-shell-harness
+   "" ; bashrc
+   nil ; use-separate-process
+   ;; initially completion works
+   (should (bash-completion_test-equal-any-order
+            '("some/directory/" "some/other/")
+            (bash-completion_test-candidates "ls some/")))
+
+   ;; Start a bash subprocess. Note that Emacs normally adds
+   ;; --noediting, which isn't set here; it should work nevertheless.
+   (bash-completion_test-send bash-completion-prog)
+   (bash-completion_test-send "HISTFILE=/dev/null") ;; avoid history file
+   (bash-completion_test-send "function sometest { echo ok; }")
+   (should (bash-completion_test-equal-any-order
+            '("sometest ")
+            (bash-completion_test-candidates "somet")))
+   (should (bash-completion_test-equal-any-order
+            '("some/directory/" "some/other/")
+            (bash-completion_test-candidates "ls some/")))
+   (bash-completion_test-send "exit")
+
+   ;; back in the main bash process, completion results are different,
+   ;; as sometest isn't defined.
+   (should (bash-completion_test-equal-any-order
+            '() (bash-completion_test-candidates "somet")))
 
    (should (bash-completion_test-equal-any-order
             '("some/directory/" "some/other/")
