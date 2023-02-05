@@ -52,6 +52,10 @@ It must exit when given C-d as input.")
             (list "--noediting"
                   "--noprofile"
                   "--rcfile" (expand-file-name "bashrc" test-env-dir)))
+           (bash-completion-short-command-timeout 3.0)
+           (bash-completion-command-timeout 10.0)
+           (bash-completion-initial-timeout 10.0)
+           (bash-completion-process-timeout 5.0)
            (completion-ignore-case nil)
            (completion-in-region-function 'completion--in-region)
            (completion-cycle-threshold 20)
