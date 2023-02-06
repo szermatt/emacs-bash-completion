@@ -1563,12 +1563,6 @@ Return the status code of the command, as a number."
            bash-completion-short-command-timeout))
         (delete-region (point-min) (1+ (match-end 0))))
       (bash-completion--wait-for-regexp "timeout" process "==emacs==ret=-?[[:digit:]]+==." timeout)
-      ;; (when complete-command
-      ;;   ;; Detect the command having been echoed and remove it
-      ;;   (save-excursion
-      ;;     (goto-char (point-min))
-      ;;     (when (looking-at (regexp-quote complete-command))
-      ;;       (delete-region (match-beginning 0) (line-beginning-position 2)))))
       (let ((status (string-to-number
                      (buffer-substring-no-properties
                       (+ (point) 13)
