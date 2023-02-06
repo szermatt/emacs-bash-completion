@@ -1455,13 +1455,22 @@ and would like bash completion in Emacs to take these changes into account."
       (ansi-color-filter-region begin (point))
       "")))
 
-(defun bash-completion--wait-for-regexp (process prompt-regexp timeout &optional limit)
-  (let ((no-timeout t))
-    (goto-char (point-max))
-    (while (and no-timeout
-                (not (re-search-backward prompt-regexp limit t)))
-      (setq no-timeout (accept-process-output process timeout nil t)))
-    no-timeout))
+(defun bash-completion--wait-for-regexp (error-type process regexp timeout)
+  "Wait for PROCESS to output REGEXP in the current buffer.
+
+If after TIMEOUT seconds, the process hasn't sent anything, log
+an error ERROR-TYPE and report it to the user.
+
+This function returns only once REGEXP was found, with the point
+on the position where it was found and the corresponding match
+information."
+  (goto-char (point-max))
+  (while (not (re-search-backward regexp nil t))
+    (unless (accept-process-output process timeout nil t)
+      (push (cons 'error error-type) bash-completion--debug-info)
+      (push (cons 'buffer-string (buffer-substring-no-properties (point-min) (point-max)))
+            bash-completion--debug-info)
+      (error "Bash completion failed.  M-x bash-completion-debug for details"))))
 
 (defun bash-completion-send (commandline &optional process timeout debug-context)
   "Send a command to the bash completion process.
@@ -1509,12 +1518,9 @@ Return the status code of the command, as a number."
       (erase-buffer)
       (funcall send-string process complete-command)
       (unless bash-completion-use-separate-processes
-        (unless (bash-completion--wait-for-regexp
-                 process "==emacs==\\(nopre\\|bash\\)=[0-9]==." bash-completion-short-command-timeout)
-          (push (cons 'error "short-timeout") bash-completion--debug-info)
-          (push (cons 'buffer-string (buffer-substring-no-properties (point-min) (point-max)))
-                bash-completion--debug-info)
-          (error "Bash completion failed.  M-x bash-completion-debug for details"))
+        (bash-completion--wait-for-regexp
+         "short-timeout" process "==emacs==\\(nopre\\|bash\\)=[0-9]==."
+         bash-completion-short-command-timeout)
         (when (string= "nopre" (match-string 1))
           (setq
            complete-command
@@ -1552,18 +1558,11 @@ Return the status code of the command, as a number."
             commandline
             "; }\n"))
           (funcall send-string process complete-command)
-          (unless (bash-completion--wait-for-regexp
-                   process "==emacs==bash=[0-9]==." bash-completion-short-command-timeout)
-            (push (cons 'error "short-timeout") bash-completion--debug-info)
-            (push (cons 'buffer-string (buffer-substring-no-properties (point-min) (point-max)))
-                  bash-completion--debug-info)
-            (error "Bash completion failed.  M-x bash-completion-debug for details")))
+          (bash-completion--wait-for-regexp
+           "short-timeout" process "==emacs==bash=[0-9]==."
+           bash-completion-short-command-timeout))
         (delete-region (point-min) (1+ (match-end 0))))
-      (unless (bash-completion--wait-for-regexp process "==emacs==ret=-?[[:digit:]]+==." timeout)
-        (push (cons 'error "timeout") bash-completion--debug-info)
-        (push (cons 'buffer-string (buffer-substring-no-properties (point-min) (point-max)))
-              bash-completion--debug-info)
-        (error "Bash completion failed.  M-x bash-completion-debug for details"))
+      (bash-completion--wait-for-regexp "timeout" process "==emacs==ret=-?[[:digit:]]+==." timeout)
       ;; (when complete-command
       ;;   ;; Detect the command having been echoed and remove it
       ;;   (save-excursion

@@ -145,8 +145,12 @@ Return a marker pointing to the beginning of the command."
       (bash-completion_test-wait-for-prompt command-start))))
 
 (defun bash-completion_test-wait-for-prompt (&optional limit)
-  (bash-completion--wait-for-regexp
-   (get-buffer-process shell-buffer) "^.*$ " 3.0 limit))
+  (let ((process (get-buffer-process shell-buffer))
+        (no-timeout t))
+    (while (and no-timeout
+                (not (re-search-backward "^.*$ " limit t)))
+      (setq no-timeout (accept-process-output process 3.0 nil t)))
+    no-timeout))
 
 (defun bash-completion_test-buffer-string (&optional start end)
   (delete-trailing-whitespace (point-min) (point-max))
