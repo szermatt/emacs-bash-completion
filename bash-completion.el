@@ -414,13 +414,6 @@ returned."
     "}")
    process)
 
-  ;; some bash completion functions use quote_readline
-  ;; to double-quote strings - which compgen understands
-  ;; but only in some environment. disable this dreadful
-  ;; business to get a saner way of handling spaces.
-  ;; Noticed in bash_completion v1.872.
-  (bash-completion-send "function quote_readline { echo \"$1\"; }" process)
-
   (bash-completion-send "echo -n ${COMP_WORDBREAKS}" process)
   (process-put process 'wordbreaks
                (with-current-buffer (bash-completion--get-buffer process)
