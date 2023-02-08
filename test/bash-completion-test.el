@@ -344,28 +344,29 @@ The return value is the one returned by BODY."
             " "
             (bash-completion--parse (point-min) 2 wordbreaks))))))
 
-(ert-deftest bash-completion-build-alist ()
-  (should (equal
-	   '(("cdb" "-F" "_cdargs_aliases")
-	     ("project" "-F" "complete_projects")
-	     ("pro" "-F" "complete_projects")
-             ("scp" "-o" "default" "-W" "home\nhome.lan")
-	     ("cv" "-F" "_cdargs_aliases")
-	     ("cb" "-F" "_cdargs_aliases")
-	     (nil "-F" "_completion_loader"))
-	   (bash-completion-test-with-buffer
-	    "
-complete -F _cdargs_aliases cdb
-complete -F complete_projects project
-complete -F complete_projects pro
-complete -o default -W 'home
-home.lan' scp
-complete -F _cdargs_aliases cv
-complete -F _cdargs_aliases cb
-complete -F _completion_loader -D
-garbage
-"
-            (bash-completion-build-alist (current-buffer))))))
+(ert-deftest bash-completion-parse-complete-options ()
+  (bash-completion-test-with-buffer
+   "complete -F _cdargs_aliases cdb"
+   (should (equal '("-F" "_cdargs_aliases")
+                  (bash-completion--parse-complete-options))))
+  (bash-completion-test-with-buffer
+   "complete -F complete_projects pro"
+   (should (equal '("-F" "complete_projects")
+                  (bash-completion--parse-complete-options))))
+  (bash-completion-test-with-buffer
+   "complete -o plusdir -o default -F complete_projects pro"
+   (should (equal '("-o" "plusdir" "-o" "default" "-F" "complete_projects")
+                  (bash-completion--parse-complete-options))))
+  (bash-completion-test-with-buffer
+   "complete -F _first first
+    complete -F _second second"
+   (should (equal '("-F" "_first")
+                  (bash-completion--parse-complete-options))))
+  (bash-completion-test-with-buffer
+   "complete -o default -W 'home
+home.lan' scp"
+   (should (equal '("-o" "default" "-W" "home\nhome.lan")
+                  (bash-completion--parse-complete-options)))))
 
 (ert-deftest bash-completion-generate-line-test ()
   ;; no custom completion

@@ -1238,42 +1238,6 @@ Return a bash command-line for going to `default-directory' or \"\"."
                 " && ")
       "")))
 
-(defun bash-completion-build-alist (buffer)
-  "Parse the content of BUFFER into an alist.
-
-BUFFER should contains the output of:
-  complete -p
-
-The returned alist is a slightly parsed version of the output of
-\"complete -p\"."
-  (let ((alist (list)))
-    (with-current-buffer buffer
-      (save-excursion
-        (goto-char (point-min))
-        (when (search-forward-regexp "^complete" nil 'noerror)
-          (let ((tokens (bash-completion-strings-from-tokens
-                         (bash-completion-tokenize
-                          (match-beginning 0) (point-max)))))
-            (while tokens
-              (let ((command tokens)
-                    (command-end (member "\n" tokens)))
-                (setq tokens (cdr command-end))
-                (when command-end
-                  (setcdr command-end nil))
-                (when (string= "complete" (car command))
-                  (setq command (nreverse (cdr command)))
-                  (when (equal "\n" (car command))
-                    (setq command (cdr command)))
-                  (if (member "-D" command)
-                      ;; default completion
-                      (push (cons nil (nreverse (delete "-D" command))) alist)
-                    ;; normal completion
-                    (let ((command-name (car command))
-                          (options (nreverse (cdr command))))
-                      (when (and command-name options)
-                        (push (cons command-name options) alist)))))))))))
-    (nreverse alist)))
-
 (defun bash-completion--customize (process comp &optional forced)
   "Initialize current shell in PROCESS and fetch compgen args for COMP."
   (when (and (not (eq 'command (bash-completion--type comp)))
@@ -1281,10 +1245,35 @@ The returned alist is a slightly parsed version of the output of
     (bash-completion-send
      (concat "complete -p "
              (bash-completion-quote (bash-completion--command comp))
-             " 2>/dev/null || complete -p -D") process)
-    (setf (bash-completion--compgen-args comp)
-          (cdr (car (bash-completion-build-alist
-                     (bash-completion--get-buffer process)))))))
+             " 2>/dev/null || complete -p -D 2>/dev/null") process)
+    (setf
+     (bash-completion--compgen-args comp)
+     (with-current-buffer (bash-completion--get-buffer process)
+       (bash-completion--parse-complete-options)))))
+
+(defun bash-completion--parse-complete-options ()
+  "Parse options from a complete command, output by complete-p.
+
+The output is parsed from the current buffer. If more than one
+complete command is available, the options of the first one is
+returned.
+
+Returns the option as a list of strings."
+  (save-excursion
+    (goto-char (point-min))
+    (when (search-forward-regexp "^complete *" nil 'noerror)
+      (let ((args (bash-completion-strings-from-tokens
+                   (bash-completion-tokenize
+                    (match-end 0) (point-max)))))
+        ;; stop at the first newline token (not necessary the first
+        ;; newline)
+        (when-let ((end (member "\n" args)))
+          (setcdr end nil)
+          (setq args (butlast args)))
+        ;; remove the command name or the -D
+        (if (member "-D" args)
+            (delete "-D" args)
+          (butlast args))))))
 
 (defun bash-completion-generate-line (comp)
   "Generate a bash command to call \"compgen\" for COMP.
