@@ -380,10 +380,7 @@ returned."
            "  while read l; do "
            "    if [[ -d \"${l/#\~/$HOME}\" ]]; then echo \"$l/\"; else echo \"$l\"; fi; "
            "  done; "
-           "}")
-   process)
-  (bash-completion-send
-   (concat "function __ebcwrapper {"
+           "} ; function __ebcwrapper {"
            " COMP_TYPE=9; COMP_KEY=9; _EMACS_COMPOPT=\"\";"
            " eval $__EBCWRAPPER;"
            " local n=$?;"
@@ -395,23 +392,19 @@ returned."
            (bash-completion--side-channel-data "compopt" "${_EMACS_COMPOPT}")
            " fi;"
            " return $n;"
+           "} ; function compopt {"
+           " command compopt \"$@\" 2>/dev/null;"
+           " local ret=$?; "
+           " if [[ $ret == 1 && \"$*\" = *\"-o nospace\"* ]]; then"
+           "  _EMACS_COMPOPT='-o nospace';"
+           "  return 0;"
+           " fi;"
+           " if [[ $ret == 1 && \"$*\" = *\"+o nospace\"* ]]; then"
+           "  _EMACS_COMPOPT='+o nospace';"
+           "  return 0;"
+           " fi;"
+           " return $ret; "
            "}")
-   process)
-  (bash-completion-send
-   (concat
-    "function compopt {"
-    " command compopt \"$@\" 2>/dev/null;"
-    " local ret=$?; "
-    " if [[ $ret == 1 && \"$*\" = *\"-o nospace\"* ]]; then"
-    "  _EMACS_COMPOPT='-o nospace';"
-    "  return 0;"
-    " fi;"
-    " if [[ $ret == 1 && \"$*\" = *\"+o nospace\"* ]]; then"
-    "  _EMACS_COMPOPT='+o nospace';"
-    "  return 0;"
-    " fi;"
-    " return $ret; "
-    "}")
    process)
 
   (bash-completion-send "echo -n ${COMP_WORDBREAKS}" process)
@@ -1283,31 +1276,15 @@ The returned alist is a slightly parsed version of the output of
 
 (defun bash-completion--customize (process comp &optional forced)
   "Initialize current shell in PROCESS and fetch compgen args for COMP."
-  (cond
-   ((eq 'command (bash-completion--type comp))
-    ;; Just check that __ebcfixdirs is defined, since it's
-    ;; required for doing command completion. No compgen args are
-    ;; available in this case.
-    (when (= 1 (bash-completion-send "type -t __ebcfixdirs &>/dev/null " process))
-      (bash-completion--setup-bash-common process)))
-
-   ((or forced (null (bash-completion--compgen-args comp)))
-    ;; Fetch the compgen args for the current command, or the default
-    ;; compgen args otherwise. Make sure that __ebcwrapper
-    ;; is defined since this function is necessary for doing command
-    ;; completion.
-    (let ((status
-           (bash-completion-send
-            (concat "complete -p "
-                    (bash-completion-quote (bash-completion--command comp))
-                    " 2>/dev/null || complete -p -D"
-                    "&& type -t __ebcwrapper &>/dev/null ")
-            process)))
-      (setf (bash-completion--compgen-args comp)
-            (cdr (car (bash-completion-build-alist
-                       (bash-completion--get-buffer process)))))
-      (when (= 1 status)
-        (bash-completion--setup-bash-common process))))))
+  (when (and (not (eq 'command (bash-completion--type comp)))
+             (or forced (null (bash-completion--compgen-args comp))))
+    (bash-completion-send
+     (concat "complete -p "
+             (bash-completion-quote (bash-completion--command comp))
+             " 2>/dev/null || complete -p -D") process)
+    (setf (bash-completion--compgen-args comp)
+          (cdr (car (bash-completion-build-alist
+                     (bash-completion--get-buffer process)))))))
 
 (defun bash-completion-generate-line (comp)
   "Generate a bash command to call \"compgen\" for COMP.
@@ -1465,7 +1442,7 @@ information."
             bash-completion--debug-info)
       (error "Bash completion failed.  M-x bash-completion-debug for details"))))
 
-(defun bash-completion-send (commandline &optional process timeout debug-context)
+(defun bash-completion-send (commandline &optional process timeout debug-context define-functions)
   "Send a command to the bash completion process.
 
 COMMANDLINE should be a bash command, without the final newline.
@@ -1497,10 +1474,45 @@ Return the status code of the command, as a number."
                           #'process-send-string
                         #'comint-send-string))
          (complete-command
-          (format 
-           (if bash-completion-use-separate-processes
-               "%s\n"
-             "type __ebcpre &>/dev/null || echo ==emacs==nopre=${BASH_VERSINFO[0]}==. && { __ebcpre ; %s; }\n")
+          (format
+           (cond
+            ;; separate process; everything is ready.
+            (bash-completion-use-separate-processes "%s\n")
+            ;; single process, assume __ebcpre is already defined
+            ((not define-functions)
+             "type __ebcpre &>/dev/null || echo ==emacs==nopre=${BASH_VERSINFO[0]}==. && { __ebcpre; %s; }\n")
+            ;; single process, define __ebcpre
+            (t
+              (concat
+               "function __ebcnohistory {"
+               "  local c=$((HISTCMD-1)) maj=${BASH_VERSINFO[0]} min=${BASH_VERSINFO[1]};"
+               "  if [[ $maj -eq 5 && $min -ge 1 || $maj -gt 5 ]]; then"
+               "    c=$((c+1));"
+               "  fi;"
+               "  history -d $c &>/dev/null || true;"
+               "}; function __ebcpre {"
+               "  set +x; set +o emacs; set +o vi;"
+               "  echo \"==emacs==bash=${BASH_VERSINFO[0]}==.\";"
+               "  if [[ -z \"${__ebcps1}\" ]]; then "
+               "    __ebcps1=\"$PS1\";"
+               "    __ebcpc=\"$PROMPT_COMMAND\";"
+               "  fi;"
+               "  PROMPT_COMMAND=" ;; set a temporary prompt
+               (bash-completion-quote
+                (concat "PS1=" bash-completion--ps1 ";"
+                        "PROMPT_COMMAND=" ;; recover prompt
+                        (bash-completion-quote
+                         (concat
+                          "__ebcr=$?;"
+                          "PS1=\"${__ebcps1}\";"
+                          "PROMPT_COMMAND=\"${__ebcpc}\";"
+                          "unset __ebcps1 __ebcpc;"
+                          "if [[ -n \"$PROMPT_COMMAND\" ]]; then"
+                          "  (exit $__ebcr); eval \"$PROMPT_COMMAND\";"
+                          "fi;"))))
+               ";"
+               "  __ebcnohistory 1;"
+               "} && { __ebcpre; %s; }\n")))
            commandline)))
     (setq bash-completion--debug-info
           (list (cons 'commandline complete-command)
@@ -1515,42 +1527,13 @@ Return the status code of the command, as a number."
          "short-timeout" process "==emacs==\\(nopre\\|bash\\)=[0-9]==."
          bash-completion-short-command-timeout)
         (when (string= "nopre" (match-string 1))
-          (setq
-           complete-command
-           (concat
-            "function __ebcnohistory {"
-            "  local c=$((HISTCMD-$1)) maj=${BASH_VERSINFO[0]} min=${BASH_VERSINFO[1]};"
-            "  if [[ $maj -eq 5 && $min -ge 1 || $maj -gt 5 ]]; then"
-            "    c=$((c+1));"
-            "  fi;"
-            "  history -d $c &>/dev/null || true;"
-            "};"
-            "function __ebcpre {"
-            "  set +x; set +o emacs; set +o vi;"
-            "  echo \"==emacs==bash=${BASH_VERSINFO[0]}==.\";"
-            "  if [[ -z \"${__ebcps1}\" ]]; then "
-            "    __ebcps1=\"$PS1\";"
-            "    __ebcpc=\"$PROMPT_COMMAND\";"
-            "  fi;"
-            "  PROMPT_COMMAND=" ;; set a temporary prompt
-            (bash-completion-quote
-             (concat "PS1=" bash-completion--ps1 ";"
-                     "PROMPT_COMMAND=" ;; recover prompt
-                     (bash-completion-quote
-                      (concat
-                       "__ebcr=$?;"
-                       "PS1=\"${__ebcps1}\";"
-                       "PROMPT_COMMAND=\"${__ebcpc}\";"
-                       "unset __ebcps1 __ebcpc;"
-                       "if [[ -n \"$PROMPT_COMMAND\" ]]; then"
-                       "  (exit $__ebcr); eval \"$PROMPT_COMMAND\";"
-                       "fi;"))))
-            ";"
-            "  __ebcnohistory 1;"
-            "} && __ebcnohistory 2 && __ebcpre && { "
-            commandline
-            "; }\n"))
-          (funcall send-string process complete-command)
+          ;; __ecbpre isn't defined yet. We're talking to an
+          ;; un-initialized instance of Bash. Define the utility
+          ;; functions, erase the failed attempt from history, run
+          ;; common initialization, then retry.
+          (bash-completion-send "__ebcnohistory" process timeout debug-context 'define-functions)
+          (bash-completion--setup-bash-common process)
+          (funcall send-string process (concat "__ebcpre; " commandline ";\n"))
           (bash-completion--wait-for-regexp
            "short-timeout" process "==emacs==bash=[0-9]==."
            bash-completion-short-command-timeout))
