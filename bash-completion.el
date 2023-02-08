@@ -1267,9 +1267,10 @@ Returns the option as a list of strings."
                     (match-end 0) (point-max)))))
         ;; stop at the first newline token (not necessary the first
         ;; newline)
-        (when-let ((end (member "\n" args)))
-          (setcdr end nil)
-          (setq args (butlast args)))
+        (let ((end (member "\n" args)))
+          (when end
+            (setcdr end nil)
+            (setq args (butlast args))))
         ;; remove the command name or the -D
         (if (member "-D" args)
             (delete "-D" args)
