@@ -107,16 +107,11 @@ the following:
 
 * Does bash behave differently when run outside of Emacs? If not, check
   your shell configuration.
-* Call `M-x bash-completion-debug` and look at the completion table
-  at the bottom. Does it match your expectation? If not, call 
-  `M-x bash-completion-refresh` to refresh the copy of the completion 
-  table kept by Emacs, or if you're in a  `M-x execute` or `M-x compile` 
-  prompt, call `M-x bash-completion-reset-all`, then try again.
-* Still on `M-x bash-completion-debug`, does the `output-buffer` section
-  match the expected set of completion? If yes, it might be a display
-  problem. Are you using a completion engine other than the default, 
-  such as ivy or helm? Try turning it off to confirm, then [file
-  a bug][new_issue]
+* Call `M-x bash-completion-debug` and look at the `output-buffer` 
+  section. Does it  match the expected set of completion? If yes, 
+  it might be a display problem. Are you using a completion engine 
+  other than the default, such as ivy or helm? Try turning it off to 
+  confirm, then [file a bug][new_issue]
 * If all else fails, [file a bug][new_issue]. Please include the output 
   of `M-x bash-completion-debug`, the command you're trying to use
   and the function or package providing completion for that command and
