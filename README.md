@@ -126,7 +126,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
 ## COMPATIBILITY
 
 bash-completion.el is known to work with Bash 4 and 5, on Emacs,
-starting with version 25.3, under Linux and OSX. It does not work on
-XEmacs.
+starting with version 25.3, under Linux and OSX.
 
 [new_issue]: https://github.com/szermatt/emacs-bash-completion/issues/new
