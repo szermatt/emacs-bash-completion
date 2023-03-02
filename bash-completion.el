@@ -1492,7 +1492,7 @@ Return the status code of the command, as a number."
             (bash-completion-use-separate-processes "%s\n")
             ;; single process, assume __ebcpre is already defined
             ((not define-functions)
-             "type __ebcpre &>/dev/null || echo ==emacs==nopre=${BASH_VERSINFO[0]}.${BASH_VERSINFO[1]}==. && { __ebcpre; %s; }\n")
+             "type __ebcpre &>/dev/null || echo ==emacs==nopre=${BASH_VERSION}==. && { __ebcpre; %s; }\n")
             ;; single process, define __ebcpre
             (t
               (concat
@@ -1504,7 +1504,7 @@ Return the status code of the command, as a number."
                "  history -d $c &>/dev/null || true;"
                "}; function __ebcpre {"
                "  set +x; set +o emacs; set +o vi;"
-               "  echo \"==emacs==bash=${BASH_VERSINFO[0]}.${BASH_VERSINFO[1]}==.\";"
+               "  echo \"==emacs==bash=${BASH_VERSION}==.\";"
                "  if [[ -z \"${__ebcps1}\" ]]; then "
                "    __ebcps1=\"$PS1\";"
                "    __ebcpc=\"$PROMPT_COMMAND\";"
@@ -1536,7 +1536,7 @@ Return the status code of the command, as a number."
       (funcall send-string process complete-command)
       (unless bash-completion-use-separate-processes
         (bash-completion--wait-for-regexp
-         "short-timeout" process "==emacs==\\(nopre\\|bash\\)=\\([0-9]\\.[0-9]*\\)==."
+         "short-timeout" process "==emacs==\\(nopre\\|bash\\)=\\([0-9].*?\\)==."
          bash-completion-short-command-timeout)
         (push (cons 'bash-version (match-string 2)) bash-completion--debug-info)
         (when (string= "nopre" (match-string 1))
@@ -1548,7 +1548,7 @@ Return the status code of the command, as a number."
           (bash-completion--setup-bash-common process)
           (funcall send-string process (concat "__ebcpre; " commandline ";\n"))
           (bash-completion--wait-for-regexp
-           "short-timeout" process "==emacs==bash=[0-9]\\.[0-9]*==."
+           "short-timeout" process "==emacs==bash=[0-9].*?==."
            bash-completion-short-command-timeout))
         (delete-region (point-min) (1+ (match-end 0))))
       (bash-completion--wait-for-regexp "timeout" process "==emacs==ret=-?[[:digit:]]+==." timeout)
