@@ -386,13 +386,22 @@ returned."
            "  while read l; do "
            "    if [[ -d \"${l/#\~/$HOME}\" ]]; then echo \"$l/\"; else echo \"$l\"; fi; "
            "  done; "
-           "} ; function __ebcompgen {"
+           "} ; case \"${BASH_VERSINFO[0]}.${BASH_VERSINFO[1]}\" in "
+           "  4.[23]) function __ebcompgen {"
+           ;; __ebcfixdirs cannot safely be applied to post-process
+           ;; the output of compgen in the general case because wait
+           ;; $! doesn't work with <(..) before version 4.4.
+           "    compgen \"$@\" 2>/dev/null; "
+           "  } ;;"
+           "  *) function __ebcompgen {"
            ;; __ebcfixdirs post-processes the output to add / after
            ;; directories. This is done in this way instead of using a pipe
            ;; to avoid executing compgen in a subshell, as completion
            ;; functions sometimes define new functions.
            "    compgen \"$@\" 2>/dev/null > >(__ebcfixdirs); wait $!; "
-           "} ; function __ebcwrapper {"
+           "  } ;;"
+           "esac; "
+           "function __ebcwrapper {"
            " COMP_TYPE=9; COMP_KEY=9; _EMACS_COMPOPT=\"\";"
            " eval $__EBCWRAPPER;"
            " local n=$?;"

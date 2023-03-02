@@ -192,13 +192,25 @@ for testing completion."
         (insert "HISTFILE=/dev/null\n")
         (insert "history -c\n"))
       (let ((default-directory test-env-dir))
+        (with-temp-file "testfile1" (insert "test"))
+        (with-temp-file "testfile2" (insert "test"))
+        (with-temp-file "moretestfile" (insert "test"))
         (make-directory "some/directory" 'parents)
-        (make-directory "some/other/directory" 'parents)))))
+        (with-temp-file "some/testfile" (insert "test"))
+        (make-directory "some/other/directory" 'parents)
+        (with-temp-file "some/other/testfile1" (insert "test"))
+        (with-temp-file "some/other/testfile2" (insert "test"))
+        ))))
 
 (defun bash-completion_test-teardown-env (test-env-dir)
   "Deletes everything `bash-completion_test-setup-env' set up."
   (when test-env-dir
     (delete-directory test-env-dir 'recursive)))
+
+(defun bash-completion_test-post-44-p ()
+  (not (string-match-p
+        "version 4\\.[0123].*"
+        (shell-command-to-string (concat bash-completion-prog " -version")))))
 
 (defun bash-completion_test-equal-any-order (expected actual)
   "Compare a sorted list of string EXPECTED with ACTUAL.
@@ -249,12 +261,12 @@ across Emacs version."
    (should (equal "somefunction so"
                   (bash-completion_test-complete "somefunction so"))) ;
    ;; function returns nothing, -o default, so fallback to default 
-   (should (equal "someotherfunction some/"
-                   (bash-completion_test-complete "someotherfunction so")))
+   (should (equal "someotherfunction moretestfile "
+                   (bash-completion_test-complete "someotherfunction moret")))
    ;; wordbreak completion
-   (should (equal "export SOMEPATH=some/directory:some/other/"
+   (should (equal "export SOMEPATH=some/directory:some/testfile "
                   (bash-completion_test-complete
-                   "export SOMEPATH=some/directory:some/oth")))))
+                   "export SOMEPATH=some/directory:some/te")))))
 
 (ert-deftest bash-completion-integration-multiple-completions-test ()
   (bash-completion_test-multiple-completions-test ""))
@@ -268,10 +280,10 @@ across Emacs version."
    bashrc
    nil ; use-separate-process
    (should (bash-completion_test-equal-any-order
-            '("some/directory/" "some/other/")
-            (bash-completion_test-candidates "ls some/")))
-   (should (equal '("some/directory/") (bash-completion_test-candidates "ls some/d")))
-   (should (equal '("some/directory/") (bash-completion_test-candidates "ls some/di")))
+            '("some/other/testfile1" "some/other/testfile2")
+            (bash-completion_test-candidates "ls some/other/te")))
+   (should (equal '("some/testfile ") (bash-completion_test-candidates "ls some/te")))
+   (should (equal '("some/testfile ") (bash-completion_test-candidates "ls some/te")))
    (should (equal '() (bash-completion_test-candidates "ls some/do")))))
 
 (ert-deftest bash-completion-integration-nocomint-test ()
@@ -315,12 +327,12 @@ across Emacs version."
    nil ; use-separate-process
    ;; initially completion works
    (should (bash-completion_test-equal-any-order
-            '("some/directory/" "some/other/")
-            (bash-completion_test-candidates "ls some/")))
+            '("testfile1" "testfile2")
+            (bash-completion_test-candidates "ls testf")))
    ;; but then later on bash executes another command-line tool
    (bash-completion_test-send-nowait bash-completion_test-notbash-prog)
    (let ((bash-completion--debug-info nil))
-     (should-error (bash-completion_test-candidates "ls some/"))
+     (should-error (bash-completion_test-candidates "ls testf"))
      (should (equal "short-timeout" (cdr (assq 'error bash-completion--debug-info)))))
 
    ;; this is recoverable, once the other command-line tool exits,
@@ -328,8 +340,8 @@ across Emacs version."
    (bash-completion_test-send-nowait "\004") ;; C-d
 
    (should (bash-completion_test-equal-any-order
-            '("some/directory/" "some/other/")
-            (bash-completion_test-candidates "ls some/")))))
+            '("testfile1" "testfile2")
+            (bash-completion_test-candidates "ls testf")))))
 
 (ert-deftest bash-completion-integration-bash-in-bash ()
   (skip-unless bash-completion_test-notbash-prog)
@@ -338,8 +350,8 @@ across Emacs version."
    nil ; use-separate-process
    ;; initially completion works
    (should (bash-completion_test-equal-any-order
-            '("some/directory/" "some/other/")
-            (bash-completion_test-candidates "ls some/")))
+            '("testfile1" "testfile2")
+            (bash-completion_test-candidates "ls testf")))
 
    ;; Start a bash subprocess. Note that Emacs normally adds
    ;; --noediting, which isn't set here; it should work nevertheless.
@@ -350,8 +362,8 @@ across Emacs version."
             '("sometest ")
             (bash-completion_test-candidates "somet")))
    (should (bash-completion_test-equal-any-order
-            '("some/directory/" "some/other/")
-            (bash-completion_test-candidates "ls some/")))
+            '("testfile1" "testfile2")
+            (bash-completion_test-candidates "ls testf")))
    (bash-completion_test-send "exit")
 
    ;; back in the main bash process, completion results are different,
@@ -360,16 +372,20 @@ across Emacs version."
             '() (bash-completion_test-candidates "somet")))
 
    (should (bash-completion_test-equal-any-order
-            '("some/directory/" "some/other/")
-            (bash-completion_test-candidates "ls some/")))))
+            '("testfile1" "testfile2")
+            (bash-completion_test-candidates "ls testf")))))
 
 (ert-deftest bash-completion-integration-space ()
+  ;; While completion generally works with Bash 4.0, 4.1, 4.2 and 4.3,
+  ;; bash-completion.el appending / to directories doesn't work.
+  (skip-unless (bash-completion_test-post-44-p))
   (bash-completion_test-with-shell-harness
    ""
    t ; bash-completion-use-separate-processes
    (bash-completion_test-test-spaces)))
 
 (ert-deftest bash-completion-integration-space-and-prog-completion ()
+  (skip-unless (bash-completion_test-post-44-p))
   ;; Recent version of bash completion define a completion for ls. This
   ;; test makes sure that it works.
   (when (and bash-completion_test-setup-completion
@@ -381,7 +397,7 @@ across Emacs version."
   
 (defun bash-completion_test-test-spaces ()
    (make-directory "my dir1/my dir2" 'parents)
-   (with-temp-buffer (write-file "my dir1/other"))
+   (with-temp-file "my dir1/other" (insert "test"))
 
    (should (equal "ls my\\ dir1/" (bash-completion_test-complete "ls my")))
    (should (equal "ls my\\ dir1/my\\ dir2/" (bash-completion_test-complete "ls my\\ dir1/my")))
@@ -507,8 +523,8 @@ across Emacs version."
    "set -x\n" ;; .bashrc
    nil ;; use-separate-process
    (should (bash-completion_test-equal-any-order
-            '("some/directory/" "some/other/")
-            (bash-completion_test-candidates "ls some/")))))
+            '("testfile1" "testfile2")
+            (bash-completion_test-candidates "ls te")))))
 
 (ert-deftest bash-completion-integration-refresh-test ()
   (bash-completion_test-with-shell-harness
@@ -563,35 +579,35 @@ across Emacs version."
    nil ; use-separate-process
    (with-temp-file "test-inputrc"
      (insert "set completion-ignore-case on\n"))
-   (make-directory "Uppercase")
-   (make-directory "Another Uppercase")
-   (make-directory "libs")
-   (make-directory "Library")
+   (with-temp-file "Uppercase" (insert "test"))
+   (with-temp-file "Another Uppercase" (insert "test"))
+   (with-temp-file "libs" (insert "test"))
+   (with-temp-file "library" (insert "test"))
    (bash-completion_test-with-shell
     ;; Case insensitive completion is done by compgen which, under
     ;; bash 4, respects the case sensitivity settings set in
     ;; .inputrc.
-    (should (equal "ls some/" (bash-completion_test-complete "ls so")))
-    (should (equal "ls some/" (bash-completion_test-complete "ls So")))
-    (should (equal "ls Uppercase/" (bash-completion_test-complete "ls Up")))
-    (should (equal "ls Uppercase/" (bash-completion_test-complete "ls up")))
+    (should (equal "ls testfile1" (bash-completion_test-complete "ls testf")))
+    (should (equal "ls testfile1" (bash-completion_test-complete "ls TestF")))
+    (should (equal "ls Uppercase " (bash-completion_test-complete "ls Up")))
+    (should (equal "ls Uppercase " (bash-completion_test-complete "ls up")))
     
-    (should (equal "ls libs/" (bash-completion_test-complete "ls li")))
-    (should (equal "ls libs/" (bash-completion_test-complete "ls Li")))
+    (should (equal "ls libs" (bash-completion_test-complete "ls li")))
+    (should (equal "ls libs" (bash-completion_test-complete "ls Li")))
 
-    (should (equal "ls Another\\ Uppercase/" (bash-completion_test-complete "ls Ano")))
-    (should (equal "ls Another\\ Uppercase/" (bash-completion_test-complete "ls ano")))
-    (should (equal "ls \"Another Uppercase/" (bash-completion_test-complete "ls \"Ano")))
-    (should (equal "ls \"Another Uppercase/" (bash-completion_test-complete "ls \"ano")))
-    (should (equal "ls 'Another Uppercase/" (bash-completion_test-complete "ls 'Ano")))
-    (should (equal "ls 'Another Uppercase/" (bash-completion_test-complete "ls 'ano")))
+    (should (equal "ls Another\\ Uppercase " (bash-completion_test-complete "ls Ano")))
+    (should (equal "ls Another\\ Uppercase " (bash-completion_test-complete "ls ano")))
+    (should (equal "ls \"Another Uppercase\" " (bash-completion_test-complete "ls \"Ano")))
+    (should (equal "ls \"Another Uppercase\" " (bash-completion_test-complete "ls \"ano")))
+    (should (equal "ls 'Another Uppercase' " (bash-completion_test-complete "ls 'Ano")))
+    (should (equal "ls 'Another Uppercase' " (bash-completion_test-complete "ls 'ano")))
 
     ;; When doing case-insensitive search, bash-completion.el cannot
     ;; keep the exact same quotes, so it just puts the quote, if
     ;; any, at the beginning, just after the tilde part.
-    (should (equal "ls \"Another Uppercase/" (bash-completion_test-complete "ls ano\"t")))
-    (should (equal "ls 'Another Uppercase/" (bash-completion_test-complete "ls ano't")))
-    (should (equal "ls ~/\"Another Uppercase/" (bash-completion_test-complete "ls ~/ano\"t"))))))
+    (should (equal "ls \"Another Uppercase\" " (bash-completion_test-complete "ls ano\"t")))
+    (should (equal "ls 'Another Uppercase' " (bash-completion_test-complete "ls ano't")))
+    (should (equal "ls ~/\"Another Uppercase\" " (bash-completion_test-complete "ls ~/ano\"t"))))))
 
 (ert-deftest bash-completion-integration-case-sensitive-test ()
   (bash-completion_test-harness
@@ -600,11 +616,11 @@ across Emacs version."
    nil ; use-separate-process
    (with-temp-file "test-inputrc"
      (insert "set completion-ignore-case off\n"))
-   (make-directory "Uppercase")
+   (with-temp-file "Uppercase" (insert "test"))
    (bash-completion_test-with-shell
-    (should (equal "ls some/" (bash-completion_test-complete "ls so")))
-    (should (equal "ls So" (bash-completion_test-complete "ls So")))
-    (should (equal "ls Uppercase/" (bash-completion_test-complete "ls Up")))
+    (should (equal "ls moretestfile " (bash-completion_test-complete "ls moret")))
+    (should (equal "ls Te" (bash-completion_test-complete "ls Te")))
+    (should (equal "ls Uppercase " (bash-completion_test-complete "ls Up")))
     (should (equal "ls up" (bash-completion_test-complete "ls up")))
     (should (not completion-ignore-case)))))
 
@@ -612,10 +628,10 @@ across Emacs version."
   (bash-completion_test-with-shell-harness
    ""
    nil ; use-separate-process
-   (should (equal "ls some/" (bash-completion_test-complete "ls so")))
-   (should (equal "ls ~/some/" (bash-completion_test-complete "ls ~/so")))
-   (should (equal "ls \"~/some/" (bash-completion_test-complete "ls \"~/so")))
-   (should (equal "ls '~/some/" (bash-completion_test-complete "ls '~/so")))))
+   (should (equal "ls moretestfile " (bash-completion_test-complete "ls morete")))
+   (should (equal "ls ~/moretestfile " (bash-completion_test-complete "ls ~/morete")))
+   (should (equal "ls \"~/moretestfile\" " (bash-completion_test-complete "ls \"~/morete")))
+   (should (equal "ls '~/moretestfile' " (bash-completion_test-complete "ls '~/morete")))))
 
 (ert-deftest bash-completion-integration-prompt-command ()
   "Tests PROMPT_COMMAND storage and recovery in single-process mode."
@@ -628,7 +644,7 @@ function _prompt {
 PROMPT_COMMAND=_prompt
 "
    nil ; use-separate-process
-   (bash-completion_test-send "ls -1 so" 'complete)
+   (bash-completion_test-send "ls -1 morete" 'complete)
    (bash-completion_test-send "tru" 'complete)
    (bash-completion_test-send "fals" 'complete)
    ;; One call to PROMPT_COMMAND is deleted: the one called the 1st
@@ -637,9 +653,8 @@ PROMPT_COMMAND=_prompt
    ;; skipped.
    (should (equal
             (bash-completion_test-buffer-string)
-            "[0]:0 $ ls -1 some/
-directory
-other
+            "[0]:0 $ ls -1 moretestfile
+moretestfile
 [2]:0 $ true
 [3]:0 $ false
 [4]:1 $ "))))
@@ -649,14 +664,13 @@ other
   (bash-completion_test-with-shell-harness
    "PS1='$? $ '"
    nil ; use-separate-process
-   (bash-completion_test-send "ls -1 so" 'complete)
+   (bash-completion_test-send "ls -1 morete" 'complete)
    (bash-completion_test-send "tru" 'complete)
    (bash-completion_test-send "fals" 'complete)
    (should (equal
             (bash-completion_test-buffer-string)
-            "0 $ ls -1 some/
-directory
-other
+            "0 $ ls -1 moretestfile
+moretestfile
 0 $ true
 0 $ false
 1 $ "))))
@@ -666,7 +680,7 @@ other
   (bash-completion_test-with-shell-harness
    "PS1='$ '"
    nil ; use-separate-process
-   (bash-completion_test-send "ls -1 so" 'complete)
+   (bash-completion_test-send "ls -1 morete" 'complete)
    (bash-completion_test-send "tru" 'complete)
    (bash-completion_test-send "fals" 'complete)
    (let ((history-start (bash-completion_test-send "history")))
@@ -675,7 +689,7 @@ other
      (should (equal
               (bash-completion_test-buffer-string history-start)
               "history
-    1  ls -1 some/
+    1  ls -1 moretestfile
     2  true
     3  false
     4  history
@@ -687,7 +701,7 @@ $ ")))))
    ""  ; .bashrc
    nil ; use-separate-process
    (let ((default-directory "/does-not-exist/"))
-     (should (equal "ls some/" (bash-completion_test-complete "ls so"))))))
+     (should (equal "ls moretestfile " (bash-completion_test-complete "ls moret"))))))
 
 (ert-deftest bash-completion-integration-caching ()
   "Make sure caching works and that completion is only executed once."
@@ -712,8 +726,8 @@ $ ")))))
    ""
    nil ; use-separate-process
    (let ((default-directory test-env-dir))
-     (make-directory "some/file" 'parents)
-     (make-directory "some/filled" 'parents))
+     (with-temp-file "some/file" (insert "test"))
+     (with-temp-file "some/filled" (insert "test")))
    (let ((compfunc-some (bash-completion_test-candidates "ls some/f" 'dynamic-table))
          (compfunc-one (bash-completion_test-candidates "ls some/fill" 'dynamic-table)))
 
@@ -723,45 +737,45 @@ $ ")))))
      
      ;; all-completion
      (should (bash-completion_test-equal-any-order
-              '("some/file/" "some/filled/") (funcall compfunc-some "some/" nil t)))
-     (should (equal '("some/filled/") (funcall compfunc-some "some/fill" nil t)))
+              '("some/file" "some/filled") (funcall compfunc-some "some/" nil t)))
+     (should (equal '("some/filled") (funcall compfunc-some "some/fill" nil t)))
      (should (equal nil (funcall compfunc-some "other" nil t)))
-     (should (equal '("some/filled/") (funcall compfunc-one "some/fill" nil t)))
+     (should (equal '("some/filled ") (funcall compfunc-one "some/fill" nil t)))
 
      ;; all-completion with predicate
-     (should (equal '("some/file/")
+     (should (equal '("some/file")
                     (funcall compfunc-some "some/"
-                             (lambda (c) (string= c "some/file/")) t)))
+                             (lambda (c) (string= c "some/file")) t)))
      (should (equal nil
                     (funcall compfunc-some "some/" (lambda (c) nil) t)))
      (should (bash-completion_test-equal-any-order
-              '("some/file/" "some/filled/")
+              '("some/file" "some/filled")
               (funcall compfunc-some "some/" (lambda (c) t) t)))
 
      ;; try-completion
-     (should (equal "some/filled/" (funcall compfunc-one "some/fill" nil nil)))
+     (should (equal "some/filled " (funcall compfunc-one "some/fill" nil nil)))
      (should (equal "some/fil" (funcall compfunc-some "some/" nil nil)))
-     (should (equal t (funcall compfunc-some "some/file/" nil nil)))
-     (should (equal t (funcall compfunc-one "some/filled/" nil nil)))
+     (should (equal t (funcall compfunc-some "some/file" nil nil)))
+     (should (equal t (funcall compfunc-one "some/filled " nil nil)))
 
      ;; try-completion with predicate
-     (should (equal "some/file/"
+     (should (equal "some/file"
                     (funcall compfunc-some "some/"
-                             (lambda (c) (string= c "some/file/")) nil)))
+                             (lambda (c) (string= c "some/file")) nil)))
      
      ;; test-completion
      (should (equal nil (funcall compfunc-some "some/" nil 'lambda)))
-     (should (equal t (funcall compfunc-some "some/file/" nil 'lambda)))
-     (should (equal t (funcall compfunc-some "some/filled/" nil 'lambda)))
+     (should (equal t (funcall compfunc-some "some/file" nil 'lambda)))
+     (should (equal t (funcall compfunc-some "some/filled" nil 'lambda)))
      (should (equal nil (funcall compfunc-one "some/fill" nil 'lambda)))
-     (should (equal t (funcall compfunc-one "some/filled/" nil 'lambda)))
+     (should (equal t (funcall compfunc-one "some/filled " nil 'lambda)))
 
      ;; test-completion with predicate
      (should (equal nil (funcall compfunc-some "some/" nil 'lambda)))
      (should (equal nil (funcall compfunc-some "some/file/"
-                                 (lambda (c) (string= c "some/filled/")) 'lambda)))
-     (should (equal t (funcall compfunc-some "some/filled/"
-                               (lambda (c) (string= c "some/filled/")) 'lambda)))
+                                 (lambda (c) (string= c "some/filled")) 'lambda)))
+     (should (equal t (funcall compfunc-some "some/filled"
+                               (lambda (c) (string= c "some/filled")) 'lambda)))
 
      ;; completion-boundaries (not supported)
      (should (equal nil (funcall compfunc-some "some/" nil '(boundaries . "/"))))
