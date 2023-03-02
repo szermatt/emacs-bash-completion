@@ -99,9 +99,11 @@
 
 ;;; Compatibility:
 
-;; bash-completion.el is known to work with Bash 4 and 5, on Emacs,
-;; starting with version 25.3, under Linux and OSX. It does not work
-;; on XEmacs.
+;; bash-completion.el is known to work with Bash 4.2 and later and
+;; Bash 5, on Emacs, starting with version 25.3, under Linux and OSX.
+;;
+;; Support for Bash 4.2 and 4.3 is incomplete: appending / to
+;; directories doesn't work. Consider upgrading to at least Bash 4.4.
 
 ;;; History:
 
@@ -369,8 +371,12 @@ returned."
 (defun bash-completion--setup-bash-common (process)
   "Setup PROCESS to be ready for completion."
   (unless (zerop
-           (bash-completion-send "echo -n $BASH_VERSION ; [[ ${BASH_VERSINFO[0]} -ge 4 ]]" process))
-    (error "bash-completion.el requires at least Bash 4, not %s."
+           (bash-completion-send
+            (concat
+             "echo -n $BASH_VERSION ; "
+             "[[ ${BASH_VERSINFO[0]} -gt 4 || ( ${BASH_VERSINFO[0]} = 4 && ${BASH_VERSINFO[1]} -ge 2 ) ]]")
+            process))
+    (error "bash-completion.el requires at least Bash 4.2, not %s."
            (with-current-buffer (bash-completion--get-buffer process)
              (buffer-substring-no-properties
               (point-min) (point-max)))))
