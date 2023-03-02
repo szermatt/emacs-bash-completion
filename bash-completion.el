@@ -380,6 +380,12 @@ returned."
            "  while read l; do "
            "    if [[ -d \"${l/#\~/$HOME}\" ]]; then echo \"$l/\"; else echo \"$l\"; fi; "
            "  done; "
+           "} ; function __ebcompgen {"
+           ;; __ebcfixdirs post-processes the output to add / after
+           ;; directories. This is done in this way instead of using a pipe
+           ;; to avoid executing compgen in a subshell, as completion
+           ;; functions sometimes define new functions.
+           "    compgen \"$@\" 2>/dev/null > >(__ebcfixdirs); wait $!; "
            "} ; function __ebcwrapper {"
            " COMP_TYPE=9; COMP_KEY=9; _EMACS_COMPOPT=\"\";"
            " eval $__EBCWRAPPER;"
@@ -1301,10 +1307,10 @@ completion candidates."
          (bash-completion-cd-command-prefix))
      (cond
       ((eq 'command completion-type)
-       (concat "compgen -b -c -a -A function -- " quoted-stub))
+       (concat "__ebcompgen -b -c -a -A function -- " quoted-stub))
 
       ((eq 'default completion-type)
-       (concat "compgen -o default -- " quoted-stub))
+       (concat "__ebcompgen -o default -- " quoted-stub))
 
       ((and (eq 'custom completion-type) (or (member "-F" compgen-args)
                                              (member "-C" compgen-args)))
@@ -1314,7 +1320,7 @@ completion candidates."
               (function-name (car (cdr function))))
          (setcar function "-F")
          (setcar (cdr function) "__ebcwrapper")
-         (format "__EBCWRAPPER=%s compgen %s -- %s"
+         (format "__EBCWRAPPER=%s __ebcompgen %s -- %s"
                  (bash-completion-quote
                   (format "COMP_LINE=%s; COMP_POINT=$(( 1 + ${#COMP_LINE} )); COMP_CWORD=%s; COMP_WORDS=( %s ); %s %s %s %s"
                           (bash-completion-quote (bash-completion--line comp))
@@ -1330,15 +1336,10 @@ completion candidates."
                  quoted-stub)))
       ((eq 'custom completion-type)
        ;; simple custom completion
-       (format "compgen %s -- %s"
+       (format "__ebcompgen %s -- %s"
                (bash-completion-join compgen-args)
                quoted-stub))
-      (t (error "Unsupported completion type: %s" completion-type)))
-     ;; __ebcfixdirs post-processes the output to add / after
-     ;; directories. This is done in this way instead of using a pipe
-     ;; to avoid executing compgen in a subshell, as completion
-     ;; functions sometimes define new functions.
-     " 2>/dev/null  > >(__ebcfixdirs); wait $!")))
+      (t (error "Unsupported completion type: %s" completion-type))))))
 
 ;;;###autoload
 (defun bash-completion-refresh ()

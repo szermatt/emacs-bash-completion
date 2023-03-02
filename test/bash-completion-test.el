@@ -374,7 +374,7 @@ home.lan' scp"
         (bash-completion-use-separate-processes t))
     (should
      (equal (concat "cd &>/dev/null /test"
-                    " && compgen -o default -- worl 2>/dev/null  > >(__ebcfixdirs); wait $!")
+                    " && __ebcompgen -o default -- worl")
             (bash-completion-generate-line
              (bash-completion--make
               :line "hello worl"
@@ -385,7 +385,7 @@ home.lan' scp"
 
     ;; custom completion no function or command
     (should (equal
-             "cd &>/dev/null /test && compgen -A -G '*.txt' -- worl 2>/dev/null  > >(__ebcfixdirs); wait $!"
+             "cd &>/dev/null /test && __ebcompgen -A -G '*.txt' -- worl"
              (bash-completion-generate-line
               (bash-completion--make
                :line "zorg worl"
@@ -403,7 +403,7 @@ home.lan' scp"
               "COMP_POINT=$(( 1 + ${#COMP_LINE} )); COMP_CWORD=2; "
               "COMP_WORDS=( zorg blah worl ); "
               "__zorg zorg worl blah' "
-              "compgen -F __ebcwrapper -- worl 2>/dev/null  > >(__ebcfixdirs); wait $!")
+              "__ebcompgen -F __ebcwrapper -- worl")
              (bash-completion-generate-line
               (bash-completion--make
                :line "zorg blah worl"
@@ -422,7 +422,7 @@ home.lan' scp"
               "COMP_CWORD=1; "
               "COMP_WORDS=( zorg worl ); "
               "__zorg zorg worl zorg' "
-              "compgen -F __ebcwrapper -- worl 2>/dev/null  > >(__ebcfixdirs); wait $!")
+              "__ebcompgen -F __ebcwrapper -- worl")
              (bash-completion-generate-line
               (bash-completion--make
                :line "zorg worl"
@@ -434,7 +434,7 @@ home.lan' scp"
 
     ;; command completion
     (should (equal
-             "cd &>/dev/null /test && compgen -b -c -a -A function -- worl 2>/dev/null  > >(__ebcfixdirs); wait $!"
+             "cd &>/dev/null /test && __ebcompgen -b -c -a -A function -- worl"
              (bash-completion-generate-line
               (bash-completion--make
                :line "worl"
@@ -895,7 +895,7 @@ before calling `bash-completion-dynamic-complete-nocomint'.
    (should (equal
             (list 7 9 '("hell" "hello1" "hello2"))
             (bash-completion-dynamic-complete-nocomint 3 (point))))
-   (should (equal "cd &>/dev/null /tmp/test && compgen -o default -- he 2>/dev/null  > >(__ebcfixdirs); wait $!"
+   (should (equal "cd &>/dev/null /tmp/test && __ebcompgen -o default -- he"
                   (pop --captured-commands)))))
 
 (ert-deftest bash-completion-simple-dynamic-table-test ()
@@ -1023,7 +1023,7 @@ before calling `bash-completion-dynamic-complete-nocomint'.
    (should (equal
             (concat
              "cd &>/dev/null /tmp/test && "
-             "compgen -o default -- 'Documents/Modes d'\\''emplois/' 2>/dev/null  > >(__ebcfixdirs); wait $!")
+             "__ebcompgen -o default -- 'Documents/Modes d'\\''emplois/'")
             (pop --captured-commands)))))
 
 (ert-deftest bash-completion-complete-single-quoted-dir ()
@@ -1057,7 +1057,7 @@ before calling `bash-completion-dynamic-complete-nocomint'.
             '("bin/" "bind")
             (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point)))))
    (should (equal (concat "cd &>/dev/null /tmp/test && "
-                          "compgen -b -c -a -A function -- b 2>/dev/null  > >(__ebcfixdirs); wait $!")
+                          "__ebcompgen -b -c -a -A function -- b")
                   (pop --captured-commands)))))
 
 (ert-deftest bash-completion-complete-command-with-space ()
@@ -1068,7 +1068,7 @@ before calling `bash-completion-dynamic-complete-nocomint'.
             '("some\\ command ")
             (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point)))))
    (should (equal (concat "cd &>/dev/null /tmp/test && "
-                          "compgen -b -c -a -A function -- 'some c' 2>/dev/null  > >(__ebcfixdirs); wait $!")
+                          "__ebcompgen -b -c -a -A function -- 'some c'")
                   (pop --captured-commands)))))
 
 (ert-deftest bash-completion-failed-completion ()
