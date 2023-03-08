@@ -1492,7 +1492,7 @@ Return the status code of the command, as a number."
             (bash-completion-use-separate-processes "%s\n")
             ;; single process, assume __ebcpre is already defined
             ((not define-functions)
-             "type __ebcpre &>/dev/null || echo ==emacs==nopre=${BASH_VERSION}==. && { __ebcpre; %s; }\n")
+             "if type __ebcpre &>/dev/null; then __ebcpre; %s; else echo ==emacs==nopre=${BASH_VERSION}==.; fi;\n")
             ;; single process, define __ebcpre
             (t
               (concat
