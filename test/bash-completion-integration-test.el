@@ -647,17 +647,15 @@ PROMPT_COMMAND=_prompt
    (bash-completion_test-send "ls -1 morete" 'complete)
    (bash-completion_test-send "tru" 'complete)
    (bash-completion_test-send "fals" 'complete)
-   ;; One call to PROMPT_COMMAND is deleted: the one called the 1st
-   ;; time completion is attempted. The output of PROMPT_COMMAND is
-   ;; deleted, but not the fact that it ran. This is while [1] is
-   ;; skipped.
+   ;; PROMPT_COMMAND is reset early on to avoid ever running it when
+   ;; doing completion.
    (should (equal
             (bash-completion_test-buffer-string)
             "[0]:0 $ ls -1 moretestfile
 moretestfile
-[2]:0 $ true
-[3]:0 $ false
-[4]:1 $ "))))
+[1]:0 $ true
+[2]:0 $ false
+[3]:1 $ "))))
 
 (ert-deftest bash-completion-integration-ps1 ()
   "Tests PS1 storage and recovery in single-process mode."

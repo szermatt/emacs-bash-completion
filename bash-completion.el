@@ -413,7 +413,10 @@ returned."
            (bash-completion--side-channel-data "compopt" "${_EMACS_COMPOPT}")
            " fi;"
            " return $n;"
-           "} ; function compopt {"
+           "}")
+   process)
+  (bash-completion-send
+   (concat "function compopt {"
            " command compopt \"$@\" 2>/dev/null;"
            " local ret=$?; "
            " if [[ $ret == 1 && \"$*\" = *\"-o nospace\"* ]]; then"
@@ -1492,7 +1495,14 @@ Return the status code of the command, as a number."
             (bash-completion-use-separate-processes "%s\n")
             ;; single process, assume __ebcpre is already defined
             ((not define-functions)
-             "if type __ebcpre &>/dev/null; then __ebcpre; %s; else echo ==emacs==nopre=${BASH_VERSION}==.; fi;\n")
+             (concat
+              "if type __ebcpre &>/dev/null; then "
+              "  __ebcpre; %s; "
+              "else "
+              "  echo ==emacs==nopre=${BASH_VERSION}==.; "
+              "  __ebcp=(\"$PS1\" \"$PROMPT_COMMAND\");"
+              "  unset PS1 PROMPT_COMMAND;"
+              "fi;\n"))
             ;; single process, define __ebcpre
             (t
               (concat
@@ -1505,9 +1515,8 @@ Return the status code of the command, as a number."
                "}; function __ebcpre {"
                "  set +x; set +o emacs; set +o vi;"
                "  echo \"==emacs==bash=${BASH_VERSION}==.\";"
-               "  if [[ -z \"${__ebcps1}\" ]]; then "
-               "    __ebcps1=\"$PS1\";"
-               "    __ebcpc=\"$PROMPT_COMMAND\";"
+               "  if [[ ${#__ebcp[@]} = 0 ]]; then "
+               "    __ebcp=(\"$PS1\" \"$PROMPT_COMMAND\");"
                "  fi;"
                "  PROMPT_COMMAND=" ;; set a temporary prompt
                (bash-completion-quote
@@ -1516,9 +1525,9 @@ Return the status code of the command, as a number."
                         (bash-completion-quote
                          (concat
                           "__ebcr=$?;"
-                          "PS1=\"${__ebcps1}\";"
-                          "PROMPT_COMMAND=\"${__ebcpc}\";"
-                          "unset __ebcps1 __ebcpc;"
+                          "PS1=\"${__ebcp[0]}\";"
+                          "PROMPT_COMMAND=\"${__ebcp[1]}\";"
+                          "unset __ebcp;"
                           "if [[ -n \"$PROMPT_COMMAND\" ]]; then"
                           "  (exit $__ebcr); eval \"$PROMPT_COMMAND\";"
                           "fi;"))))
