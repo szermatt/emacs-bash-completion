@@ -101,9 +101,6 @@
 
 ;; bash-completion.el is known to work with Bash 4.2 and later and
 ;; Bash 5, on Emacs, starting with version 25.3, under Linux and OSX.
-;;
-;; Support for Bash 4.2 and 4.3 is incomplete: appending / to
-;; directories doesn't work. Consider upgrading to at least Bash 4.4.
 
 ;;; History:
 
@@ -384,14 +381,21 @@ returned."
    (concat "function __ebcfixdirs {"
            "  local l; "
            "  while read l; do "
+           "    [[ \"$l\" = \"==eof==\" ]] && break;"
            "    if [[ -d \"${l/#\~/$HOME}\" ]]; then echo \"$l/\"; else echo \"$l\"; fi; "
            "  done; "
            "} ; case \"${BASH_VERSINFO[0]}.${BASH_VERSINFO[1]}\" in "
            "  4.[23]) function __ebcompgen {"
-           ;; __ebcfixdirs cannot safely be applied to post-process
-           ;; the output of compgen in the general case because wait
-           ;; $! doesn't work with <(..) before version 4.4.
-           "    compgen \"$@\" 2>/dev/null; "
+           ;; wait cannot be used with <(...) before Bash 4.4.
+           "    local fd p=$(mktemp -u);"
+           "    mkfifo \"$p\";"
+           "    exec {fd}<>\"$p\";"
+           "    rm \"$p\";"
+           "    { __ebcfixdirs & } <&$fd 2>/dev/null;"
+           "    local pid=$!;"
+           "    compgen \"$@\" >&$fd 2>/dev/null; echo ==eof==>&$fd;"
+           "    wait $pid 2>/dev/null;"
+           "    exec {fd}>&-;"
            "  } ;;"
            "  *) function __ebcompgen {"
            ;; __ebcfixdirs post-processes the output to add / after

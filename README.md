@@ -128,7 +128,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
 bash-completion.el is known to work with Bash 4.2 and later and Bash
 5, on Emacs, starting with version 25.3, under Linux and OSX. 
 
-Support for Bash 4.2 and 4.3 is incomplete: appending / to directories
-doesn't work. Consider upgrading to at least Bash 4.4.
-
 [new_issue]: https://github.com/szermatt/emacs-bash-completion/issues/new

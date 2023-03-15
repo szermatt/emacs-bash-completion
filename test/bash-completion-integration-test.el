@@ -185,7 +185,6 @@ for testing completion."
       (with-temp-file (expand-file-name "bashrc" test-env-dir)
         ;; Disable ZSH warning under MacOS Catalina
         (insert "export BASH_SILENCE_DEPRECATION_WARNING=1") 
-        (insert "export PATH=/bin\n")
         (insert (format "cd '%s'\n" test-env-dir))
         (insert bashrc)
         (insert "\n")
@@ -206,11 +205,6 @@ for testing completion."
   "Deletes everything `bash-completion_test-setup-env' set up."
   (when test-env-dir
     (delete-directory test-env-dir 'recursive)))
-
-(defun bash-completion_test-post-44-p ()
-  (not (string-match-p
-        "version 4\\.[0123].*"
-        (shell-command-to-string (concat bash-completion-prog " -version")))))
 
 (defun bash-completion_test-equal-any-order (expected actual)
   "Compare a sorted list of string EXPECTED with ACTUAL.
@@ -378,22 +372,20 @@ across Emacs version."
 (ert-deftest bash-completion-integration-space ()
   ;; While completion generally works with Bash 4.0, 4.1, 4.2 and 4.3,
   ;; bash-completion.el appending / to directories doesn't work.
-  (skip-unless (bash-completion_test-post-44-p))
   (bash-completion_test-with-shell-harness
    ""
    t ; bash-completion-use-separate-processes
    (bash-completion_test-test-spaces)))
 
 (ert-deftest bash-completion-integration-space-and-prog-completion ()
-  (skip-unless (bash-completion_test-post-44-p))
+  (skip-unless (and bash-completion_test-setup-completion
+                    (not (zerop (length bash-completion_test-setup-completion)))))
   ;; Recent version of bash completion define a completion for ls. This
   ;; test makes sure that it works.
-  (when (and bash-completion_test-setup-completion
-             (not (zerop (length bash-completion_test-setup-completion))))
-    (bash-completion_test-with-shell-harness
-     (concat "source " bash-completion_test-setup-completion "\n")
-     t ; bash-completion-use-separate-processes
-     (bash-completion_test-test-spaces))))
+  (bash-completion_test-with-shell-harness
+   (concat "source " bash-completion_test-setup-completion "\n")
+   t ; bash-completion-use-separate-processes
+   (bash-completion_test-test-spaces)))
   
 (defun bash-completion_test-test-spaces ()
    (make-directory "my dir1/my dir2" 'parents)
