@@ -64,41 +64,38 @@ from normal shell processes.
 
 ### Completion at point
 
-Additionally, you can enable bash completion in any buffer that contains bash 
-commands. To do that, call 
+You can also use bash completion as an additional completion function
+in any buffer that contains bash commands. To do that, add
+`bash-completion-capf-nonexclusive` to the buffer-local
+`completion-at-point-functions`. For example, you can setup bash
+completion in `eshell-mode` by invoking
+
+```elisp
+(add-hook 'eshell-mode-hook
+          (lambda ()
+            (add-hook 'completion-at-point-functions
+                      'bash-completion-capf-nonexclusive nil t)))
+```
+
+There is also a lower-level function
+`bash-completion-dynamic-complete-nocomint` which allows you to
+construct your own `completion-at-point` function.
+
 ```elisp
 (bash-completion-dynamic-complete-nocomint COMP-START COMP-POS DYNAMIC-TABLE)
-``` 
-from a function added to `completion-at-point-functions`. 
+```
 
-The trickiest part is setting COMP-START to where the bash command starts;
-It depends on the mode of the calling buffer and might, in some cases, span 
-multiple lines.
+COMP-START is where the bash command starts --- it depends on the mode
+of the calling buffer. In most cases, `line-beginning-position` works
+because it uses `field` boundaries.
 
 COMP-POS is usually the current position of the cursor.
 
-When calling from `completion-at-point`, make sure to pass a non-nil value 
-to the DYNAMIC-TABLE argument so it returns a function instead of a list
-of strings. This isn't just an optimization: returning a function instead 
-of a list tells Emacs it should avoids post-filtering the results and 
-possibly discarding useful completion from bash.
-
-For example, here's a function to to do bash completion from an 
-eshell buffer. To try it out, add the function below to your init file
-and bind `bash-completion-from-eshell` to a custom shortcut.
-
-```elisp
-(defun bash-completion-from-eshell ()
-  (interactive)
-  (let ((completion-at-point-functions
-         '(bash-completion-eshell-capf)))
-    (completion-at-point)))
-
-(defun bash-completion-eshell-capf ()
-  (bash-completion-dynamic-complete-nocomint
-   (save-excursion (eshell-bol) (point))
-   (point) t))
-```
+When calling from `completion-at-point`, make sure to pass a non-nil
+value to the DYNAMIC-TABLE argument so it returns a function instead
+of a list of strings. This isn't just an optimization: returning a
+function instead of a list tells Emacs it should avoids post-filtering
+the results and possibly discarding useful completion from bash.
 
 ## TROUBLESHOOTING
 
