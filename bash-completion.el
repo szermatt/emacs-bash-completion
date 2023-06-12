@@ -33,6 +33,17 @@
 ;;
 ;; to your initialisation file.
 ;;
+;; You can also use bash completion as an additional completion
+;; function in any buffer that contains bash commands. To do that, add
+;; `bash-completion-capf-nonexclusive' to the buffer-local
+;; `completion-at-point-functions'. For example, you can setup bash
+;; completion in `eshell-mode' by invoking
+;;
+;; (add-hook 'eshell-mode-hook
+;;           (lambda ()
+;;             (add-hook 'completion-at-point-functions
+;;                       'bash-completion-capf-nonexclusive nil t)))
+;;
 ;; The completion will be aware of bash builtins, alii and functions.
 ;; It does file expansion does file expansion inside of
 ;; colon-separated variables and after redirections (> or <), and
@@ -523,6 +534,20 @@ When doing completion outside of a comint buffer, call
       ;; cleanup
       (if message-timer
           (cancel-timer message-timer)))))
+
+;;;###autoload
+(defun bash-completion-capf-nonexclusive ()
+  "Bash completion function for `completion-at-point-functions'.
+
+Returns the same list as the one returned by
+`bash-completion-dynamic-complete-nocomint' appended with
+\(:exclusive no) so that other completion functions are tried
+when bash-completion fails to match the text at point."
+  (let ((compl (bash-completion-dynamic-complete-nocomint
+                (line-beginning-position)
+                (point) t)))
+    (when compl
+      (append compl '(:exclusive no)))))
 
 ;;;###autoload
 (defun bash-completion-dynamic-complete-nocomint
