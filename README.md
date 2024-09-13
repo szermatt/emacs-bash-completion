@@ -13,11 +13,22 @@ Bash completion for Emacs:
 - is configurable through programmable bash completion
 - works on remote shells, through TRAMP.
 
-A simpler and more complete alternative to bash-completion.el is to
-run a bash shell in a buffer in term mode (`M-x ansi-term`).
-Unfortunately, many Emacs editing features are not available when
-running in term mode.  Also, term mode is not available in
-shell-command prompts.
+However, bash-completion.el only works with bash. If you run 
+other shells or other interactive programs that support completion, 
+bash-completion will not be able to help. 
+
+A more powerful alternative to bash-completion.el is [MisTTY], 
+as it works with all shells and most interactive programs that support 
+completion. On the other hand, MisTTY cannot integrate with Emacs 
+completion and is not able to provide completion in shell-command 
+prompts nor in eshell mode. 
+
+> [!NOTE]  
+> While I'm still maintaining bash-completion.el, I've switched
+> to [MisTTY] for day-to-day operation, so that package is more
+> likely to receive updates. -- szermatt
+
+[MisTTY]: http://github.com/szermatt/mistty
 
 ## INSTALLATION
 
