@@ -119,7 +119,7 @@ the following:
   section. Does it  match the expected set of completion? If yes,
   it might be a display problem. Are you using a completion engine
   other than the default, such as ivy or helm? Try turning it off to
-  confirm, then [file a bug][new_issue]
+  confirm, then [file a bug][new_issue].
 * If all else fails, [file a bug][new_issue]. Please include the output
   of `M-x bash-completion-debug`, the command you're trying to use
   and the function or package providing completion for that command and
@@ -127,7 +127,9 @@ the following:
 
 ## CONTRIBUTING
 
-To report bugs, features or even to ask questions, please open an [issue](https://github.com/szermatt/emacs-bash-completion/issues). To contribute code or documentation, please open a [pull request](https://github.com/szermatt/emacs-bash-completion/pulls).
+To report bugs, features or even to ask questions, please open an
+[issue][issues].  To contribute code or documentation, please open a
+[pull request][pull-requests].
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
 
@@ -137,3 +139,5 @@ bash-completion.el is known to work with Bash 4.2 and later and Bash
 5, on Emacs, starting with version 25.3, under Linux and OSX.
 
 [new_issue]: https://github.com/szermatt/emacs-bash-completion/issues/new
+[issues]: https://github.com/szermatt/emacs-bash-completion/issues)
+[pull-requests]: (https://github.com/szermatt/emacs-bash-completion/pulls)
