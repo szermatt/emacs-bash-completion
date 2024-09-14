@@ -13,17 +13,17 @@ Bash completion for Emacs:
 - is configurable through programmable bash completion
 - works on remote shells, through TRAMP.
 
-However, bash-completion.el only works with bash. If you run 
-other shells or other interactive programs that support completion, 
-bash-completion will not be able to help. 
+However, bash-completion.el only works with bash. If you run
+other shells or other interactive programs that support completion,
+bash-completion will not be able to help.
 
-A more powerful alternative to bash-completion.el is [MisTTY], 
-as it works with all shells and most interactive programs that support 
-completion. On the other hand, MisTTY cannot integrate with Emacs 
-completion and is not able to provide completion in shell-command 
-prompts nor in eshell mode. 
+A more powerful alternative to bash-completion.el is [MisTTY],
+as it works with all shells and most interactive programs that support
+completion. On the other hand, MisTTY cannot integrate with Emacs
+completion and is not able to provide completion in shell-command
+prompts nor in eshell mode.
 
-> [!NOTE]  
+> [!NOTE]
 > While I'm still maintaining bash-completion.el, I've switched
 > to [MisTTY] for day-to-day operation, so that package is more
 > likely to receive updates. -- szermatt
@@ -115,25 +115,25 @@ the following:
 
 * Does bash behave differently when run outside of Emacs? If not, check
   your shell configuration.
-* Call `M-x bash-completion-debug` and look at the `output-buffer` 
-  section. Does it  match the expected set of completion? If yes, 
-  it might be a display problem. Are you using a completion engine 
-  other than the default, such as ivy or helm? Try turning it off to 
+* Call `M-x bash-completion-debug` and look at the `output-buffer`
+  section. Does it  match the expected set of completion? If yes,
+  it might be a display problem. Are you using a completion engine
+  other than the default, such as ivy or helm? Try turning it off to
   confirm, then [file a bug][new_issue]
-* If all else fails, [file a bug][new_issue]. Please include the output 
+* If all else fails, [file a bug][new_issue]. Please include the output
   of `M-x bash-completion-debug`, the command you're trying to use
   and the function or package providing completion for that command and
-  where to download it. 
+  where to download it.
 
 ## CONTRIBUTING
 
-To report bugs, features or even to ask questions, please open an [issue](https://github.com/szermatt/emacs-bash-completion/issues). To contribute code or documentation, please open a [pull request](https://github.com/szermatt/emacs-bash-completion/pulls). 
+To report bugs, features or even to ask questions, please open an [issue](https://github.com/szermatt/emacs-bash-completion/issues). To contribute code or documentation, please open a [pull request](https://github.com/szermatt/emacs-bash-completion/pulls).
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for more details. 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
 
 ## COMPATIBILITY
 
 bash-completion.el is known to work with Bash 4.2 and later and Bash
-5, on Emacs, starting with version 25.3, under Linux and OSX. 
+5, on Emacs, starting with version 25.3, under Linux and OSX.
 
 [new_issue]: https://github.com/szermatt/emacs-bash-completion/issues/new
