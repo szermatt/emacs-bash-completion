@@ -853,4 +853,19 @@ $ ")))))
      (should (equal nil (funcall compfunc-nonprefix "babeetai"
                                  (lambda (c) (equal "babeedai" c)) 'lambda))))))
 
+
+(ert-deftest bash-completion_test-issue-74 ()
+  (bash-completion_test-with-shell-harness
+   (concat ; .bashrc
+    "_mycmd() {\n"
+    "  readarray -t opts < <(printf \"foo\nbar\")\n"
+    "  COMPREPLY=($(compgen -W \"${opts[*]}\" -- \"${COMP_WORDS[$COMP_CWORD]}\"))\n"
+    "}\n"
+    "complete -F _mycmd mycmd\n")
+   nil ;; use-separate-process
+
+   (should (equal "mycmd bar "
+                  (bash-completion_test-complete "mycmd b")))))
+
+
 ;;; bash-completion-integration-test.el ends here

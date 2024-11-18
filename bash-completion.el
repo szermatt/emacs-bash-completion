@@ -395,9 +395,7 @@ returned."
            "    [[ \"$l\" = \"==eof==\" ]] && break;"
            "    if [[ -d \"${l/#\~/$HOME}\" ]]; then echo \"$l/\"; else echo \"$l\"; fi; "
            "  done; "
-           "} ; case \"${BASH_VERSINFO[0]}.${BASH_VERSINFO[1]}\" in "
-           "  4.[23]) function __ebcompgen {"
-           ;; wait cannot be used with <(...) before Bash 4.4.
+           "} ; function __ebcompgen {"
            "    local fd p=$(mktemp -u);"
            "    mkfifo \"$p\";"
            "    exec {fd}<>\"$p\";"
@@ -407,15 +405,7 @@ returned."
            "    compgen \"$@\" >&$fd 2>/dev/null; echo ==eof==>&$fd;"
            "    wait $pid 2>/dev/null;"
            "    exec {fd}>&-;"
-           "  } ;;"
-           "  *) function __ebcompgen {"
-           ;; __ebcfixdirs post-processes the output to add / after
-           ;; directories. This is done in this way instead of using a pipe
-           ;; to avoid executing compgen in a subshell, as completion
-           ;; functions sometimes define new functions.
-           "    compgen \"$@\" 2>/dev/null > >(__ebcfixdirs); wait $!; "
-           "  } ;;"
-           "esac; "
+           "  }; "
            "function __ebcwrapper {"
            " COMP_TYPE=9; COMP_KEY=9; _EMACS_COMPOPT=\"\";"
            " eval $__EBCWRAPPER;"
