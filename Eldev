@@ -1,0 +1,28 @@
+; -*- mode: emacs-lisp; lexical-binding: t -*-
+
+(setq eldev-build-treat-warnings-as-errors t)
+(setf eldev-project-loading-mode 'byte-compiled)
+(setq sentence-end-double-space nil)
+
+(eldev-use-plugin 'autoloads)
+(eldev-use-plugin 'maintainer)
+(setq eldev-release-test-local t)
+(eldev-add-loading-roots 'test "test")
+
+;; Exclude work and build files so Eldev doctor ignores them.
+(setf eldev-standard-excludes
+      `(:or ,eldev-standard-excludes "./license"))
+
+;; After a release, add a snapshot to tag a development version, so if the
+;; release is 1.0.0, the following development version is 1.0.1snapshot
+;; and the next release is going to be 1.0.2 or 1.1.
+(setq eldev-release-post-release-commit
+      (lambda (release-version)
+        (let ((major (or (nth 0 release-version) 0))
+              (minor (or (nth 1 release-version) 0))
+              (patch (or (nth 2 release-version) 0)))
+          (list major minor (1+ patch) -4))))
+
+(setq eldev-release-post-release-commit-message
+      "Development version, following release @[version-string]@")
+(add-hook 'eldev-release-post-release-preparators #'bash-completion-release-preparator)
