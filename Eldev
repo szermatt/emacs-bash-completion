@@ -13,6 +13,13 @@
 (setf eldev-standard-excludes
       `(:or ,eldev-standard-excludes "./license"))
 
+(eldev-defoption bash-eldev-completion-prog (&optional path)
+  "Tests look for Bash at PATH."
+  :options        (--bash)
+  :optional-value PATH
+  :for-command    test
+  (setq bash-completion-prog (when path (executable-find path))))
+
 ;; After a release, add a snapshot to tag a development version, so if the
 ;; release is 1.0.0, the following development version is 1.0.1snapshot
 ;; and the next release is going to be 1.0.2 or 1.1.
