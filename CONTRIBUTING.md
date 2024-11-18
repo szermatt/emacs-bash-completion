@@ -32,16 +32,15 @@ To contribute code to the project, open a [pull request][pulls].
 Before you do that, please make sure the any new features is covered
 by tests and that the tests pass. 
 
-To run the tests, install and setup
-[cask], then run them with 
+To run the tests, install [eldev], and run the tests with:
 ```bash
-make test
+eldev test
 ```
 
 Tests can also be run from inside Emacs,
 using `M-x ert-run-tests-interactively` but when you do so, be aware
 that there might be unexpected interaction with your Emacs
-configurations; Tests passing when run from Cask is what matters.
+configurations; Tests passing when run from Eldev is what matters.
 
 After you've sent your pull request, please check the result of
 [GitHub actions][actions] running tests on your pull request. GitHub
@@ -54,7 +53,7 @@ For larger features, it's a good idea to first open an
 thinking about working on it. This gives an opportunity to discuss the
 new feature and its possible implementations.
 
-[cask]: https://github.com/szermatt/emacs-bash-completion/issues
+[eldev]: https://emacs-eldev.github.io/eldev/
 [issues]: https://github.com/szermatt/emacs-bash-completion/issues
 [actions]: https://github.com/szermatt/emacs-bash-completion/actions
 [pulls]: https://github.com/szermatt/emacs-bash-completion/pulls
