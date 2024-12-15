@@ -445,6 +445,12 @@ returned."
                  (buffer-substring-no-properties
                   (point-min) (point-max))))
 
+  (bash-completion-send "echo -n ${BASH_COMPLETION_VERSINFO[*]}" process)
+  (process-put process 'bash-completion-scripts-version
+               (with-current-buffer (bash-completion--get-buffer process)
+                 (buffer-substring-no-properties
+                  (point-min) (point-max))))
+
   (bash-completion-send "bind -v 2>/dev/null" process)
   (process-put process 'completion-ignore-case
                (with-current-buffer (bash-completion--get-buffer process)
@@ -1645,6 +1651,7 @@ Return the status code of the command, as a number."
     (bash-completion--debug-print 'emacs-version emacs-version)
     (bash-completion--debug-print-procinfo 'bash-version) ; separate process
     (bash-completion--debug-print-info 'bash-version) ; one process
+    (bash-completion--debug-print-procinfo 'bash-completion-scripts-version)
     (bash-completion--debug-print-procinfo 'completion-ignore-case)
     (bash-completion--debug-print-info 'context)))
 
