@@ -853,7 +853,6 @@ $ ")))))
      (should (equal nil (funcall compfunc-nonprefix "babeetai"
                                  (lambda (c) (equal "babeedai" c)) 'lambda))))))
 
-
 (ert-deftest bash-completion_test-issue-74 ()
   (bash-completion_test-with-shell-harness
    (concat ; .bashrc
@@ -867,5 +866,38 @@ $ ")))))
    (should (equal "mycmd bar "
                   (bash-completion_test-complete "mycmd b")))))
 
+(ert-deftest bash-completion-integration-filenames-option ()
+  (bash-completion_test-with-shell-harness
+   (concat ; .bashrc
+    "function _dummy {\n"
+    "}\n"
+    "complete -F _dummy -o plusdir dummy\n")
+   nil
+   (should (equal
+            "dummy some/other/"
+            (bash-completion_test-complete "dummy some/ot")))))
+
+(ert-deftest bash-completion-integration-plusdir-option ()
+  (bash-completion_test-with-shell-harness
+   (concat ; .bashrc
+    "function _dummy {\n"
+    "}\n"
+    "complete -F _dummy -o filenames dummy\n")
+   nil
+   (should (equal
+            "dummy moretestfile "
+            (bash-completion_test-complete "dummy moret")))))
+
+(ert-deftest bash-completion-integration-new-compopt-options ()
+  (bash-completion_test-with-shell-harness
+   (concat ; .bashrc
+    "function _dummy {\n"
+    "    compopt -o default -o bashdefault\n"
+    "}\n"
+    "complete -F _dummy dummy\n")
+   nil
+   (should (equal
+            "dummy moretestfile "
+            (bash-completion_test-complete "dummy moret")))))
 
 ;;; bash-completion-integration-test.el ends here

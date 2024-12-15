@@ -329,8 +329,8 @@ Created by `bash-completion-send' and printed by
   stub           ; parsed version of the stub
   open-quote     ; quote open at stub end: nil, ?' or ?\""
   compgen-args   ; compgen arguments for this command (list of strings)
+  compopt-args   ; additional compgen arguments forced with compopt
   wordbreaks     ; value of COMP_WORDBREAKS active for this completion
-  compopt        ; options forced with compopt nil or `(nospace . ,bool)
   )
 
 (defun bash-completion--type (comp)
@@ -351,14 +351,15 @@ customized, usually by `bash-completion--customize'."
 The option can be:
  - set globally, by setting `bash-completion-nospace' to t
  - set for a customized completion, in bash, with
-   \"-o nospace\"."
-  (let ((cell))
-    (cond
-     (bash-completion-nospace t) ; set globally
-     ((setq cell (assq 'nospace (bash-completion--compopt comp)))
-      (cdr cell))
-     (t (bash-completion--has-compgen-option
-         (bash-completion--compgen-args comp) "nospace")))))
+   \"-o nospace\".
+ - set during completion, using compopt"
+  (or
+   bash-completion-nospace ; set globally
+   (eq 'set
+       (or (bash-completion--get-compgen-option
+            (bash-completion--compopt-args comp) "nospace")
+           (bash-completion--get-compgen-option
+            (bash-completion--compgen-args comp) "nospace")))))
 
 (defun bash-completion--command (comp)
   "Return the current command for the completion, if there is one.
@@ -424,13 +425,9 @@ returned."
    (concat "function compopt {"
            " command compopt \"$@\" 2>/dev/null;"
            " local ret=$?; "
-           " if [[ $ret == 1 && \"$*\" = *\"-o nospace\"* ]]; then"
-           "  _EMACS_COMPOPT='-o nospace';"
-           "  return 0;"
-           " fi;"
-           " if [[ $ret == 1 && \"$*\" = *\"+o nospace\"* ]]; then"
-           "  _EMACS_COMPOPT='+o nospace';"
-           "  return 0;"
+           " if [[ $ret == 1 ]]; then"
+           "  _EMACS_COMPOPT=\"$EMACS_COMPOPT $*\";"
+           " return 0;"
            " fi;"
            " return $ret; "
            "}")
@@ -934,8 +931,27 @@ The result is a list of candidates, which might be empty."
       (setq completion-status (bash-completion-send
                                (bash-completion-generate-line comp)
                                process cmd-timeout comp)))
-    (when (eq 0 completion-status)
-      (bash-completion-extract-candidates comp buffer))))
+    (let ((candidates (when (eq 0 completion-status)
+                        (bash-completion-extract-candidates comp buffer)))
+          (compopt (bash-completion--compopt-args comp)))
+
+      ;; Possibly run compgen as instructed by a call to compopt
+      ;; inside of a function.
+      (when (or (member "plusdir" compopt)
+                (and (null candidates)
+                     (or (member "default" compopt)
+                         (member "bashdefault" compopt)
+                         (member "dirnames" compopt)
+                         (member "filenames" compopt))))
+        (setf (bash-completion--compgen-args comp)
+              (bash-completion--compopt-args comp))
+        (when (eq 0 (bash-completion-send
+                     (bash-completion-generate-line comp)
+                     process cmd-timeout comp))
+          (setq candidates (append candidates
+                                   (bash-completion-extract-candidates
+                                    comp buffer)))))
+      candidates)))
 
 (defun bash-completion-extract-candidates (comp buffer)
   "Extract the completion candidates for COMP form BUFFER.
@@ -950,16 +966,11 @@ for directory name detection to work.
 Post-processing includes escaping special characters, adding a /
 to directory names, replacing STUB with UNPARSED-STUB in the
 result.  See `bash-completion-fix' for more details."
-  (let ((output) (candidates))
-    (with-current-buffer buffer
-      (let ((compopt (bash-completion--parse-side-channel-data "compopt")))
-        (cond
-         ((string= "-o nospace" compopt)
-          (setf (bash-completion--compopt comp) '((nospace . t))))
-         ((string= "+o nospace" compopt)
-          (setf (bash-completion--compopt comp) '((nospace . nil))))))
-      (setq output (buffer-string)))
-    (setq candidates (delete-dups (split-string output "\n" t)))
+  (with-current-buffer buffer
+    (setf (bash-completion--compopt-args comp)
+          (bash-completion--parse-side-channel-data "compopt" 'tokenize)))
+  (let* ((output (with-current-buffer buffer (buffer-string)))
+         (candidates (delete-dups (split-string output "\n" t))))
     (if (eq 1 (length candidates))
         (list (bash-completion-fix (car candidates) comp t))
       ;; multiple candidates
@@ -1689,14 +1700,23 @@ characters.  These are output as-is."
         (file-remote-p expanded 'localname)
       expanded)))
 
-(defun bash-completion--has-compgen-option (compgen-args option-name)
-  "Check whether COMPGEN-ARGS contains -o OPTION-NAME."
-  (let ((rest compgen-args) (found))
-    (while (and (not found)
-                (setq rest (cdr (member "-o" rest))))
-      (when (string= option-name (car rest))
-        (setq found t))
+(defun bash-completion--get-compgen-option (compgen-args option-name)
+  "Check whether COMPGEN-ARGS contains -o or +o OPTION-NAME.
+
+Returns nil if the option was unspecified, \\='set if it was
+specified with -o and \\='unset if it was specified with +o."
+  (let ((rest compgen-args)
+        found)
+    (while rest
+      (cond
+       ((and (string= "-o" (car rest))
+             (equal option-name (car (cdr rest))))
+        (setq found 'set))
+       ((and (string= "+o" (car rest))
+             (equal option-name (car (cdr rest))))
+        (setq found 'unset)))
       (setq rest (cdr rest)))
+
     found))
 
 (defun bash-completion--side-channel-data (name value)
@@ -1706,7 +1726,7 @@ Parse that data from the buffer output using
 `bash-completion--side-channel-data'."
   (format " echo \"\e\e%s=%s\e\e\";" name value))
 
-(defun bash-completion--parse-side-channel-data (name)
+(defun bash-completion--parse-side-channel-data (name &optional tokenize)
   "Parse side-channel data NAME from the current buffer.
 
 This parses data added by `bash-completion--side-channel-data'
@@ -1720,8 +1740,16 @@ Return the parsed value, as a string or nil."
              (format "\e\e%s=\\([^\e]*\\)\e\e"
                      (regexp-quote name))
              nil 'noerror)
-        (prog1 (match-string 1)
-          (delete-region (match-beginning 0) (1+ (match-end 0))))))))
+        (let ((result (match-string 1))
+              (start (match-beginning 0))
+              (end (1+ (match-end 0))))
+          (when tokenize
+            (setq result
+                  (bash-completion-strings-from-tokens
+                   (bash-completion-tokenize (match-beginning 1) (match-end 1)))))
+          (delete-region start end)
+          
+          result)))))
 
 (defun bash-completion--completion-table-with-cache (comp process)
   "Build a dynamic completion table for COMP using PROCESS.

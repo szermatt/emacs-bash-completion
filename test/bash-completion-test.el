@@ -1140,22 +1140,30 @@ before calling `bash-completion-dynamic-complete-nocomint'.
               '("somedir/")
               (nth 2 (bash-completion-dynamic-complete-nocomint 3 (point))))))))
 
-(ert-deftest bash-completion--has-compgen-option ()
+(ert-deftest bash-completion--get-compgen-option ()
   (should (equal nil
-                 (bash-completion--has-compgen-option
+                 (bash-completion--get-compgen-option
                   '("-F" "boo" "-o" "filenames" "-a" "-o" "default")
                   "nospace")))
-  (should (equal t
-                 (bash-completion--has-compgen-option
+  (should (equal 'set
+                 (bash-completion--get-compgen-option
                   '("-F" "boo" "-o" "filenames" "-a" "-o" "default")
                   "filenames")))
-  (should (equal t
-                 (bash-completion--has-compgen-option
+  (should (equal 'set
+                 (bash-completion--get-compgen-option
                   '("-F" "boo" "-o" "filenames" "-a" "-o" "default")
                   "default")))
-  (should (equal nil (bash-completion--has-compgen-option
+  (should (equal 'unset
+                 (bash-completion--get-compgen-option
+                  '("-F" "boo" "+o" "nospace" "-o" "default")
+                  "nospace")))
+  (should (equal 'set
+                 (bash-completion--get-compgen-option
+                  '("+o" "nospace" "-o" "nospace")
+                  "nospace")))
+  (should (equal nil (bash-completion--get-compgen-option
                       '("-o") "any")))
-  (should (equal nil (bash-completion--has-compgen-option '() "any"))))
+  (should (equal nil (bash-completion--get-compgen-option '() "any"))))
 
 (ert-deftest bash-completion--parse-side-channel-data ()
   (bash-completion-test-with-buffer
