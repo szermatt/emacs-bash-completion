@@ -17,7 +17,7 @@ is to add it yourself as code or documentation contributions.
 
 ## Asking questions
 
-Open an issue in the [issue tracker][issues] with your question.
+Start a new [discussion][discussions] with your question.
 
 ## Documentation contributions
 
@@ -55,5 +55,6 @@ new feature and its possible implementations.
 
 [eldev]: https://emacs-eldev.github.io/eldev/
 [issues]: https://github.com/szermatt/emacs-bash-completion/issues
+[discussions]: https://github.com/szermatt/emacs-bash-completion/discussions
 [actions]: https://github.com/szermatt/emacs-bash-completion/actions
 [pulls]: https://github.com/szermatt/emacs-bash-completion/pulls
