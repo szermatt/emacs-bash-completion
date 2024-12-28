@@ -127,9 +127,12 @@ the following:
 
 ## CONTRIBUTING
 
-To report bugs, features or even to ask questions, please open an
-[issue][issues].  To contribute code or documentation, please open a
-[pull request][pull-requests].
+To report bugs, features, please open an [issue](
+https://github.com/szermatt/emacs-bash-completion/issues/new). To ask 
+questions or just for general comments, add a new [discussion](
+https://github.com/szermatt/emacs-bash-completion/discussions). To 
+contribute code or documentation, please open a [pull request](
+https://github.com/szermatt/emacs-bash-completion/pulls).
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
 
@@ -137,7 +140,3 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
 
 bash-completion.el is known to work with Bash 4.2 and later and Bash
 5, on Emacs, starting with version 25.3, under Linux and OSX.
-
-[new_issue]: https://github.com/szermatt/emacs-bash-completion/issues/new
-[issues]: https://github.com/szermatt/emacs-bash-completion/issues)
-[pull-requests]: (https://github.com/szermatt/emacs-bash-completion/pulls)
