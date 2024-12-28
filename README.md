@@ -119,11 +119,13 @@ the following:
   section. Does it  match the expected set of completion? If yes,
   it might be a display problem. Are you using a completion engine
   other than the default, such as ivy or helm? Try turning it off to
-  confirm, then [file a bug][new_issue].
-* If all else fails, [file a bug][new_issue]. Please include the output
-  of `M-x bash-completion-debug`, the command you're trying to use
-  and the function or package providing completion for that command and
-  where to download it.
+  confirm, then [file a bug](
+    https://github.com/szermatt/emacs-bash-completion/issues/new).
+* If all else fails, [file a bug](
+  https://github.com/szermatt/emacs-bash-completion/issues/new). Please
+  include the output of `M-x bash-completion-debug`, the command you're
+  trying to use and the function or package providing completion for
+  that command and where to download it.
 
 ## CONTRIBUTING
 
