@@ -4,7 +4,7 @@
 
 ;; Author: Stephane Zermatten <szermatt@gmx.net>
 ;; Maintainer: Stephane Zermatten <szermatt@gmail.com>
-;; Version: 3.1.1
+;; Version: 3.2
 ;; Keywords: convenience, unix
 ;; URL: http://github.com/szermatt/emacs-bash-completion
 ;; Package-Requires: ((emacs "25.3"))
