@@ -52,7 +52,7 @@ jobs:
 
     - name: Install Bash 5.0
       run: |
-        wget https://github.com/robxu9/bash-static/releases/download/5.0/bash-linux
+        wget --quiet https://github.com/robxu9/bash-static/releases/download/5.0/bash-linux
         chmod +x ./bash-linux
 
     - name: Install Eldev
@@ -62,5 +62,5 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Test the project
-      run: 'eldev -p -dtT test --bash=$PWD/bash-linux'
+      run: './bash-linux --version && eldev -p -dtT test --bash=./bash-linux'
 
