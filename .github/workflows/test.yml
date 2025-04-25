@@ -37,3 +37,31 @@ jobs:
     - name: Test the project
       run: 'eldev -p -dtT test'
 
+  test-bash-5_0:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        emacs_version:
+          - '29.1'
+
+    steps:
+    - name: Install Nix and set up Emacs
+      uses: jcs090218/setup-emacs@master
+      with:
+        version: ${{matrix.emacs_version}}
+
+    - name: Install Bash 5.0
+      run: |
+        wget -o ./bash-5.0 https://github.com/robxu9/bash-static/releases/download/5.0/bash-linux
+        chmod +x ./bash-5.0
+        $PWD/bash-5.0 --version
+
+    - name: Install Eldev
+      uses: emacs-eldev/setup-eldev@v1
+
+    - name: Check out the source code
+      uses: actions/checkout@v4
+
+    - name: Test the project
+      run: 'eldev -p -dtT test --bash=$PWD/bash-5.0'
+
