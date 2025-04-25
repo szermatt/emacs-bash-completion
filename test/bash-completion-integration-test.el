@@ -900,4 +900,30 @@ $ ")))))
             "dummy moretestfile "
             (bash-completion_test-complete "dummy moret")))))
 
+(ert-deftest bash-completion-integration-recover-status-ps1 ()
+  (bash-completion_test-with-shell-harness
+   (concat ; .bashrc
+    "function dummy { echo --$PS1--; }\n"
+    "function _dummy {\n"
+    "    COMPREPLY=( dummy )\n"
+    "}\n"
+    "complete -F _dummy dummy\n"
+    "PS1='$ '")
+   nil
+   ;; The first time initializes completion, the second time executes
+   ;; an already initialized completion. The two cases behave very
+   ;; differently, so we test both.
+   (dotimes (i 2)
+     (should (equal
+              "dummy dummy "
+              (bash-completion_test-complete "dummy dum")))
+     (let ((start (line-beginning-position)))
+       (comint-send-input)
+       (bash-completion_test-wait-for-prompt start)))
+
+   ;; The PS1 printed by the dummy function should be the one set in
+   ;; the init section, and not the one set by bash completion.
+   (should (equal (bash-completion_test-buffer-string)
+                  "$ dummy dummy\n--$ --\n$ dummy dummy\n--$ --\n$ "))))
+
 ;;; bash-completion-integration-test.el ends here

@@ -1533,7 +1533,7 @@ Return the status code of the command, as a number."
             ((not define-functions)
              (concat
               "if type __ebcpre &>/dev/null; then "
-              "  __ebcpre; %s; "
+              "  __ebcpre; %s; __ebcret $?; "
               "else "
               "  echo ==emacs==nopre=${BASH_VERSION}==.; "
               "  __ebcp=(\"$PS1\" \"$PROMPT_COMMAND\");"
@@ -1548,28 +1548,26 @@ Return the status code of the command, as a number."
                "    c=$((c+1));"
                "  fi;"
                "  history -d $c &>/dev/null || true;"
-               "}; function __ebcpre {"
+               "} ; function __ebcret {"
+               "  __ebcret=t;"
+               "  return $1;"
+               "} ; function __ebctrap {"
+               " if [[ \"$__ebcret\" = \"t\" && ${#__ebcp[@]} -gt 0 ]]; then"
+               "  PS1=\"${__ebcp[0]}\";"
+               "  PROMPT_COMMAND=\"${__ebcp[1]}\";"
+               "  unset __ebcp;"
+               "  unset __ebcret;"
+               " fi;"
+               "} ; trap __ebctrap DEBUG ; function __ebcpre {"
                "  set +x; set +o emacs; set +o vi;"
                "  echo \"==emacs==bash=${BASH_VERSION}==.\";"
                "  if [[ ${#__ebcp[@]} = 0 ]]; then "
                "    __ebcp=(\"$PS1\" \"$PROMPT_COMMAND\");"
                "  fi;"
-               "  PROMPT_COMMAND=" ;; set a temporary prompt
-               (bash-completion-quote
-                (concat "PS1=" bash-completion--ps1 ";"
-                        "PROMPT_COMMAND=" ;; recover prompt
-                        (bash-completion-quote
-                         (concat
-                          "__ebcr=$?;"
-                          "PS1=\"${__ebcp[0]}\";"
-                          "PROMPT_COMMAND=\"${__ebcp[1]}\";"
-                          "unset __ebcp;"
-                          "if [[ -n \"$PROMPT_COMMAND\" ]]; then"
-                          "  (exit $__ebcr); eval \"$PROMPT_COMMAND\";"
-                          "fi;"))))
-               ";"
+               "  PS1=" bash-completion--ps1 ";"
+               "  unset PROMPT_COMMAND;"
                "  __ebcnohistory 1;"
-               "} && { __ebcpre; %s; }\n")))
+               "} ; { __ebcpre; %s; __ebcret $?; }\n")))
            commandline)))
     (setq bash-completion--debug-info
           (list (cons 'commandline complete-command)
@@ -1591,7 +1589,7 @@ Return the status code of the command, as a number."
           ;; common initialization, then retry.
           (bash-completion-send "__ebcnohistory" process timeout debug-context 'define-functions)
           (bash-completion--setup-bash-common process)
-          (funcall send-string process (concat "__ebcpre; " commandline ";\n"))
+          (funcall send-string process (concat "__ebcpre; " commandline "; __ebcret $?\n"))
           (bash-completion--wait-for-regexp
            "short-timeout" process "==emacs==bash=[0-9].*?==."
            bash-completion-short-command-timeout))
