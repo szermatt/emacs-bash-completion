@@ -50,18 +50,16 @@ jobs:
       with:
         version: ${{matrix.emacs_version}}
 
-    - name: Install Bash 5.0
-      run: |
-        wget -O $GITHUB_WORKSPACE/bash-5.0 --quiet https://github.com/robxu9/bash-static/releases/download/5.0/bash-linux
-        chmod +x $GITHUB_WORKSPACE/bash-5.0
-
     - name: Install Eldev
       uses: emacs-eldev/setup-eldev@v1
 
     - name: Check out the source code
       uses: actions/checkout@v4
 
-    - name: Test the project
+    - name: Install bash 5.0 and test the project
       run: |
-        $GITHUB_WORKSPACE/bash-5.0 --version && eldev -p -dtT test --bash=$GITHUB_WORKSPACE/bash-5.0
+        wget -O $RUNNER_TEMP/bash-5.0 --quiet https://github.com/robxu9/bash-static/releases/download/5.0/bash-linux
+        chmod +x $RUNNER_TEMP/bash-5.0
+        $RUNNER_TEMP/bash-5.0 --version
+        eldev -p -dtT test --bash=$RUNNER_TEMP/bash-5.0
 
