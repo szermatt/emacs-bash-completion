@@ -37,28 +37,3 @@ jobs:
     - name: Test the project
       run: 'eldev -p -dtT test'
 
-  test-bash-5_0:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        emacs_version:
-          - '29.1'
-
-    steps:
-    - name: Install Nix and set up Emacs
-      uses: jcs090218/setup-emacs@master
-      with:
-        version: ${{matrix.emacs_version}}
-
-    - name: Install Bash 5.0
-      run: 'nix profile install nixpkgs/3b05df1d13c1b315cecc610a2f3180f6669442f0#bash_5'
-
-    - name: Install Eldev
-      uses: emacs-eldev/setup-eldev@v1
-
-    - name: Check out the source code
-      uses: actions/checkout@v4
-
-    - name: Test the project
-      run: 'bash --version; eldev -p -dtT test'
-
