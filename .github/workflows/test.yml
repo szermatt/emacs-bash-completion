@@ -52,8 +52,8 @@ jobs:
 
     - name: Install Bash 5.0
       run: |
-        wget --quiet https://github.com/robxu9/bash-static/releases/download/5.0/bash-linux
-        chmod +x ./bash-linux
+        wget -O $GITHUB_WORKSPACE/bash-5.0 --quiet https://github.com/robxu9/bash-static/releases/download/5.0/bash-linux
+        chmod +x $GITHUB_WORKSPACE/bash-5.0
 
     - name: Install Eldev
       uses: emacs-eldev/setup-eldev@v1
@@ -62,5 +62,6 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Test the project
-      run: './bash-linux --version && eldev -p -dtT test --bash=./bash-linux'
+      run: |
+        $GITHUB_WORKSPACE/bash-5.0 --version && eldev -p -dtT test --bash=$GITHUB_WORKSPACE/bash-5.0
 
