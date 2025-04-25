@@ -926,4 +926,38 @@ $ ")))))
    (should (equal (bash-completion_test-buffer-string)
                   "$ dummy dummy\n--$ --\n$ dummy dummy\n--$ --\n$ "))))
 
+(ert-deftest bash-completion-integration-recover-status-code ()
+  (bash-completion_test-with-shell-harness
+   (concat ; .bashrc
+    "function failwith { return $1; }\n"
+    "function dummy { echo $?; }\n"
+    "function _dummy {\n"
+    "    COMPREPLY=( dummy )\n"
+    "}\n"
+    "complete -F _dummy dummy\n"
+    "PS1='\$ '")
+   nil
+   ;; The first time initializes completion, the second time executes
+   ;; an already initialized completion. The two cases behave very
+   ;; differently, so we test both.
+   (dotimes (i 2)
+     (bash-completion_test-send (format "failwith %s" (+ 100 i)))
+     (should (equal
+              "dummy dummy "
+              (bash-completion_test-complete "dummy dum")))
+     (let ((start (line-beginning-position)))
+       (comint-send-input)
+       (bash-completion_test-wait-for-prompt start)))
+   ;; The status code printed by the dummy function should be the one
+   ;; from testfail, so 123, and not the one from the completion
+   ;; command executed to do completion for the dummy function.
+   (should (equal (bash-completion_test-buffer-string)
+                  (concat "$ failwith 100\n"
+                          "$ dummy dummy\n"
+                          "100\n"
+                          "$ failwith 101\n"
+                          "$ dummy dummy\n"
+                          "101\n"
+                          "$ ")))))
+
 ;;; bash-completion-integration-test.el ends here

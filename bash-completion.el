@@ -294,7 +294,7 @@ Bash processes.")
 (defconst bash-completion-special-chars "[ -$&-*,:-<>?[-^`{-}]"
   "Regexp of characters that must be escaped or quoted.")
 
-(defconst bash-completion--ps1 "'==emacs==ret=$?==.'"
+(defconst bash-completion--ps1 "'==emacs==ret=${__ebcret:-$?}==.'"
   "Value for the special PS1 prompt set for completions, quoted.")
 
 (eval-when-compile
@@ -1532,12 +1532,12 @@ Return the status code of the command, as a number."
             ;; single process, assume __ebcpre is already defined
             ((not define-functions)
              (concat
-              "if type __ebcpre &>/dev/null; then "
+              "__ebcor=$?; if type __ebcpre &>/dev/null; then "
               "  __ebcpre; %s; __ebcret $?; "
               "else "
               "  echo ==emacs==nopre=${BASH_VERSION}==.; "
-              "  __ebcp=(\"$PS1\" \"$PROMPT_COMMAND\");"
-              "  unset PS1 PROMPT_COMMAND;"
+              "  __ebcp=(\"$PS1\" \"$PROMPT_COMMAND\" $__ebcor);"
+              "  unset PS1 PROMPT_COMMAND __ebcor;"
               "fi;\n"))
             ;; single process, define __ebcpre
             (t
@@ -1549,23 +1549,23 @@ Return the status code of the command, as a number."
                "  fi;"
                "  history -d $c &>/dev/null || true;"
                "} ; function __ebcret {"
-               "  __ebcret=t;"
-               "  return $1;"
+               "  __ebcret=$1;"
+               "  return ${__ebcp[2]};"
                "} ; function __ebctrap {"
-               " if [[ \"$__ebcret\" = \"t\" && ${#__ebcp[@]} -gt 0 ]]; then"
+               " if [[ -n \"$__ebcret\" && ${#__ebcp[@]} -gt 0 ]]; then"
                "  PS1=\"${__ebcp[0]}\";"
                "  PROMPT_COMMAND=\"${__ebcp[1]}\";"
-               "  unset __ebcp;"
-               "  unset __ebcret;"
+               "  unset __ebcp __ebcret;"
                " fi;"
                "} ; trap __ebctrap DEBUG ; function __ebcpre {"
+               "  __ebcor=${__ebcor:-$?}; "
                "  set +x; set +o emacs; set +o vi;"
                "  echo \"==emacs==bash=${BASH_VERSION}==.\";"
                "  if [[ ${#__ebcp[@]} = 0 ]]; then "
-               "    __ebcp=(\"$PS1\" \"$PROMPT_COMMAND\");"
+               "    __ebcp=(\"$PS1\" \"$PROMPT_COMMAND\" $__ebcor);"
                "  fi;"
                "  PS1=" bash-completion--ps1 ";"
-               "  unset PROMPT_COMMAND;"
+               "  unset PROMPT_COMMAND __ebcor;"
                "  __ebcnohistory 1;"
                "} ; { __ebcpre; %s; __ebcret $?; }\n")))
            commandline)))
