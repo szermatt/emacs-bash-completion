@@ -960,4 +960,30 @@ $ ")))))
                           "101\n"
                           "$ ")))))
 
+(ert-deftest bash-completion-keep-existing-trap ()
+  (bash-completion_test-with-shell-harness
+   (concat ; .bashrc
+    "calls=0\n"
+    "function _calltrap {\n"
+    " calls=$((calls+1))\n"
+    "}\n"
+    "trap _calltrap DEBUG\n"
+    "PS1='\$ '")
+   nil
+   (bash-completion_test-send "n=$calls")
+   (bash-completion_test-send "tru" 'complete)
+   (bash-completion_test-send "fals" 'complete)
+   (bash-completion_test-send "[[ $calls -gt $n ]] && echo ok")
+   (bash-completion_test-send "trap -p DEBUG")
+   (should (equal (bash-completion_test-buffer-string)
+                  (concat
+                   "$ n=$calls\n"
+                   "$ true\n"
+                   "$ false\n"
+                   "$ [[ $calls -gt $n ]] && echo ok\n"
+                   "ok\n"
+                   "$ trap -p DEBUG\n"
+                   "trap -- '_calltrap; __ebctrap' DEBUG\n"
+                   "$ ")))))
+
 ;;; bash-completion-integration-test.el ends here
