@@ -145,7 +145,7 @@ Return a marker pointing to the beginning of the command."
       (bash-completion_test-wait-for-prompt command-start))))
 
 (defun bash-completion_test-wait-for-prompt (&optional limit)
-  (let ((process (get-buffer-process shell-buffer))
+  (let ((process (get-buffer-process (current-buffer)))
         (no-timeout t))
     (while (and no-timeout
                 (not (re-search-backward "^.*$ " limit t)))
@@ -184,7 +184,7 @@ for testing completion."
         test-env-dir
       (with-temp-file (expand-file-name "bashrc" test-env-dir)
         ;; Disable ZSH warning under MacOS Catalina
-        (insert "export BASH_SILENCE_DEPRECATION_WARNING=1") 
+        (insert "export BASH_SILENCE_DEPRECATION_WARNING=1\n")
         (insert (format "cd '%s'\n" test-env-dir))
         (insert bashrc)
         (insert "\n")
