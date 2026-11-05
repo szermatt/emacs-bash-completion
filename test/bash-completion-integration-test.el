@@ -574,18 +574,18 @@ across Emacs version."
    (with-temp-file "Uppercase" (insert "test"))
    (with-temp-file "Another Uppercase" (insert "test"))
    (with-temp-file "libs" (insert "test"))
-   (with-temp-file "library" (insert "test"))
+   (with-temp-file "Library" (insert "test"))
    (bash-completion_test-with-shell
     ;; Case insensitive completion is done by compgen which, under
     ;; bash 4, respects the case sensitivity settings set in
     ;; .inputrc.
-    (should (equal "ls testfile1" (bash-completion_test-complete "ls testf")))
-    (should (equal "ls testfile1" (bash-completion_test-complete "ls TestF")))
+    (should (equal "ls testfile1" (bash-completion_test-complete "ls testfile")))
+    (should (equal "ls testfile1" (bash-completion_test-complete "ls TestFile")))
     (should (equal "ls Uppercase " (bash-completion_test-complete "ls Up")))
     (should (equal "ls Uppercase " (bash-completion_test-complete "ls up")))
     
-    (should (equal "ls libs" (bash-completion_test-complete "ls li")))
-    (should (equal "ls libs" (bash-completion_test-complete "ls Li")))
+    (should (equal "ls libs" (bash-completion_test-complete "ls lib")))
+    (should (equal "ls libs" (bash-completion_test-complete "ls Lib")))
 
     (should (equal "ls Another\\ Uppercase " (bash-completion_test-complete "ls Ano")))
     (should (equal "ls Another\\ Uppercase " (bash-completion_test-complete "ls ano")))
