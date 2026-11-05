@@ -1,4 +1,4 @@
-;;; bash-completion-integration-test.el --- Integration tests for bash-completion.el
+;;; bash-completion-integration-test.el --- Integration tests for bash-completion.el -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2009 Stephane Zermatten
 
