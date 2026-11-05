@@ -237,6 +237,7 @@ across Emacs version."
     "function someotherfunction { echo ok; }\n"
     "function _dummy_complete {\n"
     "  if [[ ${COMP_WORDS[COMP_CWORD]} == du ]]; then COMPREPLY=(dummy); fi\n"
+    "  if [[ ${COMP_WORDS[COMP_CWORD]} == some/o ]]; then COMPREPLY=(some/other/); fi\n"
     "}\n"
     "complete -F _dummy_complete -o filenames somefunction\n"
     "complete -F _dummy_complete -o default -o filenames someotherfunction\n")
@@ -251,12 +252,17 @@ across Emacs version."
    ;; custom completion
    (should (equal "somefunction dummy "
                   (bash-completion_test-complete "somefunction du")))
+   ;; custom completion returning a directory with a trailing slash
+   (should (equal "somefunction some/other/"
+                  (bash-completion_test-complete "somefunction some/o")))
    ;; function returns nothing, no -o default
    (should (equal "somefunction so"
                   (bash-completion_test-complete "somefunction so"))) ;
    ;; function returns nothing, -o default, so fallback to default 
    (should (equal "someotherfunction moretestfile "
-                   (bash-completion_test-complete "someotherfunction moret")))
+                  (bash-completion_test-complete "someotherfunction moret")))
+   (should (equal "someotherfunction some/directory/"
+                  (bash-completion_test-complete "someotherfunction some/d")))
    ;; wordbreak completion
    (should (equal "export SOMEPATH=some/directory:some/testfile "
                   (bash-completion_test-complete
